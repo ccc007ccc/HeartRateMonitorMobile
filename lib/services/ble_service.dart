@@ -3,6 +3,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'package:flutter_overlay_window/flutter_overlay_window.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // 用于本地存储的 Key
@@ -24,6 +26,7 @@ class BleService extends ChangeNotifier {
   bool get isConnected => _connectedDevice != null;
   int heartRate = 0;
   String statusMessage = "请先扫描并连接设备";
+  bool isOverlayVisible = false;
 
   BleService() {
     _loadFavoriteDevice();
@@ -36,6 +39,40 @@ class BleService extends ChangeNotifier {
         if (!isConnected) autoConnect();
       }
     });
+    _checkOverlayStatus();
+  }
+  
+  Future<void> _checkOverlayStatus() async {
+      isOverlayVisible = await FlutterOverlayWindow.isActive();
+      notifyListeners();
+  }
+
+  Future<void> toggleOverlay() async {
+    try {
+      final bool isActive = await FlutterOverlayWindow.isActive();
+      if (isActive) {
+        await FlutterOverlayWindow.closeOverlay();
+        isOverlayVisible = false;
+        statusMessage = "悬浮窗已关闭";
+      } else {
+        if (await Permission.systemAlertWindow.request().isGranted) {
+          await FlutterOverlayWindow.showOverlay(
+            height: 60,
+            width: 180,
+            alignment: OverlayAlignment.center,
+            enableDrag: true,
+          );
+          isOverlayVisible = true;
+          statusMessage = "悬浮窗已开启";
+        } else {
+          statusMessage = "未授予悬浮窗权限";
+        }
+      }
+    } catch (e) {
+      statusMessage = "操作悬浮窗失败: $e";
+      debugPrint("Error toggling overlay: $e");
+    }
+    notifyListeners();
   }
 
   Future<void> _loadFavoriteDevice() async {
@@ -169,6 +206,9 @@ class BleService extends ChangeNotifier {
     _connectionStateSubscription = null;
     _connectedDevice = null;
     heartRate = 0;
+    if (isOverlayVisible) {
+      FlutterOverlayWindow.shareData({'heartRate': 0});
+    }
     statusMessage = message ?? "已断开连接";
     notifyListeners();
   }
@@ -217,6 +257,9 @@ class BleService extends ChangeNotifier {
         newHeartRate = value[1];
       }
       heartRate = newHeartRate;
+       if (await FlutterOverlayWindow.isActive()) {
+        await FlutterOverlayWindow.shareData({'heartRate': newHeartRate});
+      }
       notifyListeners();
       
     }, onError: (e) {

@@ -1,6 +1,7 @@
 // lib/main.dart
 
 import 'package:flutter/material.dart';
+import 'package:heart_rate_monitor_mobile/widgets/heart_rate_overlay.dart';
 import 'package:provider/provider.dart';
 import 'services/ble_service.dart';
 import 'screens/home_screen.dart';
@@ -9,6 +10,16 @@ void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const MyApp());
 }
+
+// overlay entry point
+@pragma("vm:entry-point")
+void overlayMain() {
+  runApp(const MaterialApp(
+    debugShowCheckedModeBanner: false,
+    home: HeartRateOverlay(),
+  ));
+}
+
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});

@@ -1,8 +1,8 @@
 // lib/screens/home_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'package:provider/provider.dart';
 import '../services/ble_service.dart';
 import 'settings_screen.dart';
 
@@ -17,6 +17,15 @@ class HomeScreen extends StatelessWidget {
           appBar: AppBar(
             title: const Text('心率监控器'),
             actions: [
+              if (bleService.isConnected)
+                IconButton(
+                  icon: Icon(
+                    bleService.isOverlayVisible ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                    color: bleService.isOverlayVisible ? Colors.blue : Colors.grey,
+                  ),
+                  tooltip: '悬浮窗',
+                  onPressed: () => bleService.toggleOverlay(),
+                ),
               if (bleService.isConnected)
                 IconButton(
                   icon: const Icon(Icons.link_off, color: Colors.red),
@@ -175,7 +184,6 @@ class HomeScreen extends StatelessWidget {
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 0),
-      // *** FIX: 使用 withAlpha() 代替 withOpacity() ***
       color: isOnline ? Colors.white : Colors.white.withAlpha(153), // 0.6 opacity
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
@@ -190,9 +198,10 @@ class HomeScreen extends StatelessWidget {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            isOnline
-                ? _getSignalIcon(onlineResult!.rssi)
-                : const Icon(Icons.signal_cellular_off, color: Colors.grey),
+            if (isOnline)
+                _getSignalIcon(onlineResult!.rssi)
+            else
+                const Icon(Icons.signal_cellular_off, color: Colors.grey),
             const SizedBox(width: 8),
             IconButton(
               icon: const Icon(Icons.star, color: Colors.amber),

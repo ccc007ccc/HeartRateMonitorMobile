@@ -15,6 +15,8 @@ dependencies:
   flutter_blue_plus: ^1.31.18 # 用于蓝牙BLE通信
   shared_preferences: ^2.2.3 # 用于本地存储配置信息
   provider: ^6.0.5 # 用于状态管理，方便在UI和蓝牙逻辑间通信
+  flutter_overlay_window: ^0.4.4
+  permission_handler: ^11.3.1
 
 dev_dependencies:
   flutter_test:
