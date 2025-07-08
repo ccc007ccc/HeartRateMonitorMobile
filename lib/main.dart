@@ -2,18 +2,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-// import 'package:flutter_overlay_window/flutter_overlay_window.dart'; // <--- 已移除
 import 'services/ble_service.dart';
 import 'screens/home_screen.dart';
-import 'widgets/overlay_widget.dart';
-
-@pragma("vm:entry-point")
-void overlayMain() {
-  runApp(const MaterialApp(
-    debugShowCheckedModeBanner: false,
-    home: OverlayWidget(),
-  ));
-}
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();

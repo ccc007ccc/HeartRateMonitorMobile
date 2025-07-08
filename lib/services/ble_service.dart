@@ -4,7 +4,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_overlay_window/flutter_overlay_window.dart'; // 导入悬浮窗库
 
 // 用于本地存储的 Key
 const String kFavoriteDeviceIdKey = 'favorite_device_id';
@@ -220,10 +219,6 @@ class BleService extends ChangeNotifier {
       heartRate = newHeartRate;
       notifyListeners();
       
-      if (await FlutterOverlayWindow.isActive()) {
-        await FlutterOverlayWindow.shareData({'heartRate': heartRate});
-      }
-
     }, onError: (e) {
       _cleanupConnection(message: "接收数据时出错: $e");
     });
