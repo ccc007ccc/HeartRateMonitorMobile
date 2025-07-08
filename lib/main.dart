@@ -2,11 +2,20 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+// import 'package:flutter_overlay_window/flutter_overlay_window.dart'; // <--- 已移除
 import 'services/ble_service.dart';
 import 'screens/home_screen.dart';
+import 'widgets/overlay_widget.dart';
+
+@pragma("vm:entry-point")
+void overlayMain() {
+  runApp(const MaterialApp(
+    debugShowCheckedModeBanner: false,
+    home: OverlayWidget(),
+  ));
+}
 
 void main() {
-  // 确保 Flutter 部件已初始化
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const MyApp());
 }
@@ -17,7 +26,6 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      // 在服务创建后立即尝试自动连接
       create: (_) => BleService()..autoConnect(),
       child: MaterialApp(
         title: '心率监控器',

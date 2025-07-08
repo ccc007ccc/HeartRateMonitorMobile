@@ -147,30 +147,24 @@ class HomeScreen extends StatelessWidget {
   }
 
   Widget _buildDeviceList(BleService bleService) {
-    // 过滤掉已收藏的设备，避免重复显示
     final otherDevices = bleService.scanResults
         .where((r) => r.device.remoteId.toString() != bleService.favoriteDeviceId)
         .toList();
     
-    // 检查收藏的设备是否在线
     final isFavoriteOnline = bleService.scanResults
         .any((r) => r.device.remoteId.toString() == bleService.favoriteDeviceId);
 
     return ListView(
-      // *** FIX: 添加底部内边距以避免被 FAB 遮挡 ***
       padding: const EdgeInsets.only(bottom: 80.0), 
       children: [
-        // 如果有收藏的设备，总是在顶部显示它
         if (bleService.favoriteDeviceId != null)
           _buildFavoriteDeviceTile(bleService, isFavoriteOnline),
         
-        // 然后显示其他扫描到的设备
         ...otherDevices.map((result) => _buildDeviceTile(bleService, result)),
       ],
     );
   }
 
-  // 为收藏的设备创建一个特殊的 Tile
   Widget _buildFavoriteDeviceTile(BleService bleService, bool isOnline) {
     ScanResult? onlineResult;
     if(isOnline) {
@@ -181,7 +175,8 @@ class HomeScreen extends StatelessWidget {
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 0),
-      color: isOnline ? Colors.white : Colors.white.withOpacity(0.6),
+      // *** FIX: 使用 withAlpha() 代替 withOpacity() ***
+      color: isOnline ? Colors.white : Colors.white.withAlpha(153), // 0.6 opacity
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
         title: Text(
@@ -213,7 +208,6 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  // 为普通扫描到的设备创建一个 Tile
   Widget _buildDeviceTile(BleService bleService, ScanResult result) {
     final deviceId = result.device.remoteId.toString();
     final deviceName = result.device.platformName.isNotEmpty ? result.device.platformName : '未知设备';
