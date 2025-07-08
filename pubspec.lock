@@ -158,6 +158,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "5.0.0"
+  flutter_overlay_window:
+    dependency: "direct main"
+    description:
+      name: flutter_overlay_window
+      sha256: "87a8ed7c47104a9ac1352d081e85304934b3f06ae28507097e49dd5f892e208d"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.4.5"
   flutter_test:
     dependency: "direct dev"
     description: flutter

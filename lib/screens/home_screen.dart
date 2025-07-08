@@ -157,6 +157,8 @@ class HomeScreen extends StatelessWidget {
         .any((r) => r.device.remoteId.toString() == bleService.favoriteDeviceId);
 
     return ListView(
+      // *** FIX: 添加底部内边距以避免被 FAB 遮挡 ***
+      padding: const EdgeInsets.only(bottom: 80.0), 
       children: [
         // 如果有收藏的设备，总是在顶部显示它
         if (bleService.favoriteDeviceId != null)
@@ -239,7 +241,6 @@ class HomeScreen extends StatelessWidget {
       ),
     );
   }
-
 
   Widget _getSignalIcon(int rssi) {
     IconData icon;
