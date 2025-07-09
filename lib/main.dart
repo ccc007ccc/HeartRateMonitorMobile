@@ -14,9 +14,18 @@ void main() {
 // overlay entry point
 @pragma("vm:entry-point")
 void overlayMain() {
-  runApp(const MaterialApp(
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  runApp(MaterialApp(
     debugShowCheckedModeBanner: false,
-    home: HeartRateOverlay(),
+    home: Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        child: const HeartRateOverlay(),
+      ),
+    ),
   ));
 }
 

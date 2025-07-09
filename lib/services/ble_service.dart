@@ -50,30 +50,56 @@ class BleService extends ChangeNotifier {
   Future<void> toggleOverlay() async {
     try {
       final bool isActive = await FlutterOverlayWindow.isActive();
+      debugPrint("当前悬浮窗状态: $isActive");
+      
       if (isActive) {
         await FlutterOverlayWindow.closeOverlay();
         isOverlayVisible = false;
         statusMessage = "悬浮窗已关闭";
       } else {
-        if (await Permission.systemAlertWindow.request().isGranted) {
+        // 检查权限
+        final permissionStatus = await Permission.systemAlertWindow.status;
+        debugPrint("悬浮窗权限状态: $permissionStatus");
+        
+        if (permissionStatus.isGranted || await Permission.systemAlertWindow.request().isGranted) {
+          debugPrint("开始显示悬浮窗...");
+          
           await FlutterOverlayWindow.showOverlay(
-            height: 60,
-            width: 180,
+            height: 400,
+            width: 800,
             alignment: OverlayAlignment.center,
             enableDrag: true,
+            overlayTitle: "HeartRateOverlay",
+            overlayContent: 'HeartRate Monitor',
           );
-          isOverlayVisible = true;
-          statusMessage = "悬浮窗已开启";
+          
+          // 等待一下确保悬浮窗创建完成
+          await Future.delayed(const Duration(milliseconds: 500));
+          
+          // 检查是否真的显示了
+          final isReallyActive = await FlutterOverlayWindow.isActive();
+          debugPrint("悬浮窗创建后状态: $isReallyActive");
+          
+          if (isReallyActive) {
+            // 立即同步心率数据
+            await FlutterOverlayWindow.shareData({'heartRate': heartRate});
+            debugPrint("同步心率数据: $heartRate");
+            isOverlayVisible = true;
+            statusMessage = "悬浮窗已开启";
+          } else {
+            statusMessage = "悬浮窗创建失败";
+          }
         } else {
           statusMessage = "未授予悬浮窗权限";
         }
       }
     } catch (e) {
       statusMessage = "操作悬浮窗失败: $e";
-      debugPrint("Error toggling overlay: $e");
+      debugPrint("悬浮窗错误: $e");
     }
     notifyListeners();
   }
+
 
   Future<void> _loadFavoriteDevice() async {
     final prefs = await SharedPreferences.getInstance();
