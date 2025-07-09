@@ -49,41 +49,25 @@ class BleService extends ChangeNotifier {
 
   Future<void> toggleOverlay() async {
     try {
-      final bool isActive = await FlutterOverlayWindow.isActive();
-      debugPrint("当前悬浮窗状态: $isActive");
-      
-      if (isActive) {
+      if (await FlutterOverlayWindow.isActive()) {
         await FlutterOverlayWindow.closeOverlay();
         isOverlayVisible = false;
         statusMessage = "悬浮窗已关闭";
       } else {
-        // 检查权限
-        final permissionStatus = await Permission.systemAlertWindow.status;
-        debugPrint("悬浮窗权限状态: $permissionStatus");
-        
-        if (permissionStatus.isGranted || await Permission.systemAlertWindow.request().isGranted) {
-          debugPrint("开始显示悬浮窗...");
-          
+        if (await Permission.systemAlertWindow.request().isGranted) {
           await FlutterOverlayWindow.showOverlay(
-            height: 400,
-            width: 800,
+            height: 300,
+            width: 500,
             alignment: OverlayAlignment.center,
             enableDrag: true,
             overlayTitle: "HeartRateOverlay",
             overlayContent: 'HeartRate Monitor',
           );
           
-          // 等待一下确保悬浮窗创建完成
           await Future.delayed(const Duration(milliseconds: 500));
           
-          // 检查是否真的显示了
-          final isReallyActive = await FlutterOverlayWindow.isActive();
-          debugPrint("悬浮窗创建后状态: $isReallyActive");
-          
-          if (isReallyActive) {
-            // 立即同步心率数据
+          if (await FlutterOverlayWindow.isActive()) {
             await FlutterOverlayWindow.shareData({'heartRate': heartRate});
-            debugPrint("同步心率数据: $heartRate");
             isOverlayVisible = true;
             statusMessage = "悬浮窗已开启";
           } else {
@@ -99,7 +83,6 @@ class BleService extends ChangeNotifier {
     }
     notifyListeners();
   }
-
 
   Future<void> _loadFavoriteDevice() async {
     final prefs = await SharedPreferences.getInstance();
@@ -182,7 +165,7 @@ class BleService extends ChangeNotifier {
         for (var r in results) {
           final existingIndex = scanResults.indexWhere((sr) => sr.device.remoteId == r.device.remoteId);
           if (existingIndex == -1) {
-            scanResults.add(r);
+            if (r.device.platformName.isNotEmpty) scanResults.add(r);
           } else {
             scanResults[existingIndex] = r;
           }

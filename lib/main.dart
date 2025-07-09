@@ -6,29 +6,21 @@ import 'package:provider/provider.dart';
 import 'services/ble_service.dart';
 import 'screens/home_screen.dart';
 
+// 应用的主入口
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const MyApp());
 }
 
-// overlay entry point
+// 悬浮窗的独立入口
 @pragma("vm:entry-point")
 void overlayMain() {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  runApp(MaterialApp(
+  runApp(const MaterialApp(
     debugShowCheckedModeBanner: false,
-    home: Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        child: const HeartRateOverlay(),
-      ),
-    ),
+    home: HeartRateOverlay(),
   ));
 }
-
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -36,15 +28,15 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => BleService()..autoConnect(),
+      create: (_) => BleService()..autoConnect(), // 创建并初始化蓝牙服务
       child: MaterialApp(
         title: '心率监控器',
         theme: ThemeData(
-          primarySwatch: Colors.blue,
+          primarySwatch: Colors.indigo,
           scaffoldBackgroundColor: const Color(0xFFF8F9FA),
           cardColor: Colors.white,
           appBarTheme: const AppBarTheme(
-            backgroundColor: Color(0xFFF8F9FA),
+            backgroundColor: Colors.transparent,
             elevation: 0,
             foregroundColor: Colors.black87,
             iconTheme: IconThemeData(color: Colors.black87),
