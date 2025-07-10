@@ -19,15 +19,26 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="❤️"
+        android:layout_marginStart="2dp"
+        android:layout_marginEnd="2dp"
         android:textSize="18sp" />
 
+    <TextView
+        android:id="@+id/floating_bpm_number"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="4dp"
+        android:text="--"
+        android:textSize="16sp"
+        android:textStyle="bold" />
     <TextView
         android:id="@+id/floating_bpm_text"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="4dp"
-        android:text="-- bpm"
-        android:textSize="16sp"
+        android:layout_marginStart="2dp"
+        android:paddingTop="4dp"
+        android:text="bpm"
+        android:textSize="12sp"
         android:textStyle="bold" />
 
 </LinearLayout>

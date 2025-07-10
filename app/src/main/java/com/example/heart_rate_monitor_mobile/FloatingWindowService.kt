@@ -159,19 +159,19 @@ class FloatingWindowService : Service() {
 
         // --- 关键逻辑：根据缩放因子调整内部元素尺寸 ---
         // 定义基础尺寸
-        val baseIconSizeSp = 24f
+        val baseIconSizeSp = 16f
         val baseTextSizeSp = 16f
         val basePaddingDp = 8f
         val baseMarginDp = 4f
 
         // 应用缩放
         binding.floatingHeartIcon.setTextSize(TypedValue.COMPLEX_UNIT_SP, baseIconSizeSp * scaleFactor)
-        binding.floatingBpmText.setTextSize(TypedValue.COMPLEX_UNIT_SP, baseTextSizeSp * scaleFactor)
+        binding.floatingBpmNumber.setTextSize(TypedValue.COMPLEX_UNIT_SP, baseTextSizeSp * scaleFactor)
 
         // 获取 TextView 的 LayoutParams 并设置边距
-        val bpmTextParams = binding.floatingBpmText.layoutParams as LinearLayout.LayoutParams
+        val bpmTextParams = binding.floatingBpmNumber.layoutParams as LinearLayout.LayoutParams
         bpmTextParams.marginStart = dpToPx(baseMarginDp * scaleFactor)
-        binding.floatingBpmText.layoutParams = bpmTextParams
+        binding.floatingBpmNumber.layoutParams = bpmTextParams
 
         // 获取根布局（LinearLayout）并设置内边距
         val rootLayoutParams = binding.root.getChildAt(0) as LinearLayout
@@ -180,7 +180,7 @@ class FloatingWindowService : Service() {
 
 
         // --- 应用其他样式 ---
-        binding.floatingBpmText.setTextColor(textColor)
+        binding.floatingBpmNumber.setTextColor(textColor)
         binding.floatingHeartIcon.setTextColor(textColor)
 
         (binding.root as MaterialCardView).apply {
@@ -195,8 +195,8 @@ class FloatingWindowService : Service() {
      * 更新心率文本
      */
     private fun updateHeartRateText(rate: Int) {
-        val text = if (rate > 0) "$rate bpm" else "-- bpm"
-        binding.floatingBpmText.text = text
+        val text = if (rate > 0) "$rate" else "--"
+        binding.floatingBpmNumber.text = text
     }
 
     /**
