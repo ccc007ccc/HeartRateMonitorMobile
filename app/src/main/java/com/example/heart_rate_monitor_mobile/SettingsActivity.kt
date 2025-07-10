@@ -25,7 +25,7 @@ class SettingsActivity : AppCompatActivity() {
         setupToolbar()
         setupClickListeners()
         displayAppVersion()
-        setupAnimationSwitch()
+        setupSwitches()
     }
 
     private fun setupToolbar() {
@@ -51,19 +51,30 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
-    private fun setupAnimationSwitch() {
-        // Load the saved setting and set the switch state
+    private fun setupSwitches() {
+        // Animation Switch
         val isAnimationEnabled = sharedPreferences.getBoolean("heartbeat_animation_enabled", true)
         binding.heartbeatAnimationSwitch.isChecked = isAnimationEnabled
 
-        // Save the setting when the switch is toggled
         binding.heartbeatAnimationSwitch.setOnCheckedChangeListener { _, isChecked ->
             with(sharedPreferences.edit()) {
                 putBoolean("heartbeat_animation_enabled", isChecked)
                 apply()
             }
         }
+
+        // Auto-connect Switch
+        val isAutoConnectEnabled = sharedPreferences.getBoolean("auto_connect_enabled", false)
+        binding.autoConnectSwitch.isChecked = isAutoConnectEnabled
+
+        binding.autoConnectSwitch.setOnCheckedChangeListener { _, isChecked ->
+            with(sharedPreferences.edit()) {
+                putBoolean("auto_connect_enabled", isChecked)
+                apply()
+            }
+        }
     }
+
 
     override fun onSupportNavigateUp(): Boolean {
         onBackPressedDispatcher.onBackPressed()

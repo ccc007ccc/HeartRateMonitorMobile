@@ -36,12 +36,20 @@ class MainActivity : AppCompatActivity() {
         // Initialize SharedPreferences
         sharedPreferences = getSharedPreferences("app_settings", Context.MODE_PRIVATE)
 
-
         setSupportActionBar(binding.toolbar)
         requestPermissions()
         setupRecyclerView()
         setupObservers()
         setupClickListeners()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // On resume, if not connected and auto-connect is on, trigger a scan
+        if (viewModel.appStatus.value == AppStatus.DISCONNECTED &&
+            sharedPreferences.getBoolean("auto_connect_enabled", false)) {
+            viewModel.startScan()
+        }
     }
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
@@ -61,12 +69,24 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupRecyclerView() {
-        deviceAdapter = DeviceAdapter { advertisement ->
-            viewModel.connectToDevice(advertisement)
-        }
+        deviceAdapter = DeviceAdapter(
+            onDeviceClick = { advertisement ->
+                viewModel.connectToDevice(advertisement)
+            },
+            onFavoriteClick = { advertisement ->
+                viewModel.toggleFavoriteDevice(advertisement)
+                // Use notifyDataSetChanged to redraw the entire list, ensuring
+                // the old favorite is un-starred and the new one is starred.
+                deviceAdapter.notifyDataSetChanged()
+            },
+            isFavorite = { identifier ->
+                viewModel.isDeviceFavorite(identifier)
+            }
+        )
         binding.devicesRecyclerView.apply {
             adapter = deviceAdapter
             layoutManager = LinearLayoutManager(this@MainActivity)
+            itemAnimator = null // Prevents flickering on list updates
         }
     }
 
@@ -76,7 +96,12 @@ class MainActivity : AppCompatActivity() {
         }
 
         viewModel.scanResults.observe(this) { results ->
-            deviceAdapter.submitList(results)
+            // Sort by favorite status first, then by RSSI
+            val sortedResults = results.sortedWith(
+                compareByDescending<com.juul.kable.Advertisement> { viewModel.isDeviceFavorite(it.identifier) }
+                    .thenByDescending { it.rssi }
+            )
+            deviceAdapter.submitList(sortedResults)
         }
 
         viewModel.heartRate.observe(this) { rate ->
@@ -94,7 +119,11 @@ class MainActivity : AppCompatActivity() {
                 if (status == AppStatus.SCANNING || status == AppStatus.CONNECTING) View.VISIBLE else View.GONE
             binding.statusIcon.visibility =
                 if (binding.statusProgressBar.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+
+            // Hide scan button if not in a disconnected state
+            binding.scanFab.isEnabled = status == AppStatus.DISCONNECTED
             binding.scanFab.visibility = if (status == AppStatus.DISCONNECTED) View.VISIBLE else View.GONE
+
 
             val listVisible = status == AppStatus.DISCONNECTED || status == AppStatus.SCANNING
             binding.devicesRecyclerView.visibility = if (listVisible) View.VISIBLE else View.GONE
@@ -138,10 +167,7 @@ class MainActivity : AppCompatActivity() {
      * 平滑更新心跳动画，根据 BPM 调整动画节奏
      */
     private var heartRateAnimator: ValueAnimator? = null
-    private var currentBpm: Int = 0
     private var currentDuration: Long = 0L
-    private var targetDuration: Long = 0L
-
     private val beatInterpolator = AccelerateDecelerateInterpolator()
 
     private fun updateHeartbeatAnimation(bpm: Int) {
@@ -149,11 +175,12 @@ class MainActivity : AppCompatActivity() {
         val isAnimationEnabled = sharedPreferences.getBoolean("heartbeat_animation_enabled", true)
 
         if (isAnimationEnabled && bpm > 30 && viewModel.appStatus.value == AppStatus.CONNECTED) {
-            targetDuration = (60000f / bpm).toLong()
+            val targetDuration = (60000f / bpm).toLong()
 
-            if (heartRateAnimator == null) {
-                // 初次启动动画
+            // Only create or update the animator if the duration changes significantly
+            if (heartRateAnimator == null || (currentDuration - targetDuration).absoluteValue > 50) {
                 currentDuration = targetDuration
+                heartRateAnimator?.cancel() // Cancel previous animator
 
                 heartRateAnimator = ValueAnimator.ofFloat(1f, 1.3f, 1f).apply {
                     duration = currentDuration
@@ -166,58 +193,19 @@ class MainActivity : AppCompatActivity() {
                         heartIcon.scaleX = scale
                         heartIcon.scaleY = scale
                     }
-
                     start()
-
-                    // 用 Handler 平滑更新 duration，避免硬切换卡顿
-                    startDurationAdjuster()
                 }
-
-            } else {
-                // 更新目标 duration，稍后平滑过渡
-                targetDuration = (60000f / bpm).toLong()
             }
-
-            currentBpm = bpm
-
         } else {
-            // 停止动画
+            // Stop animation
             heartRateAnimator?.cancel()
             heartRateAnimator = null
-            currentBpm = 0
             currentDuration = 0L
-            targetDuration = 0L
 
-            heartIcon.scaleX = 1f
-            heartIcon.scaleY = 1f
+            // Reset scale
+            heartIcon.animate().scaleX(1f).scaleY(1f).setDuration(200).start()
         }
     }
-
-    private fun startDurationAdjuster() {
-        // 用一个调速器线程平滑改变 duration（约每 200ms 调整一次）
-        val handler = android.os.Handler(mainLooper)
-
-        val adjuster = object : Runnable {
-            override fun run() {
-                if (heartRateAnimator == null) return
-
-                val diff = targetDuration - currentDuration
-                if (diff.absoluteValue > 50) {
-                    // 差异显著时，逐步调整
-                    currentDuration += diff / 4  // 调整速度快慢可调
-                    heartRateAnimator?.duration = currentDuration
-                    handler.postDelayed(this, 200)
-                } else {
-                    // 已接近目标值，不再继续调整
-                    currentDuration = targetDuration
-                    heartRateAnimator?.duration = currentDuration
-                }
-            }
-        }
-
-        handler.post(adjuster)
-    }
-
 
 
     private fun requestPermissions() {

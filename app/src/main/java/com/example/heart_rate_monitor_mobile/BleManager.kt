@@ -21,11 +21,11 @@ fun String.toUuid(): UUID = UUID.fromString(this)
 class BleManager(private val context: Context) {
 
     private val scanner = Scanner {
-        filters = listOf(BleConstants.heartRateServiceFilter)
+//        filters = listOf(BleConstants.heartRateServiceFilter)
     }
 
     fun scan(): Flow<Advertisement> = scanner.advertisements
-        .filter { it.name != null }
+//        .filter { it.name != null }
         .catch {
             // Handle scanning errors
             println("Error while scanning: $it")

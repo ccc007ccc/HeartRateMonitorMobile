@@ -1,5 +1,6 @@
 package com.example.heart_rate_monitor_mobile
 
+import android.content.Context
 import android.graphics.Color
 import android.view.LayoutInflater
 import android.view.ViewGroup
@@ -10,35 +11,49 @@ import androidx.recyclerview.widget.RecyclerView
 import com.example.heart_rate_monitor_mobile.databinding.ListItemDeviceBinding
 import com.juul.kable.Advertisement
 
-class DeviceAdapter(private val onClick: (Advertisement) -> Unit) :
-    ListAdapter<Advertisement, DeviceAdapter.ViewHolder>(DeviceDiffCallback) {
+class DeviceAdapter(
+    private val onDeviceClick: (Advertisement) -> Unit,
+    private val onFavoriteClick: (Advertisement) -> Unit,
+    private val isFavorite: (String) -> Boolean
+) : ListAdapter<Advertisement, DeviceAdapter.ViewHolder>(DeviceDiffCallback) {
 
     class ViewHolder(
         private val binding: ListItemDeviceBinding,
-        private val onClick: (Advertisement) -> Unit
+        private val onDeviceClick: (Advertisement) -> Unit,
+        private val onFavoriteClick: (Advertisement) -> Unit,
+        private val isFavorite: (String) -> Boolean
     ) : RecyclerView.ViewHolder(binding.root) {
 
         private var currentAdvertisement: Advertisement? = null
-        private val context = binding.root.context
+        private val context: Context = binding.root.context
 
         init {
             itemView.setOnClickListener {
-                currentAdvertisement?.let {
-                    onClick(it)
-                }
+                currentAdvertisement?.let(onDeviceClick)
+            }
+            binding.favoriteButton.setOnClickListener {
+                currentAdvertisement?.let(onFavoriteClick)
             }
         }
 
         fun bind(advertisement: Advertisement) {
             currentAdvertisement = advertisement
             binding.deviceName.text = advertisement.name ?: "Unknown Device"
-            // ***修正: 使用 identifier 作为设备的唯一地址***
             binding.deviceAddress.text = advertisement.identifier
+
+            // Update favorite icon state
+            val favoriteIconRes = if (isFavorite(advertisement.identifier)) {
+                R.drawable.ic_star_filled
+            } else {
+                R.drawable.ic_star_border
+            }
+            binding.favoriteButton.setImageResource(favoriteIconRes)
+
 
             val rssi = advertisement.rssi
             binding.rssiText.text = "${rssi}dBm"
 
-            val strongColor = ContextCompat.getColor(context, R.color.primary_light) // 使用我们定义的主色调
+            val strongColor = ContextCompat.getColor(context, R.color.primary_light)
             val mediumColor = Color.parseColor("#F59E0B") // Amber
             val weakColor = ContextCompat.getColor(context, R.color.red_error)
 
@@ -64,7 +79,7 @@ class DeviceAdapter(private val onClick: (Advertisement) -> Unit) :
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val binding = ListItemDeviceBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-        return ViewHolder(binding, onClick)
+        return ViewHolder(binding, onDeviceClick, onFavoriteClick, isFavorite)
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
@@ -74,11 +89,11 @@ class DeviceAdapter(private val onClick: (Advertisement) -> Unit) :
 
 object DeviceDiffCallback : DiffUtil.ItemCallback<Advertisement>() {
     override fun areItemsTheSame(oldItem: Advertisement, newItem: Advertisement): Boolean {
-        // ***修正: 使用 identifier 进行比较***
         return oldItem.identifier == newItem.identifier
     }
 
     override fun areContentsTheSame(oldItem: Advertisement, newItem: Advertisement): Boolean {
+        // Also check favorite status for visual updates
         return oldItem.name == newItem.name && oldItem.rssi == newItem.rssi
     }
 }
