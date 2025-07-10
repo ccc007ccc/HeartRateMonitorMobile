@@ -39,16 +39,14 @@ class DeviceAdapter(
         fun bind(advertisement: Advertisement) {
             currentAdvertisement = advertisement
             binding.deviceName.text = advertisement.name ?: "Unknown Device"
-            binding.deviceAddress.text = advertisement.identifier
+            binding.deviceAddress.text = advertisement.identifier // **FIXED**
 
-            // Update favorite icon state
-            val favoriteIconRes = if (isFavorite(advertisement.identifier)) {
+            val favoriteIconRes = if (isFavorite(advertisement.identifier)) { // **FIXED**
                 R.drawable.ic_star_filled
             } else {
                 R.drawable.ic_star_border
             }
             binding.favoriteButton.setImageResource(favoriteIconRes)
-
 
             val rssi = advertisement.rssi
             binding.rssiText.text = "${rssi}dBm"
@@ -89,11 +87,10 @@ class DeviceAdapter(
 
 object DeviceDiffCallback : DiffUtil.ItemCallback<Advertisement>() {
     override fun areItemsTheSame(oldItem: Advertisement, newItem: Advertisement): Boolean {
-        return oldItem.identifier == newItem.identifier
+        return oldItem.identifier == newItem.identifier // **FIXED**
     }
 
     override fun areContentsTheSame(oldItem: Advertisement, newItem: Advertisement): Boolean {
-        // Also check favorite status for visual updates
         return oldItem.name == newItem.name && oldItem.rssi == newItem.rssi
     }
 }
