@@ -93,16 +93,16 @@ class SettingsActivity : AppCompatActivity() {
             showColorPicker("floating_text_color", "文本颜色", Color.BLACK)
         }
         binding.bgColorPreview.setOnClickListener {
-            showColorPicker("floating_bg_color", "背景颜色", Color.WHITE)
+            showColorPicker("floating_bg_color", "背景颜色", Color.BLACK)
         }
         binding.borderColorPreview.setOnClickListener {
             showColorPicker("floating_border_color", "边框颜色", Color.GRAY)
         }
 
         // --- SeekBars ---
-        setupSeekBar(binding.bgAlphaSeekBar, "floating_bg_alpha", 100)
+        setupSeekBar(binding.bgAlphaSeekBar, "floating_bg_alpha", 10)
         setupSeekBar(binding.borderAlphaSeekBar, "floating_border_alpha", 100)
-        setupSeekBar(binding.cornerRadiusSeekBar, "floating_corner_radius", 16)
+        setupSeekBar(binding.cornerRadiusSeekBar, "floating_corner_radius", 100)
         setupSeekBar(binding.sizeSeekBar, "floating_size", 100)
         setupSeekBar(binding.iconSizeSeekBar, "floating_icon_size", 100) // 图标大小
 
@@ -139,7 +139,7 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun updateColorPreviews() {
         binding.textColorPreview.setBackgroundColor(sharedPreferences.getInt("floating_text_color", Color.BLACK))
-        binding.bgColorPreview.setBackgroundColor(sharedPreferences.getInt("floating_bg_color", Color.WHITE))
+        binding.bgColorPreview.setBackgroundColor(sharedPreferences.getInt("floating_bg_color", Color.BLACK))
         binding.borderColorPreview.setBackgroundColor(sharedPreferences.getInt("floating_border_color", Color.GRAY))
     }
 
