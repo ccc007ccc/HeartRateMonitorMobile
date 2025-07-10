@@ -3,8 +3,13 @@ package com.example.heart_rate_monitor_mobile
 
 import android.Manifest
 import android.animation.ValueAnimator
+import android.content.Context
+import android.content.Intent
+import android.content.SharedPreferences
 import android.os.Build
 import android.os.Bundle
+import android.view.Menu
+import android.view.MenuItem
 import android.view.View
 import android.view.animation.AccelerateDecelerateInterpolator
 import androidx.activity.viewModels
@@ -21,16 +26,38 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private val viewModel: MainViewModel by viewModels()
     private lateinit var deviceAdapter: DeviceAdapter
+    private lateinit var sharedPreferences: SharedPreferences
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        // Initialize SharedPreferences
+        sharedPreferences = getSharedPreferences("app_settings", Context.MODE_PRIVATE)
+
+
+        setSupportActionBar(binding.toolbar)
         requestPermissions()
         setupRecyclerView()
         setupObservers()
         setupClickListeners()
+    }
+
+    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
+        menuInflater.inflate(R.menu.main_menu, menu)
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.action_settings -> {
+                val intent = Intent(this, SettingsActivity::class.java)
+                startActivity(intent)
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
     }
 
     private fun setupRecyclerView() {
@@ -119,8 +146,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateHeartbeatAnimation(bpm: Int) {
         val heartIcon = binding.heartIcon
+        val isAnimationEnabled = sharedPreferences.getBoolean("heartbeat_animation_enabled", true)
 
-        if (bpm > 30 && viewModel.appStatus.value == AppStatus.CONNECTED) {
+        if (isAnimationEnabled && bpm > 30 && viewModel.appStatus.value == AppStatus.CONNECTED) {
             targetDuration = (60000f / bpm).toLong()
 
             if (heartRateAnimator == null) {
