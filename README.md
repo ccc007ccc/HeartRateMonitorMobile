@@ -1,4 +1,4 @@
-# ❤️ 心率监控器 - HeartRate Monitor
+# ❤️ 心率监控器 - HeartRateMonitor
 
 ![Platform](https://img.shields.io/badge/platform-Android-green)
 ![Language](https://img.shields.io/badge/language-Kotlin-blue)
