@@ -68,6 +68,20 @@ class SettingsActivity : AppCompatActivity() {
         binding.autoConnectSwitch.setOnCheckedChangeListener { _, isChecked ->
             sharedPreferences.edit().putBoolean("auto_connect_enabled", isChecked).apply()
         }
+
+        // BPM 文本开关
+        val isBpmTextEnabled = sharedPreferences.getBoolean("bpm_text_enabled", true)
+        binding.bpmTextSwitch.isChecked = isBpmTextEnabled
+        binding.bpmTextSwitch.setOnCheckedChangeListener { _, isChecked ->
+            sharedPreferences.edit().putBoolean("bpm_text_enabled", isChecked).apply()
+        }
+
+        // 心率图标开关
+        val isHeartIconEnabled = sharedPreferences.getBoolean("heart_icon_enabled", true)
+        binding.heartIconSwitch.isChecked = isHeartIconEnabled
+        binding.heartIconSwitch.setOnCheckedChangeListener { _, isChecked ->
+            sharedPreferences.edit().putBoolean("heart_icon_enabled", isChecked).apply()
+        }
     }
 
     /**
@@ -90,6 +104,7 @@ class SettingsActivity : AppCompatActivity() {
         setupSeekBar(binding.borderAlphaSeekBar, "floating_border_alpha", 100)
         setupSeekBar(binding.cornerRadiusSeekBar, "floating_corner_radius", 16)
         setupSeekBar(binding.sizeSeekBar, "floating_size", 100)
+        setupSeekBar(binding.iconSizeSeekBar, "floating_icon_size", 100) // 图标大小
 
         // --- 加载初始值 ---
         updateColorPreviews()

@@ -130,6 +130,49 @@
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
                     android:padding="16dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingBottom="8dp">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="显示bpm文本"
+                            android:textAppearance="?attr/textAppearanceBodyLarge"/>
+
+                        <com.google.android.material.materialswitch.MaterialSwitch
+                            android:id="@+id/bpmTextSwitch"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingTop="8dp"
+                        android:paddingBottom="8dp">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="显示心率图标"
+                            android:textAppearance="?attr/textAppearanceBodyLarge"/>
+
+                        <com.google.android.material.materialswitch.MaterialSwitch
+                            android:id="@+id/heartIconSwitch"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content" />
+                    </LinearLayout>
+
+
                     <LinearLayout style="@style/SettingsRow">
                         <TextView style="@style/SettingsLabel" android:text="文本颜色" />
                         <View android:id="@+id/textColorPreview" style="@style/ColorPreview" />
@@ -151,6 +194,14 @@
                     <TextView style="@style/SettingsSubLabel" android:text="悬浮窗大小" />
                     <SeekBar
                         android:id="@+id/sizeSeekBar"
+                        style="@style/SettingsSeekBar"
+                        android:max="200"
+                        android:min="50" />
+                    <TextView
+                        style="@style/SettingsSubLabel"
+                        android:text="图标大小" />
+                    <SeekBar
+                        android:id="@+id/iconSizeSeekBar"
                         style="@style/SettingsSeekBar"
                         android:max="200"
                         android:min="50" />

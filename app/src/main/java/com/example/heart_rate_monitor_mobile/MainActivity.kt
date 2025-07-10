@@ -10,8 +10,6 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
-import android.view.Menu
-import android.view.MenuItem
 import android.view.View
 import android.view.animation.AccelerateDecelerateInterpolator
 import androidx.activity.viewModels
@@ -30,20 +28,27 @@ class MainActivity : AppCompatActivity() {
     private lateinit var deviceAdapter: DeviceAdapter
     private lateinit var sharedPreferences: SharedPreferences
     private var isFloatingWindowOn = false
-    private var floatingWindowMenuItem: MenuItem? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        // 初始化 SharedPreferences
         sharedPreferences = getSharedPreferences("app_settings", Context.MODE_PRIVATE)
 
+        // 设置 Toolbar
         setSupportActionBar(binding.toolbar)
+        // 请求必要的权限
         requestPermissions()
+        // 设置 RecyclerView
         setupRecyclerView()
+        // 设置 LiveData 观察者
         setupObservers()
+        // 设置点击监听器
         setupClickListeners()
+        // 应用启动时检查悬浮窗状态**
+        checkFloatingWindowOnStartup()
     }
 
     override fun onResume() {
@@ -52,48 +57,53 @@ class MainActivity : AppCompatActivity() {
             sharedPreferences.getBoolean("auto_connect_enabled", false)) {
             viewModel.startScan()
         }
+        // 每次返回主界面时，都根据最新的状态更新悬浮窗按钮的图标
         updateFloatingWindowToggleState()
     }
 
-    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
-        menuInflater.inflate(R.menu.main_menu, menu)
-        floatingWindowMenuItem = menu?.findItem(R.id.action_floating_window)
-        updateFloatingWindowToggleState()
-        return true
-    }
-
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        return when (item.itemId) {
-            R.id.action_settings -> {
-                startActivity(Intent(this, SettingsActivity::class.java))
-                true
+    /**
+     * 在应用启动时检查悬浮窗的设置。
+     * 如果用户之前开启了悬浮窗，则在应用启动时自动打开它。
+     */
+    private fun checkFloatingWindowOnStartup() {
+        val isEnabled = sharedPreferences.getBoolean("floating_window_enabled", false)
+        if (isEnabled) {
+            // 检查悬浮窗权限
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this)) {
+                // 如果有权限，直接启动服务
+                startService(Intent(this, FloatingWindowService::class.java))
+                isFloatingWindowOn = true
             }
-            R.id.action_floating_window -> {
-                toggleFloatingWindow()
-                true
-            }
-            else -> super.onOptionsItemSelected(item)
+            // 如果没有权限，在 onResume 中用户会看到正确的未开启状态，可以手动点击开启以请求权限
         }
+        // 更新按钮状态
+        updateFloatingWindowToggleState()
     }
 
     private fun updateFloatingWindowToggleState() {
+        // 从 SharedPreferences 读取最新的悬浮窗状态
         isFloatingWindowOn = sharedPreferences.getBoolean("floating_window_enabled", false)
         if (isFloatingWindowOn) {
-            floatingWindowMenuItem?.icon = ContextCompat.getDrawable(this, R.drawable.ic_floating_window_on)
+            binding.floatingWindowButton.setImageResource(R.drawable.ic_floating_window_on)
         } else {
-            floatingWindowMenuItem?.icon = ContextCompat.getDrawable(this, R.drawable.ic_floating_window_off)
+            binding.floatingWindowButton.setImageResource(R.drawable.ic_floating_window_off)
         }
     }
 
     private fun toggleFloatingWindow() {
+        // 检查悬浮窗权限
         if (!isFloatingWindowOn) {
+            // 如果悬浮窗未开启，检查权限
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
+                // 没有权限，则请求权限
                 val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
                 startActivity(intent)
             } else {
+                // 有权限，直接开启
                 enableFloatingWindow(true)
             }
         } else {
+            // 如果悬浮窗已开启，则直接关闭
             enableFloatingWindow(false)
         }
     }
@@ -105,10 +115,12 @@ class MainActivity : AppCompatActivity() {
             stopService(Intent(this, FloatingWindowService::class.java))
         }
         isFloatingWindowOn = enable
+        // 保存状态到 SharedPreferences
         with(sharedPreferences.edit()) {
             putBoolean("floating_window_enabled", enable)
             apply()
         }
+        // 更新按钮图标
         updateFloatingWindowToggleState()
     }
 
@@ -189,6 +201,16 @@ class MainActivity : AppCompatActivity() {
     private fun setupClickListeners() {
         binding.scanFab.setOnClickListener { viewModel.startScan() }
         binding.disconnectButton.setOnClickListener { viewModel.disconnectDevice() }
+
+        // 设置按钮的点击事件
+        binding.settingsButton.setOnClickListener {
+            startActivity(Intent(this, SettingsActivity::class.java))
+        }
+
+        // 悬浮窗按钮的点击事件
+        binding.floatingWindowButton.setOnClickListener {
+            toggleFloatingWindow()
+        }
     }
 
     private var heartRateAnimator: ValueAnimator? = null

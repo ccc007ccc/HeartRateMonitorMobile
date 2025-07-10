@@ -3,21 +3,13 @@ package com.example.heart_rate_monitor_mobile
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.app.Service
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
-import android.content.SharedPreferences
+import android.content.*
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.IBinder
 import android.util.TypedValue
-import android.view.ContextThemeWrapper
-import android.view.Gravity
-import android.view.LayoutInflater
-import android.view.MotionEvent
-import android.view.WindowManager
+import android.view.*
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.LinearLayout
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
@@ -33,24 +25,20 @@ class FloatingWindowService : Service() {
     private lateinit var layoutParams: WindowManager.LayoutParams
     private lateinit var sharedPreferences: SharedPreferences
 
-    // --- 拖动相关变量 ---
     private var initialX = 0
     private var initialY = 0
     private var initialTouchX = 0f
     private var initialTouchY = 0f
 
-    // --- 动画相关变量 ---
     private var heartRateAnimator: ValueAnimator? = null
     private var currentDuration: Long = 0L
     private val beatInterpolator = AccelerateDecelerateInterpolator()
-
 
     companion object {
         const val ACTION_UPDATE_HEART_RATE = "com.example.heart_rate_monitor_mobile.UPDATE_HEART_RATE"
         const val EXTRA_HEART_RATE = "extra_heart_rate"
     }
 
-    // 广播接收器，用于接收来自 MainActivity 的心率数据
     private val heartRateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == ACTION_UPDATE_HEART_RATE) {
@@ -61,7 +49,6 @@ class FloatingWindowService : Service() {
         }
     }
 
-    // 监听 SharedPreferences 的变化，以便实时更新悬浮窗样式
     private val settingsChangeListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
         updateWindowAppearance()
     }
@@ -75,7 +62,6 @@ class FloatingWindowService : Service() {
 
         val contextWithTheme = ContextThemeWrapper(this, R.style.Theme_HeartRateMonitorMobile)
         val inflater = LayoutInflater.from(contextWithTheme)
-
         binding = LayoutFloatingWindowBinding.inflate(inflater)
 
         initLayoutParams()
@@ -88,9 +74,6 @@ class FloatingWindowService : Service() {
         updateWindowAppearance()
     }
 
-    /**
-     * 初始化 WindowManager.LayoutParams
-     */
     private fun initLayoutParams() {
         val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -98,7 +81,6 @@ class FloatingWindowService : Service() {
             WindowManager.LayoutParams.TYPE_PHONE
         }
         layoutParams = WindowManager.LayoutParams(
-            // 关键：将宽高设置为自适应内容，让窗口大小由内部内容决定
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
             type,
@@ -111,9 +93,6 @@ class FloatingWindowService : Service() {
         }
     }
 
-    /**
-     * 设置悬浮窗的触摸监听，用于拖动
-     */
     @SuppressLint("ClickableViewAccessibility")
     private fun setupTouchListener() {
         binding.root.setOnTouchListener { _, event ->
@@ -136,72 +115,76 @@ class FloatingWindowService : Service() {
         }
     }
 
-    /**
-     * 根据 SharedPreferences 中的设置更新悬浮窗外观
-     */
     private fun updateWindowAppearance() {
-        // --- 颜色和透明度 ---
+        // --- 获取设置 ---
         val textColor = sharedPreferences.getInt("floating_text_color", Color.BLACK)
         val bgColor = sharedPreferences.getInt("floating_bg_color", Color.WHITE)
         val borderColor = sharedPreferences.getInt("floating_border_color", Color.GRAY)
         val bgAlpha = sharedPreferences.getInt("floating_bg_alpha", 100) / 100f
         val borderAlpha = sharedPreferences.getInt("floating_border_alpha", 100) / 100f
+        val cornerRadius = sharedPreferences.getInt("floating_corner_radius", 16).toFloat()
+        val sizePercent = sharedPreferences.getInt("floating_size", 100)
+        val iconSizePercent = sharedPreferences.getInt("floating_icon_size", 100)
+        val isBpmTextEnabled = sharedPreferences.getBoolean("bpm_text_enabled", true)
+        val isHeartIconEnabled = sharedPreferences.getBoolean("heart_icon_enabled", true)
 
+        // --- 计算最终值 ---
         val finalBgColor = Color.argb((255 * bgAlpha).roundToInt(), Color.red(bgColor), Color.green(bgColor), Color.blue(bgColor))
         val finalBorderColor = Color.argb((255 * borderAlpha).roundToInt(), Color.red(borderColor), Color.green(borderColor), Color.blue(borderColor))
-
-        // --- 尺寸和圆角 ---
-        val cornerRadius = sharedPreferences.getInt("floating_corner_radius", 16).toFloat()
-        // 从设置中获取统一的大小值 (50-200)
-        val sizePercent = sharedPreferences.getInt("floating_size", 100)
-        // 将百分比转换为一个缩放因子 (例如，100 -> 1.0f, 150 -> 1.5f)
         val scaleFactor = sizePercent / 100f
+        val iconScaleFactor = iconSizePercent / 100f
 
-        // --- 关键逻辑：根据缩放因子调整内部元素尺寸 ---
-        // 定义基础尺寸
-        val baseIconSizeSp = 16f
-        val baseTextSizeSp = 16f
+        val baseIconSizeSp = 18f // 基础图标大小
+        val baseTextSizeSp = 16f // 基础文本大小
+        val baseBpmTextSizeSp = 12f // 基础BPM文本大小
         val basePaddingDp = 8f
         val baseMarginDp = 4f
 
-        // 应用缩放
-        binding.floatingHeartIcon.setTextSize(TypedValue.COMPLEX_UNIT_SP, baseIconSizeSp * scaleFactor)
+        // --- 应用设置 ---
+        // 文本和图标的显示/隐藏
+        binding.floatingBpmText.visibility = if (isBpmTextEnabled) View.VISIBLE else View.GONE
+        binding.floatingHeartIcon.visibility = if (isHeartIconEnabled) View.VISIBLE else View.GONE
+
+        // 字体和图标大小
+        binding.floatingHeartIcon.setTextSize(TypedValue.COMPLEX_UNIT_SP, baseIconSizeSp * iconScaleFactor)
         binding.floatingBpmNumber.setTextSize(TypedValue.COMPLEX_UNIT_SP, baseTextSizeSp * scaleFactor)
+        binding.floatingBpmText.setTextSize(TypedValue.COMPLEX_UNIT_SP, baseBpmTextSizeSp * scaleFactor)
 
-        // 获取 TextView 的 LayoutParams 并设置边距
-        val bpmTextParams = binding.floatingBpmNumber.layoutParams as LinearLayout.LayoutParams
-        bpmTextParams.marginStart = dpToPx(baseMarginDp * scaleFactor)
-        binding.floatingBpmNumber.layoutParams = bpmTextParams
+        // 颜色
+        binding.floatingHeartIcon.setTextColor(textColor)
+        binding.floatingBpmNumber.setTextColor(textColor)
+        binding.floatingBpmText.setTextColor(textColor)
 
-        // 获取根布局（LinearLayout）并设置内边距
+        // --- **修复代码** ---
+        // 根据心率图标的可见性，动态调整心率数字的左边距
+        val bpmNumberParams = binding.floatingBpmNumber.layoutParams as LinearLayout.LayoutParams
+        if (isHeartIconEnabled) {
+            bpmNumberParams.marginStart = dpToPx(baseMarginDp * scaleFactor)
+        } else {
+            bpmNumberParams.marginStart = 0 // 当图标隐藏时，移除左边距以使其居中
+        }
+        binding.floatingBpmNumber.layoutParams = bpmNumberParams
+        // --- **修复结束** ---
+
         val rootLayoutParams = binding.root.getChildAt(0) as LinearLayout
         val paddingPx = dpToPx(basePaddingDp * scaleFactor)
         rootLayoutParams.setPadding(paddingPx, paddingPx, paddingPx, paddingPx)
 
-
-        // --- 应用其他样式 ---
-        binding.floatingBpmNumber.setTextColor(textColor)
-        binding.floatingHeartIcon.setTextColor(textColor)
-
+        // CardView 样式
         (binding.root as MaterialCardView).apply {
             setCardBackgroundColor(finalBgColor)
-            radius = cornerRadius // 圆角保持绝对值，不随缩放变化
+            radius = cornerRadius
             setStrokeColor(finalBorderColor)
-            strokeWidth = dpToPx(1f) // 边框宽度固定为1dp
+            strokeWidth = dpToPx(1f)
         }
     }
 
-    /**
-     * 更新心率文本
-     */
+
     private fun updateHeartRateText(rate: Int) {
         val text = if (rate > 0) "$rate" else "--"
         binding.floatingBpmNumber.text = text
     }
 
-    /**
-     * 更新心跳动画
-     */
     private fun updateHeartbeatAnimation(bpm: Int) {
         val heartIcon = binding.floatingHeartIcon
         val isAnimationEnabled = sharedPreferences.getBoolean("heartbeat_animation_enabled", true)
@@ -235,9 +218,6 @@ class FloatingWindowService : Service() {
         }
     }
 
-    /**
-     * 辅助函数：将 DP 单位转换为 PX 单位
-     */
     private fun dpToPx(dp: Float): Int {
         return TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, resources.displayMetrics).toInt()
     }

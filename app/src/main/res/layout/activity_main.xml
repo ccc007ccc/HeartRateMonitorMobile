@@ -18,19 +18,44 @@
             android:layout_height="?attr/actionBarSize"
             app:title="心率监控器">
 
-            <ImageView
-                android:id="@+id/disconnectButton"
+            <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="end"
-                android:layout_marginEnd="16dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="断开连接"
-                android:padding="8dp"
-                android:src="@drawable/ic_bluetooth_disabled"
-                android:visibility="gone"
-                app:tint="@color/design_default_color_error"
-                tools:visibility="visible" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <ImageButton
+                    android:id="@+id/floatingWindowButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="悬浮窗开关"
+                    android:padding="8dp"
+                    android:src="@drawable/ic_floating_window_off" />
+
+                <ImageView
+                    android:id="@+id/disconnectButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="断开连接"
+                    android:padding="8dp"
+                    android:src="@drawable/ic_bluetooth_disabled"
+                    android:visibility="gone"
+                    app:tint="@color/design_default_color_error"
+                    tools:visibility="visible" />
+
+                <ImageButton
+                    android:id="@+id/settingsButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="16dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="设置"
+                    android:padding="8dp"
+                    android:src="@drawable/ic_settings" />
+            </LinearLayout>
 
         </com.google.android.material.appbar.MaterialToolbar>
     </com.google.android.material.appbar.AppBarLayout>
@@ -60,7 +85,6 @@
                 android:layout_marginStart="16dp"
                 android:layout_marginEnd="16dp">
 
-                <!-- 背景爱心（淡色、居中） -->
                 <TextView
                     android:id="@+id/heartIcon"
                     android:layout_width="wrap_content"
@@ -73,7 +97,6 @@
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintEnd_toEndOf="parent" />
 
-                <!-- 水平布局容器 -->
                 <LinearLayout
                     android:id="@+id/heartRateHorizontalLayout"
                     android:layout_width="wrap_content"
