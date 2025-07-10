@@ -73,4 +73,6 @@ dependencies {
 
     // Permissions
     implementation("com.guolindev.permissionx:permissionx:1.8.1")
+
+    implementation("com.github.Dhaval2404:ColorPicker:2.3")
 }
