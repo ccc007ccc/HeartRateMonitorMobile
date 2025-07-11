@@ -18,11 +18,11 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
-    # 2. 设置 JDK 11 环境
-    - name: Set up JDK 11
+    # 2. 设置 JDK 21 环境
+    - name: Set up JDK 21
       uses: actions/setup-java@v4
       with:
-        java-version: '11'
+        java-version: '21'
         distribution: 'temurin'
 
     # 3. (重要) 设置 Android SDK 环境
