@@ -22,41 +22,41 @@ class WebhookManager(private val context: Context) {
     private val scope = CoroutineScope(Dispatchers.IO)
     private val githubUrl = "https://raw.githubusercontent.com/ccc007ccc/HeartRateMonitor/main/config_webhook.json"
 
-    fun sendAllEnabledWebhooks(heartRate: Int) {
+    fun triggerWebhooks(trigger: WebhookTrigger, heartRate: Int = 0) {
         val webhooks = getWebhooks()
-        webhooks.filter { it.enabled }.forEach { webhook ->
+        webhooks.filter { it.enabled && it.triggers.contains(trigger) }.forEach { webhook ->
             scope.launch {
-                sendRequest(webhook, heartRate)
+                sendRequest(webhook, heartRate, trigger)
             }
         }
     }
 
     fun testWebhook(webhook: Webhook, onResult: (String) -> Unit) {
         scope.launch {
-            val result = sendRequest(webhook, 88, true)
+            val result = sendRequest(webhook, 88, WebhookTrigger.HEART_RATE_UPDATED, true)
             withContext(Dispatchers.Main) {
                 onResult(result)
             }
         }
     }
 
-    private suspend fun sendRequest(webhook: Webhook, heartRate: Int, isTest: Boolean = false): String {
+    private suspend fun sendRequest(webhook: Webhook, heartRate: Int, trigger: WebhookTrigger, isTest: Boolean = false): String {
         return withContext(Dispatchers.IO) {
             val bpm = heartRate.toString()
-            val urlString = webhook.url.replace("{bpm}", bpm)
-            val bodyString = webhook.body.replace("{bpm}", bpm)
+            val urlString = if (trigger == WebhookTrigger.HEART_RATE_UPDATED) webhook.url.replace("{bpm}", bpm) else webhook.url
+            val bodyString = if (trigger == WebhookTrigger.HEART_RATE_UPDATED) webhook.body.replace("{bpm}", bpm) else webhook.body
+            val headersString = if (trigger == WebhookTrigger.HEART_RATE_UPDATED) webhook.headers.replace("{bpm}", bpm) else webhook.headers
 
             var connection: HttpURLConnection? = null
             try {
                 val url = URL(urlString)
                 connection = url.openConnection() as HttpURLConnection
                 connection.requestMethod = "POST"
-                connection.connectTimeout = 10000 // 10s
-                connection.readTimeout = 10000 // 10s
+                connection.connectTimeout = 10000
+                connection.readTimeout = 10000
 
-                // Set Headers
                 try {
-                    val headersJson = JSONObject(webhook.headers.replace("{bpm}", bpm))
+                    val headersJson = JSONObject(headersString)
                     headersJson.keys().forEach { key ->
                         connection.setRequestProperty(key, headersJson.getString(key))
                     }
@@ -70,15 +70,12 @@ class WebhookManager(private val context: Context) {
                     connection.setRequestProperty("User-Agent", "HeartRateMonitorMobile-Webhook")
                 }
 
-
-                // Set Body
                 connection.doOutput = true
                 val writer = OutputStreamWriter(connection.outputStream)
                 writer.write(bodyString)
                 writer.flush()
                 writer.close()
 
-                // Get Response
                 val responseCode = connection.responseCode
                 val responseMessage = connection.responseMessage
                 val inputStream = if (responseCode < HttpURLConnection.HTTP_BAD_REQUEST) {
@@ -90,9 +87,11 @@ class WebhookManager(private val context: Context) {
                 val responseBody = reader.readText()
                 reader.close()
 
+                val responseTitle = if (isTest) "Webhook 测试响应" else "Webhook 已发送"
                 """
-                --- Webhook 测试响应 ---
+                --- $responseTitle ---
                 名称: ${webhook.name}
+                触发于: ${trigger.name}
                 状态码: $responseCode $responseMessage
                 响应体:
                 $responseBody
@@ -118,6 +117,7 @@ class WebhookManager(private val context: Context) {
             }
             webhooks
         } catch (e: Exception) {
+            Log.e("WebhookManager", "获取Webhooks失败", e)
             mutableListOf()
         }
     }
@@ -141,7 +141,6 @@ class WebhookManager(private val context: Context) {
                 connection.readTimeout = 15000
                 val response = connection.inputStream.bufferedReader().use { it.readText() }
 
-                // Validate JSON
                 JSONArray(response)
 
                 webhookFile.writeText(response)

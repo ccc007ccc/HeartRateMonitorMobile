@@ -53,7 +53,8 @@ class FloatingWindowService : Service() {
     private var connectedPeripheral: Peripheral? = null
     private var httpServer: HttpServer? = null
     @Volatile private var currentHeartRate: Int = 0
-    private fun isDeviceConnected(): Boolean = connectedPeripheral?.state?.value is State.Connected
+    // **【BUG修复】** 将此方法设为 public，以便 MainActivity 可以查询真实状态
+    fun isDeviceConnected(): Boolean = connectedPeripheral?.state?.value is State.Connected
 
     @Volatile private var isManuallyDisconnected = false
     private val isScanning = AtomicBoolean(false)
@@ -141,9 +142,6 @@ class FloatingWindowService : Service() {
         connectionJob?.cancel()
     }
 
-    /**
-     * 【最终修正版】连接逻辑
-     */
     fun connectToDevice(identifier: String) {
         stopAllBleActivities()
         isManuallyDisconnected = false
@@ -151,16 +149,13 @@ class FloatingWindowService : Service() {
         connectionJob = serviceScope.launch {
             var peripheral: Peripheral? = null
             try {
-                // 1. 创建外设
                 peripheral = serviceScope.peripheral(identifier)
                 connectedPeripheral = peripheral
 
                 broadcastBleState(BleState.Connecting, "准备连接...")
 
-                // 2. 启动状态监听器，这是关键
                 val stateMonitor = launch {
                     peripheral.state
-                        // **【关键修复】** 过滤掉初始的 Disconnected(null) 状态
                         .filter { it !is State.Disconnected || it.status != null }
                         .collect { state ->
                             Log.d("BleManager", "Filtered Connection State Changed: $state")
@@ -173,37 +168,32 @@ class FloatingWindowService : Service() {
                                     val msg = "已连接到 ${peripheral.name ?: "未知设备"}"
                                     broadcastBleState(BleState.Connected(msg))
                                     MainScope().launch { Toast.makeText(applicationContext, msg, Toast.LENGTH_SHORT).show() }
-                                    // 仅在连接成功后，启动心率监听
+                                    webhookManager.triggerWebhooks(WebhookTrigger.CONNECTED)
                                     launch { observeHeartRateData(peripheral) }
                                 }
                                 is State.Disconnecting -> {
                                     broadcastBleState(BleState.Disconnected("正在断开..."))
                                 }
                                 is State.Disconnected -> {
-                                    // 任何真实的断开事件都会使整个任务取消
                                     this@launch.cancel(CancellationException("Device disconnected with status: ${state.status}"))
                                 }
                             }
                         }
                 }
 
-                // 3. 执行带超时的连接操作
                 withTimeout(20_000L) {
                     peripheral.connect()
                 }
 
-                // 4. 等待状态监听器结束（即等待断开连接）
                 stateMonitor.join()
 
             } catch (e: Exception) {
-                // 捕获所有异常，包括超时、连接失败等
                 when (e) {
                     is TimeoutCancellationException -> {
                         Log.w("BleManager", "Connection timed out for $identifier")
                         broadcastBleState(BleState.Disconnected("连接超时"))
                     }
                     is CancellationException -> {
-                        // 这是由断开连接触发的，是正常流程
                         Log.d("BleManager", "Connection job cancelled: ${e.message}")
                     }
                     else -> {
@@ -212,7 +202,6 @@ class FloatingWindowService : Service() {
                     }
                 }
             } finally {
-                // 5. 【最终清理】无论如何都会执行
                 withContext(NonCancellable) {
                     Log.d("BleManager", "Running final cleanup for $identifier")
                     cleanupConnection()
@@ -223,9 +212,9 @@ class FloatingWindowService : Service() {
 
 
     private fun cleanupConnection() {
-        // 这个函数现在只负责重置状态
         val message = if (isManuallyDisconnected) "已手动断开" else "设备连接已断开"
         broadcastBleState(BleState.Disconnected(message))
+        webhookManager.triggerWebhooks(WebhookTrigger.DISCONNECTED)
 
         connectedPeripheral = null
         currentHeartRate = 0
@@ -246,7 +235,7 @@ class FloatingWindowService : Service() {
                         updateHeartRateText(rate)
                         updateHeartbeatAnimation(rate)
                         broadcastHeartRate(rate)
-                        webhookManager.sendAllEnabledWebhooks(rate)
+                        webhookManager.triggerWebhooks(WebhookTrigger.HEART_RATE_UPDATED, rate)
                     }
                 }
         } catch (e: Exception) {
@@ -254,7 +243,6 @@ class FloatingWindowService : Service() {
         }
     }
 
-    // --- HTTP服务器管理 ---
     private fun startHttpServer() {
         if (httpServer == null) {
             val port = sharedPreferences.getInt("http_server_port", 8000)
@@ -289,8 +277,6 @@ class FloatingWindowService : Service() {
         }
     }
 
-
-    // --- 现有方法（无重大逻辑修改） ---
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
     fun disconnectDevice() {
         isManuallyDisconnected = true

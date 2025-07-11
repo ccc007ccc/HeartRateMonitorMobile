@@ -77,7 +77,25 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         updateFloatingWindowUi(sharedPreferences.getBoolean("floating_window_enabled", false))
+
+        // **【BUG修复】**
+        // 当应用返回前台时，与服务进行状态同步，确保UI正确性。
+        if (isServiceBound && floatingService != null) {
+            val isActuallyConnected = floatingService!!.isDeviceConnected()
+            val isUiConnected = viewModel.appStatus.value == AppStatus.CONNECTED
+
+            // 如果UI和服务状态不一致，以服务的状态为准
+            if (isActuallyConnected != isUiConnected) {
+                // 如果服务已断开但UI显示连接，则强制更新UI为断开状态
+                if (!isActuallyConnected) {
+                    viewModel.updateAppStatus(AppStatus.DISCONNECTED)
+                    viewModel.updateStatusMessage("设备连接已断开")
+                    viewModel.updateHeartRate(0)
+                }
+            }
+        }
     }
+
 
     override fun onStop() {
         super.onStop()
@@ -108,8 +126,6 @@ class MainActivity : AppCompatActivity() {
                     viewModel.addScanResult(advertisement)
                     // 如果找到了收藏的设备，立即发起连接
                     if (advertisement.identifier == favoriteDeviceId) {
-                        // *** 错误已修复：删除了此处的 stopScan() 调用 ***
-                        // floatingService?.stopScan() // -> 这行是多余的，已删除
                         floatingService?.connectToDevice(favoriteDeviceId)
                     }
                 },

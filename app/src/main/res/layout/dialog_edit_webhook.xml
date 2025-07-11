@@ -16,6 +16,33 @@
             android:text="启用此 Webhook"
             android:layout_marginBottom="16dp"/>
 
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="触发器类型 (可多选)"
+            android:textAppearance="?attr/textAppearanceLabelMedium"
+            android:layout_marginBottom="8dp"/>
+
+        <CheckBox
+            android:id="@+id/checkHeartRateUpdated"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="心率刷新时" />
+
+        <CheckBox
+            android:id="@+id/checkConnected"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="设备连接时" />
+
+        <CheckBox
+            android:id="@+id/checkDisconnected"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:text="设备断开时" />
+
+
         <com.google.android.material.textfield.TextInputLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -31,7 +58,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:hint="URL (支持 {bpm} 占位符)">
+            android:hint="URL (心率刷新时支持 {bpm} 占位符)">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/webhookUrlEditText"
@@ -43,7 +70,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:hint="Body (JSON, 支持 {bpm} 占位符)">
+            android:hint="Body (JSON, 心率刷新时支持 {bpm} 占位符)">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/webhookBodyEditText"
@@ -58,7 +85,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:hint="Headers (JSON, 支持 {bpm} 占位符)">
+            android:hint="Headers (JSON, 心率刷新时支持 {bpm} 占位符)">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/webhookHeadersEditText"

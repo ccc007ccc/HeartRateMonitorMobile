@@ -3,6 +3,7 @@ package com.example.heart_rate_monitor_mobile
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
@@ -92,11 +93,21 @@ class WebhookActivity : AppCompatActivity() {
         val testButton = dialogView.findViewById<Button>(R.id.testWebhookButton)
         val responseTextView = dialogView.findViewById<TextView>(R.id.responseLogTextView)
 
+        // **【修复】** 更新ID
+        val checkHrUpdated = dialogView.findViewById<CheckBox>(R.id.checkHeartRateUpdated)
+        val checkConnected = dialogView.findViewById<CheckBox>(R.id.checkConnected)
+        val checkDisconnected = dialogView.findViewById<CheckBox>(R.id.checkDisconnected)
+
         nameEditText.setText(webhook.name)
         urlEditText.setText(webhook.url)
         enabledSwitch.isChecked = webhook.enabled
         bodyEditText.setText(webhook.body)
         headersEditText.setText(webhook.headers)
+
+        // **【修复】** 更新设置CheckBox状态的逻辑
+        checkHrUpdated.isChecked = webhook.triggers.contains(WebhookTrigger.HEART_RATE_UPDATED)
+        checkConnected.isChecked = webhook.triggers.contains(WebhookTrigger.CONNECTED)
+        checkDisconnected.isChecked = webhook.triggers.contains(WebhookTrigger.DISCONNECTED)
 
         val dialog = MaterialAlertDialogBuilder(this)
             .setView(dialogView)
@@ -108,12 +119,24 @@ class WebhookActivity : AppCompatActivity() {
         dialog.setOnShowListener {
             val saveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
             saveButton.setOnClickListener {
+                // **【修复】** 更新从CheckBox收集triggers的逻辑
+                val selectedTriggers = mutableListOf<WebhookTrigger>()
+                if (checkHrUpdated.isChecked) selectedTriggers.add(WebhookTrigger.HEART_RATE_UPDATED)
+                if (checkConnected.isChecked) selectedTriggers.add(WebhookTrigger.CONNECTED)
+                if (checkDisconnected.isChecked) selectedTriggers.add(WebhookTrigger.DISCONNECTED)
+
+                // 如果一个都没选，则默认选择心率更新，避免出现没有触发器的webhook
+                if (selectedTriggers.isEmpty()){
+                    selectedTriggers.add(WebhookTrigger.HEART_RATE_UPDATED)
+                }
+
                 val newWebhook = Webhook(
                     name = nameEditText.text.toString(),
                     url = urlEditText.text.toString(),
                     enabled = enabledSwitch.isChecked,
                     body = bodyEditText.text.toString(),
-                    headers = headersEditText.text.toString()
+                    headers = headersEditText.text.toString(),
+                    triggers = selectedTriggers
                 )
                 if (index != null) {
                     webhooks[index] = newWebhook
