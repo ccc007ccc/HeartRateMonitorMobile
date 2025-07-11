@@ -38,7 +38,7 @@ class MainActivity : AppCompatActivity() {
             floatingService = binder.getService()
             isServiceBound = true
             updateFloatingWindowUi(sharedPreferences.getBoolean("floating_window_enabled", false))
-            // **核心修复**: 服务绑定后，立即检查是否需要启动自动连接扫描
+            // 服务绑定后，立即检查是否需要启动自动连接扫描
             checkAndStartAutoConnectScan()
         }
 
@@ -52,10 +52,13 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        // ... 初始化 ...
+
         sharedPreferences = getSharedPreferences("app_settings", Context.MODE_PRIVATE)
         localBroadcastManager = LocalBroadcastManager.getInstance(this)
-        Intent(this, FloatingWindowService::class.java).also { intent -> startService(intent); bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE) }
+        Intent(this, FloatingWindowService::class.java).also { intent ->
+            startService(intent)
+            bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
+        }
         setSupportActionBar(binding.toolbar)
         requestPermissions()
         setupRecyclerView()
@@ -83,34 +86,35 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        if (isServiceBound) { unbindService(serviceConnection); isServiceBound = false }
+        if (isServiceBound) {
+            unbindService(serviceConnection)
+            isServiceBound = false
+        }
     }
 
-    // --- 全新的扫描与连接逻辑 ---
 
     /**
-     * 核心修复: 检查并启动“扫描并自动连接”流程。
+     * 检查并启动“扫描并自动连接”流程
      */
     private fun checkAndStartAutoConnectScan() {
         val isAutoConnectEnabled = sharedPreferences.getBoolean("auto_connect_enabled", false)
         val favoriteDeviceId = sharedPreferences.getString("favorite_device_id", null)
 
-        // 如果自动连接开启，且有收藏的设备，则启动一个特殊的扫描流程
         if (isAutoConnectEnabled && favoriteDeviceId != null && isServiceBound) {
             viewModel.updateStatusMessage("正在扫描收藏的设备...")
 
             floatingService?.startScan(
                 onScanResult = { advertisement ->
-                    // 实时将扫描到的设备加入列表
                     viewModel.addScanResult(advertisement)
-                    // 如果找到了收藏的设备，立即连接并停止扫描
+                    // 如果找到了收藏的设备，立即发起连接
                     if (advertisement.identifier == favoriteDeviceId) {
-                        floatingService?.stopScan() // 停止扫描
-                        floatingService?.connectToDevice(favoriteDeviceId) // 发起连接
+                        // *** 错误已修复：删除了此处的 stopScan() 调用 ***
+                        // floatingService?.stopScan() // -> 这行是多余的，已删除
+                        floatingService?.connectToDevice(favoriteDeviceId)
                     }
                 },
                 onScanEnd = { found ->
-                    // 扫描结束后，如果还没有连接上（即没找到收藏的设备）
+                    // 扫描结束后，如果还没有进入连接状态（即没找到收藏的设备）
                     if (viewModel.appStatus.value != AppStatus.CONNECTING && viewModel.appStatus.value != AppStatus.CONNECTED) {
                         viewModel.updateStatusMessage("未找到收藏的设备")
                     }
@@ -120,7 +124,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * 核心修复: 手动扫描流程。
+     * 手动扫描流程
      */
     private fun startManualScan() {
         if (!isServiceBound) return
@@ -130,10 +134,12 @@ class MainActivity : AppCompatActivity() {
                 viewModel.addScanResult(advertisement)
             },
             onScanEnd = { found ->
-                if (!found) {
-                    viewModel.updateStatusMessage("未找到任何设备")
-                } else {
-                    viewModel.updateStatusMessage("扫描结束")
+                if (viewModel.appStatus.value == AppStatus.DISCONNECTED) {
+                    if (!found) {
+                        viewModel.updateStatusMessage("未找到任何设备")
+                    } else {
+                        viewModel.updateStatusMessage("扫描结束")
+                    }
                 }
             }
         )
@@ -147,13 +153,17 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
             return
         }
+        // 更新UI和配置
+        with(sharedPreferences.edit()) {
+            putBoolean("floating_window_enabled", shouldBeEnabled)
+            apply()
+        }
         updateFloatingWindowUi(shouldBeEnabled)
     }
 
     private fun updateFloatingWindowUi(isEnabled: Boolean) {
         if (!isServiceBound) return
         if (isEnabled) floatingService?.showWindow() else floatingService?.hideWindow()
-        with(sharedPreferences.edit()) { putBoolean("floating_window_enabled", isEnabled); apply() }
         binding.floatingWindowButton.setImageResource(if (isEnabled) R.drawable.ic_floating_window_on else R.drawable.ic_floating_window_off)
     }
 
@@ -164,11 +174,16 @@ class MainActivity : AppCompatActivity() {
             },
             onFavoriteClick = { advertisement ->
                 viewModel.toggleFavoriteDevice(advertisement)
+                // 使用notifyDataSetChanged()来立即刷新星标状态
                 deviceAdapter.notifyDataSetChanged()
             },
             isFavorite = { identifier -> viewModel.isDeviceFavorite(identifier) }
         )
-        binding.devicesRecyclerView.apply { adapter = deviceAdapter; layoutManager = LinearLayoutManager(this@MainActivity); itemAnimator = null }
+        binding.devicesRecyclerView.apply {
+            adapter = deviceAdapter
+            layoutManager = LinearLayoutManager(this@MainActivity)
+            itemAnimator = null
+        }
     }
 
     private fun setupClickListeners() {
@@ -209,7 +224,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupObservers() {
-        // ... Observers logic ...
         viewModel.statusMessage.observe(this) { binding.statusTextView.text = it }
         viewModel.scanResults.observe(this) { results ->
             results?.let {
@@ -217,9 +231,11 @@ class MainActivity : AppCompatActivity() {
                 deviceAdapter.submitList(sortedResults)
             }
         }
-        viewModel.heartRate.observe(this) { rate -> binding.heartRateTextView.text = if (rate > 0) "$rate" else "--"; updateHeartbeatAnimation(rate) }
+        viewModel.heartRate.observe(this) { rate ->
+            binding.heartRateTextView.text = if (rate > 0) "$rate" else "--"
+            updateHeartbeatAnimation(rate)
+        }
         viewModel.appStatus.observe(this) { status ->
-            // ... UI state update logic ...
             binding.statusProgressBar.visibility = if (status == AppStatus.SCANNING || status == AppStatus.CONNECTING) View.VISIBLE else View.GONE
             binding.statusIcon.visibility = if (binding.statusProgressBar.visibility == View.VISIBLE) View.GONE else View.VISIBLE
             binding.scanFab.isEnabled = status == AppStatus.DISCONNECTED
@@ -228,6 +244,7 @@ class MainActivity : AppCompatActivity() {
             binding.devicesRecyclerView.visibility = if (listVisible) View.VISIBLE else View.GONE
             binding.deviceListTitle.visibility = if (listVisible) View.VISIBLE else View.GONE
             binding.disconnectButton.visibility = if (status == AppStatus.CONNECTED) View.VISIBLE else View.GONE
+
             when (status) {
                 AppStatus.CONNECTED -> {
                     binding.heartRateCard.background = ContextCompat.getDrawable(this, R.drawable.background_heart_rate_connected)
@@ -249,6 +266,7 @@ class MainActivity : AppCompatActivity() {
     private var heartRateAnimator: ValueAnimator? = null
     private var currentDuration: Long = 0L
     private val beatInterpolator = AccelerateDecelerateInterpolator()
+
     private fun updateHeartbeatAnimation(bpm: Int) {
         val heartIcon = binding.heartIcon
         val isAnimationEnabled = sharedPreferences.getBoolean("heartbeat_animation_enabled", true)
@@ -257,7 +275,18 @@ class MainActivity : AppCompatActivity() {
             if (heartRateAnimator == null || (currentDuration - targetDuration).absoluteValue > 50) {
                 currentDuration = targetDuration
                 heartRateAnimator?.cancel()
-                heartRateAnimator = ValueAnimator.ofFloat(1f, 1.3f, 1f).apply { duration = currentDuration; interpolator = beatInterpolator; repeatCount = ValueAnimator.INFINITE; repeatMode = ValueAnimator.RESTART; addUpdateListener { animation -> val scale = animation.animatedValue as Float; heartIcon.scaleX = scale; heartIcon.scaleY = scale }; start() }
+                heartRateAnimator = ValueAnimator.ofFloat(1f, 1.3f, 1f).apply {
+                    duration = currentDuration
+                    interpolator = beatInterpolator
+                    repeatCount = ValueAnimator.INFINITE
+                    repeatMode = ValueAnimator.RESTART
+                    addUpdateListener { animation ->
+                        val scale = animation.animatedValue as Float
+                        heartIcon.scaleX = scale
+                        heartIcon.scaleY = scale
+                    }
+                    start()
+                }
             }
         } else {
             heartRateAnimator?.cancel()
@@ -266,8 +295,25 @@ class MainActivity : AppCompatActivity() {
             heartIcon.animate().scaleX(1f).scaleY(1f).setDuration(200).start()
         }
     }
+
     private fun requestPermissions() {
-        val permissionsToRequest = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) listOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT) else listOf(Manifest.permission.BLUETOOTH, Manifest.permission.BLUETOOTH_ADMIN, Manifest.permission.ACCESS_FINE_LOCATION)
-        PermissionX.init(this).permissions(permissionsToRequest).onExplainRequestReason { scope, deniedList -> scope.showRequestReasonDialog(deniedList, "应用需要这些权限才能发现并连接到您的心率监测设备。", "好的", "取消") }.onForwardToSettings { scope, deniedList -> scope.showForwardToSettingsDialog(deniedList, "您需要手动在设置中允许这些权限。", "好的", "取消") }.request { allGranted, _, _ -> if (!allGranted) binding.statusTextView.text = "部分权限被拒绝，应用可能无法正常工作！" }
+        val permissionsToRequest = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            listOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT)
+        } else {
+            listOf(Manifest.permission.BLUETOOTH, Manifest.permission.BLUETOOTH_ADMIN, Manifest.permission.ACCESS_FINE_LOCATION)
+        }
+        PermissionX.init(this)
+            .permissions(permissionsToRequest)
+            .onExplainRequestReason { scope, deniedList ->
+                scope.showRequestReasonDialog(deniedList, "应用需要这些权限才能发现并连接到您的心率监测设备。", "好的", "取消")
+            }
+            .onForwardToSettings { scope, deniedList ->
+                scope.showForwardToSettingsDialog(deniedList, "您需要手动在设置中允许这些权限。", "好的", "取消")
+            }
+            .request { allGranted, _, _ ->
+                if (!allGranted) {
+                    binding.statusTextView.text = "部分权限被拒绝，应用可能无法正常工作！"
+                }
+            }
     }
 }

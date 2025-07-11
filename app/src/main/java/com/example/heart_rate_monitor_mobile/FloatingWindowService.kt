@@ -11,6 +11,7 @@ import android.os.Binder
 import android.os.Build
 import android.os.IBinder
 import android.provider.Settings
+import android.util.Log
 import android.util.TypedValue
 import android.view.*
 import android.view.animation.AccelerateDecelerateInterpolator
@@ -20,9 +21,11 @@ import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.example.heart_rate_monitor_mobile.databinding.LayoutFloatingWindowBinding
 import com.google.android.material.card.MaterialCardView
 import com.juul.kable.*
+import fi.iki.elonen.NanoHTTPD
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
-import java.util.NoSuchElementException
+import org.json.JSONObject
+import java.io.IOException
 import java.util.concurrent.CancellationException
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.absoluteValue
@@ -42,20 +45,24 @@ class FloatingWindowService : Service() {
 
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var bleManager: BleManager? = null
-    private var connectedPeripheral: Peripheral? = null
     private var connectionJob: Job? = null
     private var scanJob: Job? = null
 
-    private var isWindowShown = false
-    @Volatile
-    private var isManuallyDisconnected = false
-    private val isScanning = AtomicBoolean(false)
+    // --- 状态管理 ---
+    private var connectedPeripheral: Peripheral? = null
+    private var httpServer: HttpServer? = null
+    @Volatile private var currentHeartRate: Int = 0
+    private fun isDeviceConnected(): Boolean = connectedPeripheral?.state?.value is State.Connected
 
-    private var initialX = 0; private var initialY = 0
-    private var initialTouchX = 0f; private var initialTouchY = 0f
+    @Volatile private var isManuallyDisconnected = false
+    private val isScanning = AtomicBoolean(false)
+    private var isWindowShown = false
     private var heartRateAnimator: ValueAnimator? = null
     private var currentDuration: Long = 0L
     private val beatInterpolator = AccelerateDecelerateInterpolator()
+    private var initialX = 0; private var initialY = 0
+    private var initialTouchX = 0f; private var initialTouchY = 0f
+
 
     companion object {
         const val ACTION_UPDATE_BLE_STATE = "com.example.heart_rate_monitor_mobile.UPDATE_BLE_STATE"
@@ -72,7 +79,6 @@ class FloatingWindowService : Service() {
                     BluetoothAdapter.STATE_OFF -> {
                         isManuallyDisconnected = true
                         stopAllBleActivities()
-                        broadcastBleState(BleState.Disconnected("蓝牙已关闭"))
                     }
                     BluetoothAdapter.STATE_ON -> {
                         isManuallyDisconnected = false
@@ -82,9 +88,24 @@ class FloatingWindowService : Service() {
         }
     }
 
+    private val settingsChangeListener = SharedPreferences.OnSharedPreferenceChangeListener { prefs, key ->
+        when (key) {
+            "http_server_enabled" -> {
+                if (prefs.getBoolean(key, false)) startHttpServer() else stopHttpServer()
+            }
+            "http_server_port" -> {
+                if (prefs.getBoolean("http_server_enabled", false)) restartHttpServer()
+            }
+            "floating_window_enabled", "heartbeat_animation_enabled" -> {
+                if (isWindowShown) updateWindowAppearance()
+            }
+            else -> if (isWindowShown) updateWindowAppearance()
+        }
+    }
+
+
     override fun onCreate() {
         super.onCreate()
-        // ... 组件初始化 ...
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         sharedPreferences = getSharedPreferences("app_settings", Context.MODE_PRIVATE)
         localBroadcastManager = LocalBroadcastManager.getInstance(this)
@@ -92,31 +113,187 @@ class FloatingWindowService : Service() {
         val contextWithTheme = ContextThemeWrapper(this, R.style.Theme_HeartRateMonitorMobile)
         val inflater = LayoutInflater.from(contextWithTheme)
         binding = LayoutFloatingWindowBinding.inflate(inflater)
+
         initLayoutParams()
         setupTouchListener()
         sharedPreferences.registerOnSharedPreferenceChangeListener(settingsChangeListener)
         registerReceiver(bluetoothStateReceiver, IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED))
-    }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // 服务仅保持运行，不主动执行任何操作
-        return START_STICKY
+        if (sharedPreferences.getBoolean("http_server_enabled", false)) {
+            startHttpServer()
+        }
     }
 
     override fun onDestroy() {
         super.onDestroy()
         hideWindow()
         stopAllBleActivities()
+        stopHttpServer()
         serviceScope.cancel()
         sharedPreferences.unregisterOnSharedPreferenceChangeListener(settingsChangeListener)
         unregisterReceiver(bluetoothStateReceiver)
     }
 
-    // --- 公开给客户端的核心方法 ---
+    private fun stopAllBleActivities() {
+        scanJob?.cancel()
+        connectionJob?.cancel()
+    }
 
+    /**
+     * 【最终修正版】连接逻辑
+     */
+    fun connectToDevice(identifier: String) {
+        stopAllBleActivities()
+        isManuallyDisconnected = false
+
+        connectionJob = serviceScope.launch {
+            var peripheral: Peripheral? = null
+            try {
+                // 1. 创建外设
+                peripheral = serviceScope.peripheral(identifier)
+                connectedPeripheral = peripheral
+
+                broadcastBleState(BleState.Connecting, "准备连接...")
+
+                // 2. 启动状态监听器，这是关键
+                val stateMonitor = launch {
+                    peripheral.state
+                        // **【关键修复】** 过滤掉初始的 Disconnected(null) 状态
+                        .filter { it !is State.Disconnected || it.status != null }
+                        .collect { state ->
+                            Log.d("BleManager", "Filtered Connection State Changed: $state")
+                            when (state) {
+                                is State.Connecting -> {
+                                    val msg = peripheral.name?.let { "正在连接 $it..." } ?: "正在连接..."
+                                    broadcastBleState(BleState.Connecting, msg)
+                                }
+                                is State.Connected -> {
+                                    val msg = "已连接到 ${peripheral.name ?: "未知设备"}"
+                                    broadcastBleState(BleState.Connected(msg))
+                                    MainScope().launch { Toast.makeText(applicationContext, msg, Toast.LENGTH_SHORT).show() }
+                                    // 仅在连接成功后，启动心率监听
+                                    launch { observeHeartRateData(peripheral) }
+                                }
+                                is State.Disconnecting -> {
+                                    broadcastBleState(BleState.Disconnected("正在断开..."))
+                                }
+                                is State.Disconnected -> {
+                                    // 任何真实的断开事件都会使整个任务取消
+                                    this@launch.cancel(CancellationException("Device disconnected with status: ${state.status}"))
+                                }
+                            }
+                        }
+                }
+
+                // 3. 执行带超时的连接操作
+                withTimeout(20_000L) {
+                    peripheral.connect()
+                }
+
+                // 4. 等待状态监听器结束（即等待断开连接）
+                stateMonitor.join()
+
+            } catch (e: Exception) {
+                // 捕获所有异常，包括超时、连接失败等
+                when (e) {
+                    is TimeoutCancellationException -> {
+                        Log.w("BleManager", "Connection timed out for $identifier")
+                        broadcastBleState(BleState.Disconnected("连接超时"))
+                    }
+                    is CancellationException -> {
+                        // 这是由断开连接触发的，是正常流程
+                        Log.d("BleManager", "Connection job cancelled: ${e.message}")
+                    }
+                    else -> {
+                        Log.e("BleManager", "Connection to $identifier failed", e)
+                        broadcastBleState(BleState.Disconnected("连接失败: ${e.message}"))
+                    }
+                }
+            } finally {
+                // 5. 【最终清理】无论如何都会执行
+                withContext(NonCancellable) {
+                    Log.d("BleManager", "Running final cleanup for $identifier")
+                    cleanupConnection()
+                }
+            }
+        }
+    }
+
+
+    private fun cleanupConnection() {
+        // 这个函数现在只负责重置状态
+        val message = if (isManuallyDisconnected) "已手动断开" else "设备连接已断开"
+        broadcastBleState(BleState.Disconnected(message))
+
+        connectedPeripheral = null
+        currentHeartRate = 0
+
+        MainScope().launch {
+            updateHeartRateText(0)
+            updateHeartbeatAnimation(0)
+            broadcastHeartRate(0)
+        }
+    }
+
+    private suspend fun observeHeartRateData(peripheral: Peripheral) {
+        try {
+            bleManager!!.observeHeartRate(peripheral)
+                .collect { rate ->
+                    currentHeartRate = rate
+                    updateHeartRateText(rate)
+                    updateHeartbeatAnimation(rate)
+                    broadcastHeartRate(rate)
+                }
+        } catch (e: Exception) {
+            Log.w("BleManager", "Heart rate observation stopped or failed.", e)
+        }
+    }
+
+    // --- HTTP服务器管理 ---
+    private fun startHttpServer() {
+        if (httpServer == null) {
+            val port = sharedPreferences.getInt("http_server_port", 8000)
+            httpServer = HttpServer(port)
+            try {
+                httpServer?.start()
+            } catch (e: IOException) {
+                Log.e("FloatingWindowService", "HTTP Server start failed", e)
+            }
+        }
+    }
+
+    private fun stopHttpServer() {
+        httpServer?.stop()
+        httpServer = null
+    }
+
+    private fun restartHttpServer() {
+        stopHttpServer()
+        startHttpServer()
+    }
+
+    private inner class HttpServer(port: Int) : NanoHTTPD(port) {
+        override fun serve(session: IHTTPSession?): Response {
+            if (session?.method == Method.GET && session.uri == "/heartrate") {
+                val json = JSONObject()
+                json.put("heart_rate", currentHeartRate)
+                json.put("connected", isDeviceConnected())
+                return newFixedLengthResponse(Response.Status.OK, "application/json", json.toString())
+            }
+            return newFixedLengthResponse(Response.Status.NOT_FOUND, MIME_PLAINTEXT, "Not Found")
+        }
+    }
+
+
+    // --- 现有方法（无重大逻辑修改） ---
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
+    fun disconnectDevice() {
+        isManuallyDisconnected = true
+        stopAllBleActivities()
+    }
     fun startScan(durationMillis: Long = 15_000L, onScanResult: (Advertisement) -> Unit, onScanEnd: (found: Boolean) -> Unit) {
         if (!isScanning.compareAndSet(false, true)) return
-        scanJob?.cancel()
+        stopAllBleActivities()
         scanJob = serviceScope.launch {
             var foundDevice = false
             try {
@@ -128,111 +305,16 @@ class FloatingWindowService : Service() {
                     }
                 }
             } catch (e: TimeoutCancellationException) {
-                // 正常超时
             } finally {
                 withContext(NonCancellable) {
-                    onScanEnd(foundDevice)
+                    val status = if(foundDevice) "扫描结束" else "未找到任何设备"
+                    broadcastBleState(BleState.ScanFailed(status))
                     isScanning.set(false)
+                    onScanEnd(foundDevice)
                 }
             }
         }
     }
-
-    fun stopScan() {
-        scanJob?.cancel()
-        isScanning.set(false)
-    }
-
-    fun connectToDevice(identifier: String) {
-        isManuallyDisconnected = false
-        stopAllBleActivities() // **核心修复**: 连接前确保停止所有扫描和旧连接
-        connectionJob = serviceScope.launch {
-            performConnection(identifier)
-        }
-    }
-
-    fun disconnectDevice() {
-        isManuallyDisconnected = true
-        stopAllBleActivities()
-        broadcastBleState(BleState.Disconnected("已手动断开连接"))
-    }
-
-    private fun stopAllBleActivities() {
-        scanJob?.cancel()
-        connectionJob?.cancel()
-        cleanupConnection()
-    }
-
-    // --- 连接与数据处理逻辑 ---
-
-    private suspend fun performConnection(identifier: String) {
-        try {
-            // **核心修复**: 直接进入Connecting状态，不再需要先查找
-            broadcastBleState(BleState.Connecting, "正在连接...")
-            // 使用Kable的peripheral(identifier)直接创建实例，无需扫描
-            val peripheral = serviceScope.peripheral(identifier) {
-                // 可在此处配置连接参数
-            }
-            connectedPeripheral = peripheral
-
-            // 更新提示词，包含设备名
-            peripheral.name?.let { name ->
-                broadcastBleState(BleState.Connecting, "正在连接 $name...")
-            }
-
-            serviceScope.launch { monitorConnection(peripheral) }
-            withTimeout(10_000L) { peripheral.connect() }
-
-            val successMessage = "已连接到 ${peripheral.name ?: "未知设备"}"
-            broadcastBleState(BleState.Connected(successMessage))
-            MainScope().launch { Toast.makeText(applicationContext, successMessage, Toast.LENGTH_SHORT).show() }
-
-            observeHeartRateData(peripheral)
-        } catch (e: Exception) {
-            val finalState: BleState = when (e) {
-                is TimeoutCancellationException -> BleState.Disconnected("连接超时")
-                is CancellationException -> throw e
-                else -> BleState.Disconnected("连接失败: ${e.message ?: "未知错误"}")
-            }
-            broadcastBleState(finalState)
-            cleanupConnection()
-        }
-    }
-
-    private suspend fun monitorConnection(peripheral: Peripheral) {
-        try {
-            peripheral.state.filterIsInstance<State.Disconnected>().first()
-            cleanupConnection()
-            // 如果不是手动断开，则广播“意外断开”
-            if (!isManuallyDisconnected) {
-                broadcastBleState(BleState.Disconnected("设备连接已断开"))
-            }
-        } catch (e: CancellationException) { /* Normal cancellation */ }
-    }
-
-    private suspend fun observeHeartRateData(peripheral: Peripheral) {
-        bleManager!!.observeHeartRate(peripheral)
-            .catch { e -> if (e !is CancellationException) broadcastBleState(BleState.Disconnected("心率读取错误: ${e.message ?: "未知错误"}")) }
-            .collect { rate ->
-                updateHeartRateText(rate)
-                updateHeartbeatAnimation(rate)
-                broadcastHeartRate(rate)
-            }
-    }
-
-    private fun cleanupConnection() {
-        serviceScope.launch {
-            val p = connectedPeripheral; connectedPeripheral = null
-            if (p != null && (p.state.value is State.Connecting || p.state.value is State.Connected)) {
-                try { p.disconnect() } catch (e: Exception) { /* Ignore */ }
-            }
-            updateHeartRateText(0)
-            updateHeartbeatAnimation(0)
-            broadcastHeartRate(0)
-        }
-    }
-
-    // --- 广播与UI方法 ---
     private fun broadcastBleState(state: BleState, customMessage: String? = null) {
         val intent = Intent(ACTION_UPDATE_BLE_STATE).apply {
             putExtra(EXTRA_BLE_STATE_TYPE, state::class.java.name)
@@ -240,31 +322,25 @@ class FloatingWindowService : Service() {
         }
         localBroadcastManager.sendBroadcast(intent)
     }
-
     private fun broadcastHeartRate(rate: Int) {
         localBroadcastManager.sendBroadcast(Intent(ACTION_UPDATE_HEART_RATE).putExtra(EXTRA_HEART_RATE, rate))
     }
-
-    // ... UI & Other Logic ...
     fun showWindow() { if (isWindowShown) return; if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) return; try { windowManager.addView(binding.root, layoutParams); isWindowShown = true; updateWindowAppearance() } catch (e: Exception) {} }
     fun hideWindow() { if (!isWindowShown) return; try { windowManager.removeView(binding.root); isWindowShown = false } catch (e: Exception) {} }
-    private fun updateHeartRateText(rate: Int) { val text = if (rate > 0) "$rate" else "--"; MainScope().launch { binding.floatingBpmNumber.text = text } }
-    private fun updateHeartbeatAnimation(bpm: Int) { MainScope().launch { val heartIcon = binding.floatingHeartIcon; val isAnimationEnabled = sharedPreferences.getBoolean("heartbeat_animation_enabled", true); if (isAnimationEnabled && bpm > 30) { val targetDuration = (60000f / bpm).toLong(); if (heartRateAnimator == null || (currentDuration - targetDuration).absoluteValue > 50) { currentDuration = targetDuration; heartRateAnimator?.cancel(); heartRateAnimator = ValueAnimator.ofFloat(1f, 1.2f, 1f).apply { duration = currentDuration; interpolator = beatInterpolator; repeatCount = ValueAnimator.INFINITE; repeatMode = ValueAnimator.RESTART; addUpdateListener { animation -> val scale = animation.animatedValue as Float; heartIcon.scaleX = scale; heartIcon.scaleY = scale }; start() } } } else { heartRateAnimator?.cancel(); heartRateAnimator = null; currentDuration = 0L; heartIcon.animate().scaleX(1f).scaleY(1f).setDuration(200).start() } } }
-    private val settingsChangeListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> if (isWindowShown) { updateWindowAppearance() } }
+    private fun updateHeartRateText(rate: Int) { MainScope().launch { binding.floatingBpmNumber.text = if (rate > 0) "$rate" else "--" } }
+    private fun updateHeartbeatAnimation(bpm: Int) { MainScope().launch { val heartIcon = binding.floatingHeartIcon; val isAnimationEnabled = sharedPreferences.getBoolean("heartbeat_animation_enabled", true); if (isAnimationEnabled && bpm > 30 && isDeviceConnected()) { val targetDuration = (60000f / bpm).toLong(); if (heartRateAnimator == null || (currentDuration - targetDuration).absoluteValue > 50) { currentDuration = targetDuration; heartRateAnimator?.cancel(); heartRateAnimator = ValueAnimator.ofFloat(1f, 1.2f, 1f).apply { duration = currentDuration; interpolator = beatInterpolator; repeatCount = ValueAnimator.INFINITE; repeatMode = ValueAnimator.RESTART; addUpdateListener { animation -> val scale = animation.animatedValue as Float; heartIcon.scaleX = scale; heartIcon.scaleY = scale }; start() } } } else { heartRateAnimator?.cancel(); heartRateAnimator = null; currentDuration = 0L; heartIcon.animate().scaleX(1f).scaleY(1f).setDuration(200).start() } } }
     private fun initLayoutParams() { val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY else WindowManager.LayoutParams.TYPE_PHONE; layoutParams = WindowManager.LayoutParams(WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT, type, WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, PixelFormat.TRANSLUCENT).apply { gravity = Gravity.TOP or Gravity.START; x = 100; y = 100 } }
     @SuppressLint("ClickableViewAccessibility") private fun setupTouchListener() { binding.root.setOnTouchListener { _, event -> when (event.action) { MotionEvent.ACTION_DOWN -> { initialX = layoutParams.x; initialY = layoutParams.y; initialTouchX = event.rawX; initialTouchY = event.rawY; true } MotionEvent.ACTION_MOVE -> { layoutParams.x = initialX + (event.rawX - initialTouchX).toInt(); layoutParams.y = initialY + (event.rawY - initialTouchY).toInt(); if (isWindowShown) windowManager.updateViewLayout(binding.root, layoutParams); true } else -> false } } }
     private fun updateWindowAppearance() {
         MainScope().launch {
             val textColor = sharedPreferences.getInt("floating_text_color", Color.BLACK)
-            val bgColor = sharedPreferences.getInt("floating_bg_color", Color.BLACK) // ← 改为默认黑色
+            val bgColor = sharedPreferences.getInt("floating_bg_color", Color.BLACK)
             val borderColor = sharedPreferences.getInt("floating_border_color", Color.GRAY)
-
-            val bgAlpha = sharedPreferences.getInt("floating_bg_alpha", 10) / 100f       // ← 改为 10%
+            val bgAlpha = sharedPreferences.getInt("floating_bg_alpha", 10) / 100f
             val borderAlpha = sharedPreferences.getInt("floating_border_alpha", 100) / 100f
-            val cornerRadius = sharedPreferences.getInt("floating_corner_radius", 100).toFloat() // ← 改为 100
+            val cornerRadius = sharedPreferences.getInt("floating_corner_radius", 100).toFloat()
             val sizePercent = sharedPreferences.getInt("floating_size", 100)
             val iconSizePercent = sharedPreferences.getInt("floating_icon_size", 100)
-
             val isBpmTextEnabled = sharedPreferences.getBoolean("bpm_text_enabled", true);
             val isHeartIconEnabled = sharedPreferences.getBoolean("heart_icon_enabled", true);
             val finalBgColor = Color.argb((255 * bgAlpha).roundToInt(), Color.red(bgColor), Color.green(bgColor), Color.blue(bgColor));

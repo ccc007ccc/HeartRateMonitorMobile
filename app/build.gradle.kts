@@ -22,7 +22,7 @@ android {
         minSdk = 27
         targetSdk = 34
         versionCode = 1
-        versionName = "1.0"
+        versionName = "1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         signingConfig = signingConfigs.getByName("release")
@@ -84,5 +84,7 @@ dependencies {
     // Permissions
     implementation("com.guolindev.permissionx:permissionx:1.8.1")
 
-    implementation("com.github.Dhaval2404:ColorPicker:2.3")
+    implementation("com.github.skydoves:colorpickerview:2.3.0")
+
+    implementation("org.nanohttpd:nanohttpd:2.3.1")
 }

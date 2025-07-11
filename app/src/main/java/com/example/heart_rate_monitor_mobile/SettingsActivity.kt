@@ -1,6 +1,7 @@
 package com.example.heart_rate_monitor_mobile
 
 import android.content.Context
+import android.content.DialogInterface
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
@@ -10,8 +11,8 @@ import android.os.Bundle
 import android.widget.SeekBar
 import androidx.appcompat.app.AppCompatActivity
 import com.example.heart_rate_monitor_mobile.databinding.ActivitySettingsBinding
-import com.github.dhaval2404.colorpicker.ColorPickerDialog
-import com.github.dhaval2404.colorpicker.model.ColorShape
+import com.skydoves.colorpickerview.ColorPickerDialog
+import com.skydoves.colorpickerview.listeners.ColorEnvelopeListener
 
 class SettingsActivity : AppCompatActivity() {
 
@@ -29,7 +30,6 @@ class SettingsActivity : AppCompatActivity() {
         setupClickListeners()
         displayAppVersion()
         setupSwitches()
-        // 初始化悬浮窗设置
         setupFloatingWindowSettings()
     }
 
@@ -43,6 +43,10 @@ class SettingsActivity : AppCompatActivity() {
         binding.githubLink.setOnClickListener {
             val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/ccc007ccc/HeartRateMonitorMobile"))
             startActivity(intent)
+        }
+
+        binding.serverSettingsLink.setOnClickListener {
+            startActivity(Intent(this, ServerActivity::class.java))
         }
     }
 
@@ -69,14 +73,12 @@ class SettingsActivity : AppCompatActivity() {
             sharedPreferences.edit().putBoolean("auto_connect_enabled", isChecked).apply()
         }
 
-        // BPM 文本开关
         val isBpmTextEnabled = sharedPreferences.getBoolean("bpm_text_enabled", true)
         binding.bpmTextSwitch.isChecked = isBpmTextEnabled
         binding.bpmTextSwitch.setOnCheckedChangeListener { _, isChecked ->
             sharedPreferences.edit().putBoolean("bpm_text_enabled", isChecked).apply()
         }
 
-        // 心率图标开关
         val isHeartIconEnabled = sharedPreferences.getBoolean("heart_icon_enabled", true)
         binding.heartIconSwitch.isChecked = isHeartIconEnabled
         binding.heartIconSwitch.setOnCheckedChangeListener { _, isChecked ->
@@ -84,11 +86,7 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * 初始化所有悬浮窗相关的设置项
-     */
     private fun setupFloatingWindowSettings() {
-        // --- 颜色选择器 ---
         binding.textColorPreview.setOnClickListener {
             showColorPicker("floating_text_color", "文本颜色", Color.BLACK)
         }
@@ -99,27 +97,35 @@ class SettingsActivity : AppCompatActivity() {
             showColorPicker("floating_border_color", "边框颜色", Color.GRAY)
         }
 
-        // --- SeekBars ---
         setupSeekBar(binding.bgAlphaSeekBar, "floating_bg_alpha", 10)
         setupSeekBar(binding.borderAlphaSeekBar, "floating_border_alpha", 100)
         setupSeekBar(binding.cornerRadiusSeekBar, "floating_corner_radius", 100)
         setupSeekBar(binding.sizeSeekBar, "floating_size", 100)
-        setupSeekBar(binding.iconSizeSeekBar, "floating_icon_size", 100) // 图标大小
+        setupSeekBar(binding.iconSizeSeekBar, "floating_icon_size", 100)
 
-        // --- 加载初始值 ---
         updateColorPreviews()
     }
 
+    /**
+     * 【核心修正】使用 skydoves/ColorPickerView 库来创建颜色选择器
+     */
     private fun showColorPicker(prefKey: String, title: String, defaultColor: Int) {
-        val currentColor = sharedPreferences.getInt(prefKey, defaultColor)
-        ColorPickerDialog
-            .Builder(this)
+        ColorPickerDialog.Builder(this)
             .setTitle(title)
-            .setColorShape(ColorShape.SQAURE)
-            .setDefaultColor(currentColor)
-            .setColorListener { color, _ ->
-                sharedPreferences.edit().putInt(prefKey, color).apply()
-                updateColorPreviews()
+            .setPreferenceName("ColorPickerDialog")
+            // **【关键修复】** attachBrightnessSlideBar(true) 启用亮度滑块
+            .attachBrightnessSlideBar(true)
+            .attachAlphaSlideBar(false) // 我们不需要透明度滑块，使用 SeekBar 控制
+            .setPositiveButton("确定", object : ColorEnvelopeListener {
+                override fun onColorSelected(envelope: com.skydoves.colorpickerview.ColorEnvelope?, fromUser: Boolean) {
+                    envelope?.let {
+                        sharedPreferences.edit().putInt(prefKey, it.color).apply()
+                        updateColorPreviews()
+                    }
+                }
+            })
+            .setNegativeButton("取消") { dialogInterface: DialogInterface, _: Int ->
+                dialogInterface.dismiss()
             }
             .show()
     }
