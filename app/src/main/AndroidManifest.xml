@@ -30,6 +30,10 @@
             android:exported="true" />
 
         <activity
+            android:name=".WebhookActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".ServerActivity"
             android:exported="false" />
 

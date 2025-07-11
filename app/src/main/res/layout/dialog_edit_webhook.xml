@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <com.google.android.material.switchmaterial.SwitchMaterial
+            android:id="@+id/webhookEnabledSwitch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="启用此 Webhook"
+            android:layout_marginBottom="16dp"/>
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="名称">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/webhookNameEditText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:hint="URL (支持 {bpm} 占位符)">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/webhookUrlEditText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:hint="Body (JSON, 支持 {bpm} 占位符)">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/webhookBodyEditText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="top"
+                android:lines="4"
+                android:fontFamily="monospace"/>
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:hint="Headers (JSON, 支持 {bpm} 占位符)">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/webhookHeadersEditText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="top"
+                android:lines="3"
+                android:fontFamily="monospace"/>
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <Button
+            android:id="@+id/testWebhookButton"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="测试发送 (心率: 88)" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="测试响应日志"
+            android:layout_marginTop="16dp"
+            android:textAppearance="?attr/textAppearanceLabelMedium"/>
+
+        <TextView
+            android:id="@+id/responseLogTextView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="?attr/colorSurfaceContainer"
+            android:padding="8dp"
+            android:minLines="3"
+            android:textIsSelectable="true"
+            android:fontFamily="monospace"
+            android:textAppearance="?attr/textAppearanceBodySmall"/>
+
+    </LinearLayout>
+</ScrollView>

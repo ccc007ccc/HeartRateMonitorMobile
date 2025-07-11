@@ -42,6 +42,7 @@ class FloatingWindowService : Service() {
     private lateinit var layoutParams: WindowManager.LayoutParams
     private lateinit var sharedPreferences: SharedPreferences
     private lateinit var localBroadcastManager: LocalBroadcastManager
+    private lateinit var webhookManager: WebhookManager
 
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var bleManager: BleManager? = null
@@ -109,6 +110,7 @@ class FloatingWindowService : Service() {
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         sharedPreferences = getSharedPreferences("app_settings", Context.MODE_PRIVATE)
         localBroadcastManager = LocalBroadcastManager.getInstance(this)
+        webhookManager = WebhookManager(applicationContext)
         bleManager = BleManager(applicationContext)
         val contextWithTheme = ContextThemeWrapper(this, R.style.Theme_HeartRateMonitorMobile)
         val inflater = LayoutInflater.from(contextWithTheme)
@@ -239,10 +241,13 @@ class FloatingWindowService : Service() {
         try {
             bleManager!!.observeHeartRate(peripheral)
                 .collect { rate ->
-                    currentHeartRate = rate
-                    updateHeartRateText(rate)
-                    updateHeartbeatAnimation(rate)
-                    broadcastHeartRate(rate)
+                    if (rate != currentHeartRate) {
+                        currentHeartRate = rate
+                        updateHeartRateText(rate)
+                        updateHeartbeatAnimation(rate)
+                        broadcastHeartRate(rate)
+                        webhookManager.sendAllEnabledWebhooks(rate)
+                    }
                 }
         } catch (e: Exception) {
             Log.w("BleManager", "Heart rate observation stopped or failed.", e)

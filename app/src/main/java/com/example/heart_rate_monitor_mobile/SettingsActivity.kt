@@ -48,6 +48,10 @@ class SettingsActivity : AppCompatActivity() {
         binding.serverSettingsLink.setOnClickListener {
             startActivity(Intent(this, ServerActivity::class.java))
         }
+
+        binding.webhookSettingsLink.setOnClickListener {
+            startActivity(Intent(this, WebhookActivity::class.java))
+        }
     }
 
     private fun displayAppVersion() {
