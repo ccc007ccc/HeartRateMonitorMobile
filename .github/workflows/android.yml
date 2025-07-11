@@ -1,0 +1,74 @@
+# 工作流名称
+name: Android CI
+
+# 触发条件：推送到 main 分支或向 main 分支发起 PR 时触发
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    # 运行在最新的 Ubuntu 环境中
+    runs-on: ubuntu-latest
+
+    steps:
+    # 1. 检出你的项目代码
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    # 2. 设置 JDK 11 环境
+    - name: Set up JDK 11
+      uses: actions/setup-java@v4
+      with:
+        java-version: '11'
+        distribution: 'temurin'
+
+    # 3. (重要) 设置 Android SDK 环境
+    # 使用社区维护的 action 来方便地安装所需组件
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+      # 你也可以在这里指定具体的 ndk 和 build-tools 版本
+      # with:
+      #   sdk-version: '8512546' # 例如
+      #   ndk-version: '25.1.8937393' # 例如
+
+    # 4. 缓存 Gradle 的依赖项，大幅提升构建速度
+    - name: Cache Gradle packages
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.gradle/caches
+          ~/.gradle/wrapper
+        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+        restore-keys: |
+          ${{ runner.os }}-gradle-
+
+    # 5. 授予 gradlew 执行权限
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    # 6. 运行静态代码检查 (推荐)
+    # 这可以帮助你在早期发现代码中的潜在问题
+    - name: Run lint check
+      run: ./gradlew lintDebug
+
+    # 7. 运行单元测试 (推荐)
+    # 确保核心逻辑的正确性
+    - name: Run unit tests
+      run: ./gradlew testDebugUnitTest
+
+    # 8. 构建 Debug 版本的 APK
+    # 使用 assembleDebug 而不是 build，任务更明确，速度也可能更快
+    - name: Build debug APK
+      run: ./gradlew assembleDebug
+
+    # 9. (可选) 上传构建产物 (APK)
+    # 构建完成后，你可以将 APK 保存为可下载的 Artifact
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: debug-apk # 制品名称
+        path: app/build/outputs/apk/debug/app-debug.apk # APK 的实际路径，请根据你的项目结构修改
+
