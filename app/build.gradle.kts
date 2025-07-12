@@ -21,8 +21,8 @@ android {
         applicationId = "com.example.heart_rate_monitor_mobile"
         minSdk = 27
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.3"
+        versionCode = 3
+        versionName = "1.4"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         signingConfig = signingConfigs.getByName("release")
@@ -67,7 +67,6 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
-    implementation(libs.java.websocket)
 
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.appcompat:appcompat:1.6.1")
@@ -88,4 +87,5 @@ dependencies {
     implementation("com.github.skydoves:colorpickerview:2.3.0")
 
     implementation("org.nanohttpd:nanohttpd:2.3.1")
+    implementation("org.nanohttpd:nanohttpd-websocket:2.3.1")
 }
