@@ -51,8 +51,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 _statusMessage.value = state.message
                 _appStatus.value = when (state) {
                     is BleState.Scanning -> AppStatus.SCANNING
-                    // 【关键修改】将 AutoConnecting 状态映射到 CONNECTING UI状态
-                    is BleState.AutoConnecting, is BleState.Connecting -> AppStatus.CONNECTING
+                    // 【关键修改】将所有连接中的状态都映射为CONNECTING
+                    is BleState.AutoConnecting, is BleState.Connecting, is BleState.AutoReconnecting -> AppStatus.CONNECTING
                     is BleState.Connected -> AppStatus.CONNECTED
                     else -> AppStatus.DISCONNECTED
                 }
@@ -66,7 +66,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * 【新增方法】启动自动连接扫描流程
+     * 启动自动连接扫描流程
      */
     fun startAutoConnectScan(identifier: String) {
         bleService?.startAutoConnectScan(identifier)

@@ -59,6 +59,9 @@ class BleService : Service() {
     @Volatile private var isManuallyDisconnected = false
     private val isScanning = AtomicBoolean(false)
 
+    // 用于自动重连
+    private var lastConnectedDeviceId: String? = null
+
     // Public method to check connection status
     fun isDeviceConnected(): Boolean = connectedPeripheral?.state?.value is State.Connected
 
@@ -78,17 +81,18 @@ class BleService : Service() {
 
     private fun startForegroundService() {
         val channelId = "BleServiceChannel"
-        val channelName = "BLE Connection Status"
+        val channelName = "BLE 连接状态"
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val chan = NotificationChannel(channelId, channelName, NotificationManager.IMPORTANCE_LOW)
             val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             manager.createNotificationChannel(chan)
         }
 
+        // 【关键修改】通知内容中文化
         val notification = NotificationCompat.Builder(this, channelId)
-            .setContentTitle("Heart Rate Monitor")
-            .setContentText("Service is running to maintain BLE connection.")
-            .setSmallIcon(R.drawable.ic_bluetooth_connected) // Use an appropriate icon
+            .setContentTitle("心率监控器")
+            .setContentText("服务正在后台运行以保持蓝牙连接")
+            .setSmallIcon(R.drawable.ic_bluetooth_connected)
             .build()
 
         startForeground(1, notification)
@@ -125,12 +129,6 @@ class BleService : Service() {
         }
     }
 
-    /**
-     * 【新增方法】启动一个特殊的扫描，用于自动连接收藏的设备。
-     * 这个扫描会更新UI列表，并在找到目标设备后自动连接。
-     * @param favoriteDeviceId 要自动连接的设备的ID
-     * @param durationMillis 扫描的持续时间（超时）
-     */
     fun startAutoConnectScan(favoriteDeviceId: String, durationMillis: Long = 15_000L) {
         if (!isScanning.compareAndSet(false, true)) return
         stopAllBleActivities()
@@ -138,7 +136,9 @@ class BleService : Service() {
         scanJob = serviceScope.launch {
             val foundDevices = mutableSetOf<Advertisement>()
             var favoriteFound = false
-            _bleState.value = BleState.AutoConnecting
+            if (_bleState.value !is BleState.AutoReconnecting) {
+                _bleState.value = BleState.AutoConnecting
+            }
 
             try {
                 withTimeout(durationMillis) {
@@ -160,12 +160,10 @@ class BleService : Service() {
                 withContext(NonCancellable) {
                     isScanning.set(false)
                     if (favoriteFound) {
-                        // 如果找到了收藏的设备，则发起连接
                         connectToDevice(favoriteDeviceId)
                     } else {
-                        // 如果超时仍未找到
-                        if (_bleState.value is BleState.AutoConnecting) {
-                            _bleState.value = BleState.ScanFailed("自动连接失败: 未找到收藏的设备")
+                        if (_bleState.value is BleState.AutoConnecting || _bleState.value is BleState.AutoReconnecting) {
+                            _bleState.value = BleState.ScanFailed("自动连接失败: 未找到设备")
                         }
                     }
                 }
@@ -183,7 +181,11 @@ class BleService : Service() {
             try {
                 peripheral = serviceScope.peripheral(identifier)
                 connectedPeripheral = peripheral
-                _bleState.value = BleState.Connecting
+                lastConnectedDeviceId = identifier
+
+                if (_bleState.value !is BleState.AutoReconnecting) {
+                    _bleState.value = BleState.Connecting
+                }
 
                 val stateMonitor = launch {
                     peripheral.state
@@ -191,7 +193,11 @@ class BleService : Service() {
                         .collect { state ->
                             Log.d("BleService", "Filtered Connection State Changed: $state")
                             when (state) {
-                                is State.Connecting -> _bleState.value = BleState.Connecting
+                                is State.Connecting -> {
+                                    if (_bleState.value !is BleState.AutoReconnecting) {
+                                        _bleState.value = BleState.Connecting
+                                    }
+                                }
                                 is State.Connected -> {
                                     val msg = "已连接到 ${peripheral.name ?: "未知设备"}"
                                     _bleState.value = BleState.Connected(msg)
@@ -218,7 +224,10 @@ class BleService : Service() {
                     else -> "连接失败: ${e.message}"
                 }
                 Log.e("BleService", "Connection to $identifier failed", e)
-                _bleState.value = BleState.Disconnected(errorMessage)
+                if (_bleState.value !is BleState.AutoReconnecting) {
+                    _bleState.value = BleState.Disconnected(errorMessage)
+                }
+
             } finally {
                 withContext(NonCancellable) {
                     try {
@@ -226,7 +235,16 @@ class BleService : Service() {
                     } catch (e: Exception) {
                         Log.w("BleService", "Error during disconnect in finally block", e)
                     }
+
                     cleanupConnection()
+
+                    val autoReconnectEnabled = sharedPreferences.getBoolean("auto_reconnect_enabled", true)
+                    if (autoReconnectEnabled && !isManuallyDisconnected && lastConnectedDeviceId != null) {
+                        Log.d("BleService", "自动重连已触发，目标: $lastConnectedDeviceId")
+                        delay(1000) // 延迟1秒防止循环过快
+                        _bleState.value = BleState.AutoReconnecting
+                        startAutoConnectScan(lastConnectedDeviceId!!)
+                    }
                 }
             }
         }
@@ -245,11 +263,14 @@ class BleService : Service() {
 
     private fun cleanupConnection() {
         val message = if (isManuallyDisconnected) "已手动断开" else "设备连接已断开"
-        _bleState.value = BleState.Disconnected(message)
+        _heartRate.value = 0
+        if (_bleState.value !is State.Connected) {
+            _bleState.value = BleState.Disconnected(message)
+        }
         webhookManager.triggerWebhooks(WebhookTrigger.DISCONNECTED)
 
         connectedPeripheral = null
-        _heartRate.value = 0
+
     }
 
     private suspend fun observeHeartRateData(peripheral: Peripheral) {

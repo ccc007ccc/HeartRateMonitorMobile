@@ -82,6 +82,13 @@ class SettingsActivity : AppCompatActivity() {
             sharedPreferences.edit().putBoolean("auto_connect_enabled", isChecked).apply()
         }
 
+        // 【新增】自动重连开关逻辑
+        val isAutoReconnectEnabled = sharedPreferences.getBoolean("auto_reconnect_enabled", true)
+        binding.autoReconnectSwitch.isChecked = isAutoReconnectEnabled
+        binding.autoReconnectSwitch.setOnCheckedChangeListener { _, isChecked ->
+            sharedPreferences.edit().putBoolean("auto_reconnect_enabled", isChecked).apply()
+        }
+
         val isBpmTextEnabled = sharedPreferences.getBoolean("bpm_text_enabled", true)
         binding.bpmTextSwitch.isChecked = isBpmTextEnabled
         binding.bpmTextSwitch.setOnCheckedChangeListener { _, isChecked ->

@@ -10,17 +10,23 @@ import android.os.IBinder
 import android.provider.Settings
 import android.view.View
 import android.view.animation.AccelerateDecelerateInterpolator
+import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.distinctUntilChanged
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.heart_rate_monitor_mobile.R
+import com.example.heart_rate_monitor_mobile.ble.BleState
 import com.example.heart_rate_monitor_mobile.databinding.ActivityMainBinding
 import com.example.heart_rate_monitor_mobile.service.BleService
 import com.example.heart_rate_monitor_mobile.service.FloatingWindowService
 import com.example.heart_rate_monitor_mobile.ui.settings.SettingsActivity
 import com.juul.kable.Advertisement
 import com.permissionx.guolindev.PermissionX
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 import kotlin.math.absoluteValue
 
 class MainActivity : AppCompatActivity() {
@@ -32,6 +38,8 @@ class MainActivity : AppCompatActivity() {
 
     private var floatingService: FloatingWindowService? = null
     private var isFloatingServiceBound = false
+
+    private var bleService: BleService? = null
 
     private val floatingServiceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
@@ -50,14 +58,14 @@ class MainActivity : AppCompatActivity() {
     private val bleServiceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             val binder = service as BleService.LocalBinder
-            // Pass service instance to ViewModel
-            viewModel.setBleService(binder.getService())
-            setupObservers() // Observers depend on ViewModel having the service
+            bleService = binder.getService()
+            viewModel.setBleService(bleService!!)
+            setupObservers()
             checkAndStartAutoConnectScan()
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
-            // Handle service disconnection if needed
+            bleService = null
         }
     }
 
@@ -68,7 +76,6 @@ class MainActivity : AppCompatActivity() {
 
         sharedPreferences = getSharedPreferences("app_settings", Context.MODE_PRIVATE)
 
-        // Start and bind to services
         startAndBindServices()
 
         requestPermissions()
@@ -77,12 +84,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startAndBindServices() {
-        // Core BLE service
         Intent(this, BleService::class.java).also { intent ->
-            startService(intent) // Use startService to keep it running
+            startService(intent)
             bindService(intent, bleServiceConnection, Context.BIND_AUTO_CREATE)
         }
-        // Floating Window UI service
         Intent(this, FloatingWindowService::class.java).also { intent ->
             bindService(intent, floatingServiceConnection, Context.BIND_AUTO_CREATE)
         }
@@ -106,7 +111,6 @@ class MainActivity : AppCompatActivity() {
         val favoriteDeviceId = sharedPreferences.getString("favorite_device_id", null)
 
         if (isAutoConnectEnabled && favoriteDeviceId != null) {
-            // 【关键修改】调用新的自动扫描连接方法，而不是直接连接
             viewModel.startAutoConnectScan(favoriteDeviceId)
         }
     }
@@ -116,7 +120,7 @@ class MainActivity : AppCompatActivity() {
             onDeviceClick = { advertisement -> viewModel.connectToDevice(advertisement.identifier) },
             onFavoriteClick = { advertisement ->
                 viewModel.toggleFavoriteDevice(advertisement)
-                deviceAdapter.notifyDataSetChanged() // simple refresh for star
+                deviceAdapter.notifyDataSetChanged()
             },
             isFavorite = { identifier -> viewModel.isDeviceFavorite(identifier) }
         )
@@ -154,7 +158,6 @@ class MainActivity : AppCompatActivity() {
             binding.statusIcon.visibility = if (binding.statusProgressBar.visibility == View.VISIBLE) View.GONE else View.VISIBLE
             binding.scanFab.isEnabled = status == AppStatus.DISCONNECTED
             binding.scanFab.visibility = if (status == AppStatus.DISCONNECTED) View.VISIBLE else View.GONE
-            // 【关键修改】在连接中（包括自动连接）也显示列表
             val listVisible = status == AppStatus.SCANNING || status == AppStatus.DISCONNECTED || status == AppStatus.CONNECTING
             binding.devicesRecyclerView.visibility = if (listVisible) View.VISIBLE else View.GONE
             binding.deviceListTitle.visibility = if (listVisible) View.VISIBLE else View.GONE
@@ -176,9 +179,31 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+
+        // 【关键修复】移除已弃用的 .distinctUntilChanged() 调用
+        var previousBleState: BleState? = null
+        lifecycleScope.launch {
+            bleService?.bleState?.collect { state ->
+                when (state) {
+                    is BleState.Connected -> showToast("已连接")
+                    is BleState.AutoReconnecting -> showToast("连接已断开，正在尝试自动重连...")
+                    is BleState.ScanFailed -> {
+                        // 只在它是由AutoReconnecting状态转换而来时显示 "重连失败"
+                        if (previousBleState is BleState.AutoReconnecting) {
+                            showToast("重连失败")
+                        }
+                    }
+                    else -> { /* 在其他状态下不显示Toast */ }
+                }
+                previousBleState = state
+            }
+        }
     }
 
-    // ... [ All other methods like permission requests, animations, and floating window toggling remain largely the same ]
+    private fun showToast(message: String) {
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+    }
+
     private fun toggleFloatingWindow() {
         val shouldBeEnabled = !sharedPreferences.getBoolean("floating_window_enabled", false)
         if (shouldBeEnabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {

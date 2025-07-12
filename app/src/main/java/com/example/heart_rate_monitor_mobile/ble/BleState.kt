@@ -19,8 +19,10 @@ sealed class BleState(val message: String) {
 
     // 连接状态
     object Connecting : BleState("正在连接...")
-    // **【新增状态】**
+    // **【修改前为AutoConnecting】** 应用启动时的自动连接
     object AutoConnecting: BleState("正在尝试连接收藏的设备...")
+    // **【新增状态】** 意外断开后的自动重连
+    object AutoReconnecting: BleState("正在自动重连...")
     class Connected(message: String) : BleState(message)
     class Disconnected(message: String) : BleState(message)
 }

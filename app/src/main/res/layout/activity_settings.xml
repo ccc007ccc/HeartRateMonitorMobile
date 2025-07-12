@@ -5,6 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="?attr/colorSurface"
+    android:fitsSystemWindows="true"
     tools:context=".ui.settings.SettingsActivity">
 
     <com.google.android.material.appbar.AppBarLayout
@@ -90,7 +91,7 @@
                         <ImageView
                             android:layout_width="24dp"
                             android:layout_height="24dp"
-                            android:src="@drawable/ic_auto_connect"
+                            android:src="@drawable/ic_star_filled"
                             app:tint="?attr/colorOnSurfaceVariant" />
                         <TextView
                             android:layout_width="0dp"
@@ -101,6 +102,35 @@
                             android:textAppearance="?attr/textAppearanceBodyLarge" />
                         <com.google.android.material.materialswitch.MaterialSwitch
                             android:id="@+id/autoConnectSwitch"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content" />
+                    </LinearLayout>
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginStart="56dp"
+                        android:background="?attr/colorSurfaceContainerHighest" />
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:minHeight="64dp"
+                        android:orientation="horizontal"
+                        android:padding="16dp">
+                        <ImageView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:src="@drawable/ic_auto_connect"
+                            app:tint="?attr/colorOnSurfaceVariant" />
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="16dp"
+                            android:layout_weight="1"
+                            android:text="自动重连"
+                            android:textAppearance="?attr/textAppearanceBodyLarge" />
+                        <com.google.android.material.materialswitch.MaterialSwitch
+                            android:id="@+id/autoReconnectSwitch"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content" />
                     </LinearLayout>
