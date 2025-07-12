@@ -1,4 +1,4 @@
-package com.example.heart_rate_monitor_mobile
+package com.example.heart_rate_monitor_mobile.data
 
 import android.util.Log
 import org.json.JSONArray

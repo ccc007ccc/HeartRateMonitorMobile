@@ -4,7 +4,8 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".MainActivity">
+    android:fitsSystemWindows="true"
+    tools:context=".ui.main.MainActivity">
 
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
@@ -64,7 +65,6 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         app:layout_behavior="@string/appbar_scrolling_view_behavior"
-
         android:clipToPadding="false">
 
         <LinearLayout
@@ -73,7 +73,6 @@
             android:orientation="vertical"
             android:paddingTop="16dp"
             android:paddingBottom="16dp"
-
             android:clipToPadding="false">
 
             <androidx.constraintlayout.widget.ConstraintLayout
@@ -140,7 +139,6 @@
                 android:orientation="horizontal"
                 android:paddingHorizontal="16dp"
                 android:paddingVertical="12dp"
-
                 android:layout_marginStart="16dp"
                 android:layout_marginEnd="16dp">
 
@@ -181,7 +179,6 @@
                 android:layout_marginStart="16dp"
                 android:layout_marginEnd="16dp"
                 android:text="可连接的设备"
-
                 android:textSize="18sp"
                 android:textStyle="bold" />
 
@@ -205,8 +202,7 @@
         android:layout_margin="16dp"
         android:contentDescription="扫描设备"
         android:src="@drawable/ic_search"
-
-        app:backgroundTint="?attr/colorOnPrimary"
-        app:tint="?attr/colorPrimary" />
+        app:backgroundTint="@color/fab_background_selector"
+        app:tint="@color/fab_tint_selector" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

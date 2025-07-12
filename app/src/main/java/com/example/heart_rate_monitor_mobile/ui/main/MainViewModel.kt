@@ -1,11 +1,18 @@
-package com.example.heart_rate_monitor_mobile
+package com.example.heart_rate_monitor_mobile.ui.main
 
 import android.app.Application
 import androidx.lifecycle.*
+import com.example.heart_rate_monitor_mobile.ble.BleState
+import com.example.heart_rate_monitor_mobile.service.BleService
 import com.juul.kable.Advertisement
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 enum class AppStatus {
-    DISCONNECTED, // 包括空闲、扫描结束、连接失败等
+    DISCONNECTED,
     SCANNING,
     CONNECTING,
     CONNECTED
@@ -13,52 +20,67 @@ enum class AppStatus {
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
-    // LiveData 用于驱动UI更新
-    private val _scanResults = MutableLiveData<List<Advertisement>>(emptyList())
-    val scanResults: LiveData<List<Advertisement>> get() = _scanResults
+    private val sharedPrefs = application.getSharedPreferences("app_settings", Application.MODE_PRIVATE)
+    private var bleService: BleService? = null
 
-    private val _statusMessage = MutableLiveData<String>("点击右下角按钮扫描设备")
+    // --- LiveData derived from Service's StateFlow ---
+    private val _statusMessage = MutableLiveData("Click button below to scan")
     val statusMessage: LiveData<String> get() = _statusMessage
 
-    private val _heartRate = MutableLiveData<Int>(0)
-    val heartRate: LiveData<Int> get() = _heartRate
-
-    private val _appStatus = MutableLiveData<AppStatus>(AppStatus.DISCONNECTED)
+    private val _appStatus = MutableLiveData(AppStatus.DISCONNECTED)
     val appStatus: LiveData<AppStatus> get() = _appStatus
 
-    private val sharedPrefs = application.getSharedPreferences("app_settings", Application.MODE_PRIVATE)
+    // Late-init properties for Flows that depend on the service
+    lateinit var heartRate: LiveData<Int>
+    lateinit var scanResults: LiveData<List<Advertisement>>
 
-    // --- 公开的状态更新方法 ---
-    fun updateHeartRate(rate: Int) {
-        _heartRate.postValue(rate)
+    fun setBleService(service: BleService) {
+        this.bleService = service
+
+        // Now that the service is available, initialize the LiveData streams
+        initializeDataStreams(service)
     }
 
-    fun updateAppStatus(status: AppStatus) {
-        // 当进入扫描状态时，清空上一次的列表
-        if (status == AppStatus.SCANNING) {
-            _scanResults.value = emptyList()
+    private fun initializeDataStreams(service: BleService) {
+        heartRate = service.heartRate.asLiveData()
+
+        scanResults = service.scanResults.asLiveData()
+
+        viewModelScope.launch {
+            service.bleState.collect { state ->
+                _statusMessage.value = state.message
+                _appStatus.value = when (state) {
+                    is BleState.Scanning -> AppStatus.SCANNING
+                    // 【关键修改】将 AutoConnecting 状态映射到 CONNECTING UI状态
+                    is BleState.AutoConnecting, is BleState.Connecting -> AppStatus.CONNECTING
+                    is BleState.Connected -> AppStatus.CONNECTED
+                    else -> AppStatus.DISCONNECTED
+                }
+            }
         }
-        _appStatus.postValue(status)
     }
 
-    fun updateStatusMessage(message: String) {
-        _statusMessage.postValue(message)
+    // --- Actions delegated to the service ---
+    fun startScan() {
+        bleService?.startScan()
     }
 
-    // --- 扫描结果列表管理 ---
-    fun addScanResult(advertisement: Advertisement) {
-        val currentList = _scanResults.value?.toMutableList() ?: mutableListOf()
-        if (currentList.none { it.identifier == advertisement.identifier }) {
-            currentList.add(advertisement)
-            _scanResults.postValue(currentList)
-        }
+    /**
+     * 【新增方法】启动自动连接扫描流程
+     */
+    fun startAutoConnectScan(identifier: String) {
+        bleService?.startAutoConnectScan(identifier)
     }
 
-    fun clearScanResults() {
-        _scanResults.postValue(emptyList())
+    fun connectToDevice(identifier: String) {
+        bleService?.connectToDevice(identifier)
     }
 
-    // --- 收藏夹功能 ---
+    fun disconnectDevice() {
+        bleService?.disconnectDevice()
+    }
+
+    // --- Favorite device logic ---
     fun isDeviceFavorite(identifier: String): Boolean {
         return sharedPrefs.getString("favorite_device_id", null) == identifier
     }

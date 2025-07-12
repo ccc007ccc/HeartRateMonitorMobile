@@ -1,7 +1,9 @@
-package com.example.heart_rate_monitor_mobile
+package com.example.heart_rate_monitor_mobile.ui.webhook
 
 import android.content.Context
 import android.util.Log
+import com.example.heart_rate_monitor_mobile.data.Webhook
+import com.example.heart_rate_monitor_mobile.data.WebhookTrigger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -113,7 +115,7 @@ class WebhookManager(private val context: Context) {
             val jsonArray = JSONArray(jsonString)
             val webhooks = mutableListOf<Webhook>()
             for (i in 0 until jsonArray.length()) {
-                webhooks.add(Webhook.fromJson(jsonArray.getJSONObject(i)))
+                webhooks.add(Webhook.Companion.fromJson(jsonArray.getJSONObject(i)))
             }
             webhooks
         } catch (e: Exception) {

@@ -1,4 +1,4 @@
-package com.example.heart_rate_monitor_mobile
+package com.example.heart_rate_monitor_mobile.ui.webhook
 
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -9,6 +9,9 @@ import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.example.heart_rate_monitor_mobile.R
+import com.example.heart_rate_monitor_mobile.data.Webhook
+import com.example.heart_rate_monitor_mobile.data.WebhookTrigger
 import com.example.heart_rate_monitor_mobile.databinding.ActivityWebhookBinding
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.switchmaterial.SwitchMaterial

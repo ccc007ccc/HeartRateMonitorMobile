@@ -1,4 +1,4 @@
-package com.example.heart_rate_monitor_mobile
+package com.example.heart_rate_monitor_mobile.ui.main
 
 import android.content.Context
 import android.graphics.Color
@@ -8,6 +8,7 @@ import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import com.example.heart_rate_monitor_mobile.R
 import com.example.heart_rate_monitor_mobile.databinding.ListItemDeviceBinding
 import com.juul.kable.Advertisement
 

@@ -1,4 +1,4 @@
-package com.example.heart_rate_monitor_mobile
+package com.example.heart_rate_monitor_mobile.ble
 
 import com.juul.kable.Advertisement
 
@@ -19,6 +19,8 @@ sealed class BleState(val message: String) {
 
     // 连接状态
     object Connecting : BleState("正在连接...")
+    // **【新增状态】**
+    object AutoConnecting: BleState("正在尝试连接收藏的设备...")
     class Connected(message: String) : BleState(message)
     class Disconnected(message: String) : BleState(message)
 }

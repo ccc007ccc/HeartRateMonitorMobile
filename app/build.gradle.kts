@@ -15,12 +15,12 @@ android {
         }
     }
     namespace = "com.example.heart_rate_monitor_mobile"
-    compileSdk = 36
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.example.heart_rate_monitor_mobile"
         minSdk = 27
-        targetSdk = 34
+        targetSdk = 35
         versionCode = 1
         versionName = "1.2"
 

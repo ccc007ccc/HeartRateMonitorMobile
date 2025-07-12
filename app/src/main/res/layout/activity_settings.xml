@@ -5,7 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="?attr/colorSurface"
-    tools:context=".SettingsActivity">
+    tools:context=".ui.settings.SettingsActivity">
 
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
@@ -97,7 +97,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginStart="16dp"
                             android:layout_weight="1"
-                            android:text="自动连接收藏的设备"
+                            android:text="启动时自动连接收藏的设备"
                             android:textAppearance="?attr/textAppearanceBodyLarge" />
                         <com.google.android.material.materialswitch.MaterialSwitch
                             android:id="@+id/autoConnectSwitch"

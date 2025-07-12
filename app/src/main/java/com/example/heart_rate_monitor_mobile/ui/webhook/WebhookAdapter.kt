@@ -1,8 +1,9 @@
-package com.example.heart_rate_monitor_mobile
+package com.example.heart_rate_monitor_mobile.ui.webhook
 
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
+import com.example.heart_rate_monitor_mobile.data.Webhook
 import com.example.heart_rate_monitor_mobile.databinding.ListItemWebhookBinding
 
 class WebhookAdapter(

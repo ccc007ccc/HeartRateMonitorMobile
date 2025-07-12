@@ -1,7 +1,6 @@
-package com.example.heart_rate_monitor_mobile
+package com.example.heart_rate_monitor_mobile.ble
 
 import com.juul.kable.Filter
-import com.juul.kable.peripheral
 
 
 object BleConstants {
