@@ -58,7 +58,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:hint="URL (心率刷新时支持 {bpm} 占位符)">
+            android:hint="URL">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/webhookUrlEditText"
@@ -70,7 +70,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:hint="Body (JSON, 心率刷新时支持 {bpm} 占位符)">
+            android:hint="Body (JSON)">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/webhookBodyEditText"
@@ -85,7 +85,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:hint="Headers (JSON, 心率刷新时支持 {bpm} 占位符)">
+            android:hint="Headers (JSON)">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/webhookHeadersEditText"

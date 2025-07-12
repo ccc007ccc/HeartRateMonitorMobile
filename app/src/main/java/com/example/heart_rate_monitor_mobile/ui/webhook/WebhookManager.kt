@@ -45,9 +45,12 @@ class WebhookManager(private val context: Context) {
     private suspend fun sendRequest(webhook: Webhook, heartRate: Int, trigger: WebhookTrigger, isTest: Boolean = false): String {
         return withContext(Dispatchers.IO) {
             val bpm = heartRate.toString()
-            val urlString = if (trigger == WebhookTrigger.HEART_RATE_UPDATED) webhook.url.replace("{bpm}", bpm) else webhook.url
-            val bodyString = if (trigger == WebhookTrigger.HEART_RATE_UPDATED) webhook.body.replace("{bpm}", bpm) else webhook.body
-            val headersString = if (trigger == WebhookTrigger.HEART_RATE_UPDATED) webhook.headers.replace("{bpm}", bpm) else webhook.headers
+            // 检查触发器是否需要替换 {bpm} 占位符
+            val shouldReplaceBpm = trigger == WebhookTrigger.HEART_RATE_UPDATED || trigger == WebhookTrigger.DISCONNECTED
+            val urlString = if (shouldReplaceBpm) webhook.url.replace("{bpm}", bpm) else webhook.url
+            val bodyString = if (shouldReplaceBpm) webhook.body.replace("{bpm}", bpm) else webhook.body
+            val headersString = if (shouldReplaceBpm) webhook.headers.replace("{bpm}", bpm) else webhook.headers
+
 
             var connection: HttpURLConnection? = null
             try {

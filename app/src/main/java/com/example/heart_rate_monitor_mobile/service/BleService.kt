@@ -264,11 +264,12 @@ class BleService : Service() {
 
     private fun cleanupConnection() {
         val message = if (isManuallyDisconnected) "已手动断开" else "设备连接已断开"
-        _heartRate.value = 0
         if (_bleState.value !is State.Connected) {
             _bleState.value = BleState.Disconnected(message)
         }
-        webhookManager.triggerWebhooks(WebhookTrigger.DISCONNECTED)
+        // 使用最后一次的心率值触发断开连接的 Webhook
+        webhookManager.triggerWebhooks(WebhookTrigger.DISCONNECTED, _heartRate.value)
+        _heartRate.value = 0
         broadcastWebSocketState()
 
         connectedPeripheral = null
