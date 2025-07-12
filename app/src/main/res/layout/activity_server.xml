@@ -33,6 +33,15 @@
             android:orientation="vertical"
             android:padding="16dp">
 
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_marginBottom="8dp"
+                android:text="HTTP 服务器 (被动拉取)"
+                android:textAppearance="?attr/textAppearanceTitleSmall"
+                android:textColor="?attr/colorPrimary" />
+
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -82,6 +91,65 @@
             </com.google.android.material.card.MaterialCardView>
 
             <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="8dp"
+                android:text="WebSocket 服务器 (主动推送)"
+                android:textAppearance="?attr/textAppearanceTitleSmall"
+                android:textColor="?attr/colorPrimary" />
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:cardBackgroundColor="?attr/colorSurfaceContainer"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                app:strokeWidth="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="启用 WebSocket 服务器"
+                            android:textAppearance="?attr/textAppearanceBodyLarge" />
+
+                        <com.google.android.material.materialswitch.MaterialSwitch
+                            android:id="@+id/websocketSwitch"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content" />
+                    </LinearLayout>
+
+                    <TextView
+                        style="@style/SettingsSubLabel"
+                        android:text="WebSocket 服务器端口" />
+
+                    <EditText
+                        android:id="@+id/websocketPortEditText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="8001"
+                        android:inputType="number"
+                        android:maxLength="5" />
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+
+            <TextView
                 android:id="@+id/serverStatusTitle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -122,6 +190,25 @@
                         android:textAppearance="?attr/textAppearanceBodyMedium"
                         android:textColor="?attr/colorOnSurfaceVariant"
                         tools:text="访问地址: http://192.168.1.100:8000/heartrate" />
+
+                    <TextView
+                        android:id="@+id/websocketStatusText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:textAppearance="?attr/textAppearanceBodyLarge"
+                        tools:text="WebSocket 未运行" />
+
+                    <TextView
+                        android:id="@+id/websocketAddressText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:autoLink="web"
+                        android:textAppearance="?attr/textAppearanceBodyMedium"
+                        android:textColor="?attr/colorOnSurfaceVariant"
+                        tools:text="访问地址: ws://192.168.1.100:8001" />
+
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
         </LinearLayout>

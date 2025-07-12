@@ -15,8 +15,11 @@ class ServerActivity : AppCompatActivity() {
 
     // 监听设置变化，实时更新UI
     private val settingsChangeListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-        if (key == "http_server_enabled" || key == "http_server_port") {
-            updateServerStatusUI()
+        when (key) {
+            "http_server_enabled", "http_server_port",
+            "websocket_server_enabled", "websocket_server_port" -> {
+                updateServerStatusUI()
+            }
         }
     }
 
@@ -42,15 +45,14 @@ class ServerActivity : AppCompatActivity() {
     }
 
     private fun setupViews() {
-        val isServerEnabled = sharedPreferences.getBoolean("http_server_enabled", false)
-        val port = sharedPreferences.getInt("http_server_port", 8000)
-
-        binding.serverSwitch.isChecked = isServerEnabled
-        binding.portEditText.setText(port.toString())
-        binding.portEditText.isEnabled = !isServerEnabled
+        // HTTP Server
+        val isHttpServerEnabled = sharedPreferences.getBoolean("http_server_enabled", false)
+        val httpPort = sharedPreferences.getInt("http_server_port", 8000)
+        binding.serverSwitch.isChecked = isHttpServerEnabled
+        binding.portEditText.setText(httpPort.toString())
+        binding.portEditText.isEnabled = !isHttpServerEnabled
 
         binding.serverSwitch.setOnCheckedChangeListener { _, isChecked ->
-            // 只更新SharedPreferences，服务会自动响应
             sharedPreferences.edit().putBoolean("http_server_enabled", isChecked).apply()
             binding.portEditText.isEnabled = !isChecked
         }
@@ -58,8 +60,30 @@ class ServerActivity : AppCompatActivity() {
         binding.portEditText.setOnEditorActionListener { v, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_DONE) {
                 val newPort = v.text.toString().toIntOrNull() ?: 8000
-                // 只更新SharedPreferences，服务会自动响应
                 sharedPreferences.edit().putInt("http_server_port", newPort).apply()
+                v.clearFocus()
+                true
+            } else {
+                false
+            }
+        }
+
+        // WebSocket Server
+        val isWebSocketEnabled = sharedPreferences.getBoolean("websocket_server_enabled", false)
+        val websocketPort = sharedPreferences.getInt("websocket_server_port", 8001)
+        binding.websocketSwitch.isChecked = isWebSocketEnabled
+        binding.websocketPortEditText.setText(websocketPort.toString())
+        binding.websocketPortEditText.isEnabled = !isWebSocketEnabled
+
+        binding.websocketSwitch.setOnCheckedChangeListener { _, isChecked ->
+            sharedPreferences.edit().putBoolean("websocket_server_enabled", isChecked).apply()
+            binding.websocketPortEditText.isEnabled = !isChecked
+        }
+
+        binding.websocketPortEditText.setOnEditorActionListener { v, actionId, _ ->
+            if (actionId == EditorInfo.IME_ACTION_DONE) {
+                val newPort = v.text.toString().toIntOrNull() ?: 8001
+                sharedPreferences.edit().putInt("websocket_server_port", newPort).apply()
                 v.clearFocus()
                 true
             } else {
@@ -70,16 +94,29 @@ class ServerActivity : AppCompatActivity() {
 
     // 更新UI，显示服务器的当前状态和访问地址
     private fun updateServerStatusUI() {
-        val isEnabled = sharedPreferences.getBoolean("http_server_enabled", false)
-        if (isEnabled) {
-            val wifiManager = applicationContext.getSystemService(WIFI_SERVICE) as WifiManager
-            val ipAddress = Formatter.formatIpAddress(wifiManager.connectionInfo.ipAddress)
+        val wifiManager = applicationContext.getSystemService(WIFI_SERVICE) as WifiManager
+        val ipAddress = Formatter.formatIpAddress(wifiManager.connectionInfo.ipAddress)
+
+        // HTTP Server Status
+        val isHttpEnabled = sharedPreferences.getBoolean("http_server_enabled", false)
+        if (isHttpEnabled) {
             val port = sharedPreferences.getInt("http_server_port", 8000)
-            binding.serverStatusText.text = "服务器已启用"
+            binding.serverStatusText.text = "HTTP 服务器已启用"
             binding.serverAddressText.text = "访问地址: http://$ipAddress:$port/heartrate"
         } else {
-            binding.serverStatusText.text = "服务器已禁用"
+            binding.serverStatusText.text = "HTTP 服务器已禁用"
             binding.serverAddressText.text = ""
+        }
+
+        // WebSocket Server Status
+        val isWebSocketEnabled = sharedPreferences.getBoolean("websocket_server_enabled", false)
+        if (isWebSocketEnabled) {
+            val port = sharedPreferences.getInt("websocket_server_port", 8001)
+            binding.websocketStatusText.text = "WebSocket 服务器已启用"
+            binding.websocketAddressText.text = "访问地址: ws://$ipAddress:$port"
+        } else {
+            binding.websocketStatusText.text = "WebSocket 服务器已禁用"
+            binding.websocketAddressText.text = ""
         }
     }
 

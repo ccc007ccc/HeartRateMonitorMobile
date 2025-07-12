@@ -56,13 +56,12 @@ class BleService : Service() {
     private var connectionJob: Job? = null
     private var scanJob: Job? = null
     private var httpServer: HttpServer? = null
+    private var webSocketServer: WebSocketServerManager? = null
     @Volatile private var isManuallyDisconnected = false
     private val isScanning = AtomicBoolean(false)
 
-    // 用于自动重连
     private var lastConnectedDeviceId: String? = null
 
-    // Public method to check connection status
     fun isDeviceConnected(): Boolean = connectedPeripheral?.state?.value is State.Connected
 
     override fun onCreate() {
@@ -77,6 +76,9 @@ class BleService : Service() {
         if (sharedPreferences.getBoolean("http_server_enabled", false)) {
             startHttpServer()
         }
+        if (sharedPreferences.getBoolean("websocket_server_enabled", false)) {
+            startWebSocketServer()
+        }
     }
 
     private fun startForegroundService() {
@@ -88,7 +90,6 @@ class BleService : Service() {
             manager.createNotificationChannel(chan)
         }
 
-        // 【关键修改】通知内容中文化
         val notification = NotificationCompat.Builder(this, channelId)
             .setContentTitle("心率监控器")
             .setContentText("服务正在后台运行以保持蓝牙连接")
@@ -110,7 +111,6 @@ class BleService : Service() {
                 _bleState.value = BleState.Scanning
                 withTimeout(durationMillis) {
                     bleManager.scan().collect { advertisement ->
-                        // Add to a temporary set to handle duplicates from the flow
                         if (foundDevices.none { it.identifier == advertisement.identifier }) {
                             foundDevices.add(advertisement)
                             _scanResults.value = foundDevices.toList()
@@ -150,12 +150,12 @@ class BleService : Service() {
 
                         if (advertisement.identifier == favoriteDeviceId) {
                             favoriteFound = true
-                            this.coroutineContext.job.cancel() // 找到设备，停止扫描
+                            this.coroutineContext.job.cancel()
                         }
                     }
                 }
             } catch (e: Exception) {
-                // 忽略超时或取消异常，这是停止扫描的预期方式
+                // Ignore timeout or cancellation
             } finally {
                 withContext(NonCancellable) {
                     isScanning.set(false)
@@ -202,6 +202,7 @@ class BleService : Service() {
                                     val msg = "已连接到 ${peripheral.name ?: "未知设备"}"
                                     _bleState.value = BleState.Connected(msg)
                                     webhookManager.triggerWebhooks(WebhookTrigger.CONNECTED)
+                                    broadcastWebSocketState()
                                     launch { observeHeartRateData(peripheral) }
                                 }
                                 is State.Disconnecting -> _bleState.value = BleState.Disconnected("正在断开...")
@@ -241,7 +242,7 @@ class BleService : Service() {
                     val autoReconnectEnabled = sharedPreferences.getBoolean("auto_reconnect_enabled", true)
                     if (autoReconnectEnabled && !isManuallyDisconnected && lastConnectedDeviceId != null) {
                         Log.d("BleService", "自动重连已触发，目标: $lastConnectedDeviceId")
-                        delay(1000) // 延迟1秒防止循环过快
+                        delay(1000)
                         _bleState.value = BleState.AutoReconnecting
                         startAutoConnectScan(lastConnectedDeviceId!!)
                     }
@@ -268,9 +269,9 @@ class BleService : Service() {
             _bleState.value = BleState.Disconnected(message)
         }
         webhookManager.triggerWebhooks(WebhookTrigger.DISCONNECTED)
+        broadcastWebSocketState()
 
         connectedPeripheral = null
-
     }
 
     private suspend fun observeHeartRateData(peripheral: Peripheral) {
@@ -279,6 +280,7 @@ class BleService : Service() {
                 if (rate != _heartRate.value) {
                     _heartRate.value = rate
                     webhookManager.triggerWebhooks(WebhookTrigger.HEART_RATE_UPDATED, rate)
+                    broadcastWebSocketState()
                 }
             }
         } catch (e: Exception) {
@@ -286,10 +288,24 @@ class BleService : Service() {
         }
     }
 
+    private fun broadcastWebSocketState() {
+        if (webSocketServer == null || !sharedPreferences.getBoolean("websocket_server_enabled", false)) return
+
+        val json = JSONObject().apply {
+            put("heart_rate", _heartRate.value)
+            put("connected", isDeviceConnected())
+            put("status", _bleState.value.message)
+            put("timestamp", System.currentTimeMillis())
+        }
+        webSocketServer?.broadcastMessage(json.toString()) // <-- 已更新调用
+    }
+
     private val settingsChangeListener = SharedPreferences.OnSharedPreferenceChangeListener { prefs, key ->
         when (key) {
             "http_server_enabled" -> if (prefs.getBoolean(key, false)) startHttpServer() else stopHttpServer()
             "http_server_port" -> if (prefs.getBoolean("http_server_enabled", false)) restartHttpServer()
+            "websocket_server_enabled" -> if (prefs.getBoolean(key, false)) startWebSocketServer() else stopWebSocketServer()
+            "websocket_server_port" -> if (prefs.getBoolean("websocket_server_enabled", false)) restartWebSocketServer()
         }
     }
 
@@ -319,6 +335,28 @@ class BleService : Service() {
         startHttpServer()
     }
 
+    private fun startWebSocketServer() {
+        if (webSocketServer == null) {
+            val port = sharedPreferences.getInt("websocket_server_port", 8001)
+            try {
+                webSocketServer = WebSocketServerManager(port)
+                webSocketServer?.start()
+            } catch (e: Exception) {
+                Log.e("BleService", "WebSocket Server start failed", e)
+            }
+        }
+    }
+
+    private fun stopWebSocketServer() {
+        webSocketServer?.stopServer()
+        webSocketServer = null
+    }
+
+    private fun restartWebSocketServer() {
+        stopWebSocketServer()
+        startWebSocketServer()
+    }
+
     private inner class HttpServer(port: Int) : NanoHTTPD(port) {
         override fun serve(session: IHTTPSession?): Response {
             if (session?.method == Method.GET && session.uri == "/heartrate") {
@@ -336,6 +374,7 @@ class BleService : Service() {
         super.onDestroy()
         serviceScope.cancel()
         stopHttpServer()
+        stopWebSocketServer()
         sharedPreferences.unregisterOnSharedPreferenceChangeListener(settingsChangeListener)
     }
 }
