@@ -42,6 +42,8 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun setupClickListeners() {
+        binding.toolbar.setNavigationOnClickListener { onBackPressedDispatcher.onBackPressed() }
+
         binding.githubLink.setOnClickListener {
             val intent = Intent(
                 Intent.ACTION_VIEW,
@@ -70,6 +72,13 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun setupSwitches() {
+        // 心率记录功能开关
+        val isHistoryRecordingEnabled = sharedPreferences.getBoolean("history_recording_enabled", true)
+        binding.historyRecordingSwitch.isChecked = isHistoryRecordingEnabled
+        binding.historyRecordingSwitch.setOnCheckedChangeListener { _, isChecked ->
+            sharedPreferences.edit().putBoolean("history_recording_enabled", isChecked).apply()
+        }
+
         val isAnimationEnabled = sharedPreferences.getBoolean("heartbeat_animation_enabled", true)
         binding.heartbeatAnimationSwitch.isChecked = isAnimationEnabled
         binding.heartbeatAnimationSwitch.setOnCheckedChangeListener { _, isChecked ->
@@ -82,7 +91,6 @@ class SettingsActivity : AppCompatActivity() {
             sharedPreferences.edit().putBoolean("auto_connect_enabled", isChecked).apply()
         }
 
-        // 【新增】自动重连开关逻辑
         val isAutoReconnectEnabled = sharedPreferences.getBoolean("auto_reconnect_enabled", true)
         binding.autoReconnectSwitch.isChecked = isAutoReconnectEnabled
         binding.autoReconnectSwitch.setOnCheckedChangeListener { _, isChecked ->
@@ -122,16 +130,12 @@ class SettingsActivity : AppCompatActivity() {
         updateColorPreviews()
     }
 
-    /**
-     * 【核心修正】使用 skydoves/ColorPickerView 库来创建颜色选择器
-     */
     private fun showColorPicker(prefKey: String, title: String, defaultColor: Int) {
         ColorPickerDialog.Builder(this)
             .setTitle(title)
             .setPreferenceName("ColorPickerDialog")
-            // **【关键修复】** attachBrightnessSlideBar(true) 启用亮度滑块
             .attachBrightnessSlideBar(true)
-            .attachAlphaSlideBar(false) // 我们不需要透明度滑块，使用 SeekBar 控制
+            .attachAlphaSlideBar(false)
             .setPositiveButton("确定", object : ColorEnvelopeListener {
                 override fun onColorSelected(envelope: ColorEnvelope?, fromUser: Boolean) {
                     envelope?.let {

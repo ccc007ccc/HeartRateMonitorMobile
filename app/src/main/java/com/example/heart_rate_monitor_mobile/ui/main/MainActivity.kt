@@ -3,6 +3,7 @@ package com.example.heart_rate_monitor_mobile.ui.main
 import android.Manifest
 import android.animation.ValueAnimator
 import android.content.*
+import android.graphics.Color
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -14,7 +15,6 @@ import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.distinctUntilChanged
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.heart_rate_monitor_mobile.R
@@ -22,11 +22,18 @@ import com.example.heart_rate_monitor_mobile.ble.BleState
 import com.example.heart_rate_monitor_mobile.databinding.ActivityMainBinding
 import com.example.heart_rate_monitor_mobile.service.BleService
 import com.example.heart_rate_monitor_mobile.service.FloatingWindowService
+import com.example.heart_rate_monitor_mobile.ui.history.HistoryActivity
 import com.example.heart_rate_monitor_mobile.ui.settings.SettingsActivity
+import com.github.mikephil.charting.charts.LineChart
+import com.github.mikephil.charting.components.XAxis
+import com.github.mikephil.charting.data.Entry
+import com.github.mikephil.charting.data.LineData
+import com.github.mikephil.charting.data.LineDataSet
+import com.github.mikephil.charting.formatter.ValueFormatter
 import com.juul.kable.Advertisement
 import com.permissionx.guolindev.PermissionX
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
+import java.util.concurrent.TimeUnit
 import kotlin.math.absoluteValue
 
 class MainActivity : AppCompatActivity() {
@@ -40,6 +47,9 @@ class MainActivity : AppCompatActivity() {
     private var isFloatingServiceBound = false
 
     private var bleService: BleService? = null
+
+    private lateinit var realtimeChart: LineChart
+    private var chartStartTime = 0L
 
     private val floatingServiceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
@@ -74,6 +84,9 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        realtimeChart = binding.realtimeChart
+        setupRealtimeChart()
+
         sharedPreferences = getSharedPreferences("app_settings", Context.MODE_PRIVATE)
 
         startAndBindServices()
@@ -96,6 +109,8 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         updateFloatingWindowUi(sharedPreferences.getBoolean("floating_window_enabled", false))
+        // 每次返回主页时，重新检查一次图表可见性
+        viewModel.appStatus.value?.let { updateUiByStatus(it) }
     }
 
     override fun onDestroy() {
@@ -136,6 +151,79 @@ class MainActivity : AppCompatActivity() {
         binding.disconnectButton.setOnClickListener { viewModel.disconnectDevice() }
         binding.settingsButton.setOnClickListener { startActivity(Intent(this, SettingsActivity::class.java)) }
         binding.floatingWindowButton.setOnClickListener { toggleFloatingWindow() }
+        binding.historyCard.setOnClickListener {
+            startActivity(Intent(this, HistoryActivity::class.java))
+        }
+    }
+
+    private fun setupRealtimeChart() {
+        realtimeChart.apply {
+            description.isEnabled = false
+            setTouchEnabled(true)
+            isDragEnabled = true
+            setScaleEnabled(true)
+            setDrawGridBackground(false)
+            setPinchZoom(true)
+            setBackgroundColor(Color.TRANSPARENT)
+
+            data = LineData()
+
+            legend.isEnabled = false
+
+            xAxis.position = XAxis.XAxisPosition.BOTTOM
+            xAxis.textColor = ContextCompat.getColor(this@MainActivity, R.color.on_surface_variant_light)
+            xAxis.setDrawGridLines(false)
+            xAxis.setAvoidFirstLastClipping(true)
+            xAxis.valueFormatter = object : ValueFormatter() {
+                override fun getFormattedValue(value: Float): String {
+                    val minutes = TimeUnit.SECONDS.toMinutes(value.toLong())
+                    val seconds = value.toLong() % 60
+                    return String.format("%02d:%02d", minutes, seconds)
+                }
+            }
+
+            axisLeft.textColor = ContextCompat.getColor(this@MainActivity, R.color.on_surface_variant_light)
+            axisLeft.setDrawGridLines(true)
+            axisRight.isEnabled = false
+        }
+    }
+
+    private fun addChartEntry(rate: Int) {
+        val data = realtimeChart.data
+        if (data != null) {
+            var set = data.getDataSetByIndex(0)
+            if (set == null) {
+                set = createChartDataSet()
+                data.addDataSet(set)
+            }
+
+            val timeDiffSeconds = (System.currentTimeMillis() - chartStartTime) / 1000f
+            data.addEntry(Entry(timeDiffSeconds, rate.toFloat()), 0)
+            data.notifyDataChanged()
+
+            realtimeChart.notifyDataSetChanged()
+            realtimeChart.setVisibleXRangeMaximum(60f)
+            realtimeChart.moveViewToX(data.entryCount.toFloat())
+        }
+    }
+
+    private fun createChartDataSet(): LineDataSet {
+        val set = LineDataSet(null, "Heart Rate")
+        set.mode = LineDataSet.Mode.CUBIC_BEZIER
+        set.color = ContextCompat.getColor(this, R.color.primary_light)
+        set.lineWidth = 2f
+        set.setDrawCircles(false)
+        set.setDrawValues(false)
+        set.setDrawFilled(true)
+        set.fillDrawable = ContextCompat.getDrawable(this, R.drawable.background_heart_rate_connected)
+        set.fillAlpha = 85
+        return set
+    }
+
+    private fun clearChart() {
+        realtimeChart.data?.clearValues()
+        realtimeChart.notifyDataSetChanged()
+        realtimeChart.invalidate()
     }
 
     private fun setupObservers() {
@@ -151,36 +239,16 @@ class MainActivity : AppCompatActivity() {
         viewModel.heartRate.observe(this) { rate ->
             binding.heartRateTextView.text = if (rate > 0) "$rate" else "--"
             updateHeartbeatAnimation(rate)
-        }
-
-        viewModel.appStatus.observe(this) { status ->
-            binding.statusProgressBar.visibility = if (status == AppStatus.SCANNING || status == AppStatus.CONNECTING) View.VISIBLE else View.GONE
-            binding.statusIcon.visibility = if (binding.statusProgressBar.visibility == View.VISIBLE) View.GONE else View.VISIBLE
-            binding.scanFab.isEnabled = status == AppStatus.DISCONNECTED
-            binding.scanFab.visibility = if (status == AppStatus.DISCONNECTED) View.VISIBLE else View.GONE
-            val listVisible = status == AppStatus.SCANNING || status == AppStatus.DISCONNECTED || status == AppStatus.CONNECTING
-            binding.devicesRecyclerView.visibility = if (listVisible) View.VISIBLE else View.GONE
-            binding.deviceListTitle.visibility = if (listVisible) View.VISIBLE else View.GONE
-            binding.disconnectButton.visibility = if (status == AppStatus.CONNECTED) View.VISIBLE else View.GONE
-
-            when (status) {
-                AppStatus.CONNECTED -> {
-                    binding.heartRateCard.background = ContextCompat.getDrawable(this, R.drawable.background_heart_rate_connected)
-                    binding.heartIcon.text = "❤️"
-                    binding.statusIcon.setImageResource(R.drawable.ic_bluetooth_connected)
-                    binding.statusIcon.setColorFilter(ContextCompat.getColor(this, R.color.primary_light))
-                }
-                else -> {
-                    binding.heartRateCard.background = ContextCompat.getDrawable(this, R.drawable.background_heart_rate_disconnected)
-                    binding.heartIcon.text = "💔"
-                    binding.statusIcon.setImageResource(R.drawable.ic_bluetooth_disabled)
-                    binding.statusIcon.setColorFilter(ContextCompat.getColor(this, R.color.red_error))
-                    updateHeartbeatAnimation(0)
-                }
+            val isHistoryEnabled = sharedPreferences.getBoolean("history_recording_enabled", true)
+            if (rate > 0 && viewModel.appStatus.value == AppStatus.CONNECTED && isHistoryEnabled) {
+                addChartEntry(rate)
             }
         }
 
-        // 【关键修复】移除已弃用的 .distinctUntilChanged() 调用
+        viewModel.appStatus.observe(this) { status ->
+            updateUiByStatus(status)
+        }
+
         var previousBleState: BleState? = null
         lifecycleScope.launch {
             bleService?.bleState?.collect { state ->
@@ -188,7 +256,6 @@ class MainActivity : AppCompatActivity() {
                     is BleState.Connected -> showToast("已连接")
                     is BleState.AutoReconnecting -> showToast("连接已断开，正在尝试自动重连...")
                     is BleState.ScanFailed -> {
-                        // 只在它是由AutoReconnecting状态转换而来时显示 "重连失败"
                         if (previousBleState is BleState.AutoReconnecting) {
                             showToast("重连失败")
                         }
@@ -199,6 +266,44 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
+
+    private fun updateUiByStatus(status: AppStatus) {
+        binding.statusProgressBar.visibility = if (status == AppStatus.SCANNING || status == AppStatus.CONNECTING) View.VISIBLE else View.GONE
+        binding.statusIcon.visibility = if (binding.statusProgressBar.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+        binding.scanFab.isEnabled = status == AppStatus.DISCONNECTED
+        binding.scanFab.visibility = if (status == AppStatus.DISCONNECTED) View.VISIBLE else View.GONE
+
+        val isConnected = status == AppStatus.CONNECTED
+        val isHistoryEnabled = sharedPreferences.getBoolean("history_recording_enabled", true)
+
+        // 【核心修改】图表的可见性由连接状态和设置开关共同决定
+        binding.realtimeChart.visibility = if (isConnected && isHistoryEnabled) View.VISIBLE else View.GONE
+        binding.devicesRecyclerView.visibility = if (isConnected) View.GONE else View.VISIBLE
+        binding.deviceListTitle.visibility = if (isConnected) View.GONE else View.VISIBLE
+
+        binding.disconnectButton.visibility = if (isConnected) View.VISIBLE else View.GONE
+
+        when (status) {
+            AppStatus.CONNECTED -> {
+                binding.heartRateCard.background = ContextCompat.getDrawable(this, R.drawable.background_heart_rate_connected)
+                binding.heartIcon.text = "❤️"
+                binding.statusIcon.setImageResource(R.drawable.ic_bluetooth_connected)
+                binding.statusIcon.setColorFilter(ContextCompat.getColor(this, R.color.primary_light))
+
+                clearChart()
+                chartStartTime = System.currentTimeMillis()
+            }
+            else -> {
+                binding.heartRateCard.background = ContextCompat.getDrawable(this, R.drawable.background_heart_rate_disconnected)
+                binding.heartIcon.text = "💔"
+                binding.statusIcon.setImageResource(R.drawable.ic_bluetooth_disabled)
+                binding.statusIcon.setColorFilter(ContextCompat.getColor(this, R.color.red_error))
+                updateHeartbeatAnimation(0)
+                clearChart()
+            }
+        }
+    }
+
 
     private fun showToast(message: String) {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show()

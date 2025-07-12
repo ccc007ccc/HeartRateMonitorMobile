@@ -15,6 +15,9 @@ import com.example.heart_rate_monitor_mobile.R
 import com.example.heart_rate_monitor_mobile.ble.BleManager
 import com.example.heart_rate_monitor_mobile.ble.BleState
 import com.example.heart_rate_monitor_mobile.data.WebhookTrigger
+import com.example.heart_rate_monitor_mobile.data.db.AppDatabase
+import com.example.heart_rate_monitor_mobile.data.db.HeartRateRecord
+import com.example.heart_rate_monitor_mobile.data.db.HeartRateSession
 import com.example.heart_rate_monitor_mobile.service.server.HttpServerManager
 import com.example.heart_rate_monitor_mobile.service.server.WebSocketServerManager
 import com.example.heart_rate_monitor_mobile.ui.webhook.WebhookManager
@@ -39,6 +42,7 @@ class BleService : Service() {
     private lateinit var bleManager: BleManager
     private lateinit var webhookManager: WebhookManager
     private lateinit var sharedPreferences: SharedPreferences
+    private lateinit var db: AppDatabase
 
     // --- Server Managers ---
     private var httpServerManager: HttpServerManager? = null
@@ -63,6 +67,7 @@ class BleService : Service() {
     @Volatile private var isManuallyDisconnected = false
     private val isScanning = AtomicBoolean(false)
     private var lastConnectedDeviceId: String? = null
+    private var currentSessionId: Long? = null
 
     fun isDeviceConnected(): Boolean = connectedPeripheral?.state?.value is State.Connected
 
@@ -71,6 +76,7 @@ class BleService : Service() {
         bleManager = BleManager(applicationContext)
         webhookManager = WebhookManager(applicationContext)
         sharedPreferences = getSharedPreferences("app_settings", Context.MODE_PRIVATE)
+        db = AppDatabase.getDatabase(applicationContext)
 
         startForegroundService()
         registerSettingsListener()
@@ -199,9 +205,18 @@ class BleService : Service() {
                                     }
                                 }
                                 is State.Connected -> {
-                                    val msg = "已连接到 ${peripheral.name ?: "未知设备"}"
+                                    val deviceName = peripheral.name ?: "未知设备"
+                                    val msg = "已连接到 $deviceName"
                                     _bleState.value = BleState.Connected(msg)
                                     webhookManager.triggerWebhooks(WebhookTrigger.CONNECTED)
+
+                                    // 检查是否开启了历史记录功能
+                                    val isHistoryEnabled = sharedPreferences.getBoolean("history_recording_enabled", true)
+                                    if (isHistoryEnabled) {
+                                        val session = HeartRateSession(deviceName = deviceName, startTime = System.currentTimeMillis())
+                                        currentSessionId = db.heartRateDao().insertSession(session)
+                                    }
+
                                     broadcastWebSocketState()
                                     launch { observeHeartRateData(peripheral) }
                                 }
@@ -263,6 +278,14 @@ class BleService : Service() {
     }
 
     private fun cleanupConnection() {
+        // 结束会话
+        currentSessionId?.let {
+            serviceScope.launch {
+                db.heartRateDao().endSession(it, System.currentTimeMillis())
+                currentSessionId = null
+            }
+        }
+
         val message = if (isManuallyDisconnected) "已手动断开" else "设备连接已断开"
         if (_bleState.value !is State.Connected) {
             _bleState.value = BleState.Disconnected(message)
@@ -276,12 +299,20 @@ class BleService : Service() {
 
     private suspend fun observeHeartRateData(peripheral: Peripheral) {
         try {
+            val isHistoryEnabled = sharedPreferences.getBoolean("history_recording_enabled", true)
             bleManager.observeHeartRate(peripheral).collect { rate ->
-                if (rate != _heartRate.value) {
-                    _heartRate.value = rate
-                    webhookManager.triggerWebhooks(WebhookTrigger.HEART_RATE_UPDATED, rate)
-                    broadcastWebSocketState()
+                _heartRate.value = rate
+                webhookManager.triggerWebhooks(WebhookTrigger.HEART_RATE_UPDATED, rate)
+
+                // 记录心率数据点
+                if (isHistoryEnabled) {
+                    currentSessionId?.let {
+                        val record = HeartRateRecord(sessionId = it, timestamp = System.currentTimeMillis(), heartRate = rate)
+                        db.heartRateDao().insertRecord(record)
+                    }
                 }
+
+                broadcastWebSocketState()
             }
         } catch (e: Exception) {
             Log.w("BleService", "Heart rate observation stopped or failed.", e)
@@ -313,7 +344,6 @@ class BleService : Service() {
         val isEnabled = sharedPreferences.getBoolean("http_server_enabled", false)
         if (isEnabled) {
             val port = sharedPreferences.getInt("http_server_port", 8000)
-            // 如果端口变了或者服务未启动，则重启
             if (httpServerManager == null) {
                 httpServerManager?.stop()
                 httpServerManager = HttpServerManager(port, _heartRate, ::isDeviceConnected)
@@ -329,7 +359,6 @@ class BleService : Service() {
         val isEnabled = sharedPreferences.getBoolean("websocket_server_enabled", false)
         if (isEnabled) {
             val port = sharedPreferences.getInt("websocket_server_port", 8001)
-            // 如果端口变了或者服务未启动，则重启
             if (webSocketServerManager == null) {
                 webSocketServerManager?.stop()
                 webSocketServerManager = WebSocketServerManager(port, webSocketStateFlow)
@@ -339,7 +368,6 @@ class BleService : Service() {
             webSocketServerManager?.stop()
             webSocketServerManager = null
         }
-        // 任何变动都广播一次最新状态
         broadcastWebSocketState()
     }
 
