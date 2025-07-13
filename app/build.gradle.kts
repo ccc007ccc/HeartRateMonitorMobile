@@ -22,8 +22,8 @@ android {
         applicationId = "com.example.heart_rate_monitor_mobile"
         minSdk = 27
         targetSdk = 35
-        versionCode = 3
-        versionName = "1.4"
+        versionCode = 4
+        versionName = "1.5"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         signingConfig = signingConfigs.getByName("release")
