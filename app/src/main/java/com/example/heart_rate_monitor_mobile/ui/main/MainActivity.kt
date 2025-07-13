@@ -19,6 +19,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.heart_rate_monitor_mobile.R
 import com.example.heart_rate_monitor_mobile.ble.BleState
+import com.example.heart_rate_monitor_mobile.data.db.AppDatabase
 import com.example.heart_rate_monitor_mobile.databinding.ActivityMainBinding
 import com.example.heart_rate_monitor_mobile.service.BleService
 import com.example.heart_rate_monitor_mobile.service.FloatingWindowService
@@ -49,7 +50,7 @@ class MainActivity : AppCompatActivity() {
     private var bleService: BleService? = null
 
     private lateinit var realtimeChart: LineChart
-    private var chartStartTime = 0L
+    private lateinit var db: AppDatabase
 
     private val floatingServiceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
@@ -84,6 +85,9 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        db = AppDatabase.getDatabase(this)
+        cleanupOpenSessions()
+
         realtimeChart = binding.realtimeChart
         setupRealtimeChart()
 
@@ -94,6 +98,16 @@ class MainActivity : AppCompatActivity() {
         requestPermissions()
         setupRecyclerView()
         setupClickListeners()
+    }
+
+    private fun cleanupOpenSessions() {
+        lifecycleScope.launch {
+            val openSessions = db.heartRateDao().getOpenSessions()
+            for (session in openSessions) {
+                val lastTimestamp = db.heartRateDao().getLastRecordTimestampForSession(session.id)
+                db.heartRateDao().endSession(session.id, lastTimestamp ?: session.startTime)
+            }
+        }
     }
 
     private fun startAndBindServices() {
@@ -109,8 +123,12 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         updateFloatingWindowUi(sharedPreferences.getBoolean("floating_window_enabled", false))
-        // 每次返回主页时，重新检查一次图表可见性
+
         viewModel.appStatus.value?.let { updateUiByStatus(it) }
+        val history = viewModel.chartHistory
+        if (history.isNotEmpty()) {
+            updateChart(history)
+        }
     }
 
     override fun onDestroy() {
@@ -188,7 +206,21 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun addChartEntry(rate: Int) {
+    private fun updateChart(entries: List<Entry>) {
+        val data = realtimeChart.data
+        if (data != null) {
+            var set = data.getDataSetByIndex(0) as? LineDataSet
+            if (set == null) {
+                set = createChartDataSet()
+                data.addDataSet(set)
+            }
+            set.values = entries
+            data.notifyDataChanged()
+            realtimeChart.notifyDataSetChanged()
+        }
+    }
+
+    private fun addChartEntry(entry: Entry) {
         val data = realtimeChart.data
         if (data != null) {
             var set = data.getDataSetByIndex(0)
@@ -196,23 +228,26 @@ class MainActivity : AppCompatActivity() {
                 set = createChartDataSet()
                 data.addDataSet(set)
             }
-
-            val timeDiffSeconds = (System.currentTimeMillis() - chartStartTime) / 1000f
-            data.addEntry(Entry(timeDiffSeconds, rate.toFloat()), 0)
+            data.addEntry(entry, 0)
             data.notifyDataChanged()
 
             realtimeChart.notifyDataSetChanged()
-            realtimeChart.setVisibleXRangeMaximum(60f)
+            // 【核心修改】将可见范围从60秒扩大到300秒（5分钟）
+            realtimeChart.setVisibleXRangeMaximum(300f)
             realtimeChart.moveViewToX(data.entryCount.toFloat())
         }
     }
 
     private fun createChartDataSet(): LineDataSet {
         val set = LineDataSet(null, "Heart Rate")
-        set.mode = LineDataSet.Mode.CUBIC_BEZIER
+        set.mode = LineDataSet.Mode.LINEAR
         set.color = ContextCompat.getColor(this, R.color.primary_light)
-        set.lineWidth = 2f
-        set.setDrawCircles(false)
+        set.lineWidth = 1.5f
+        // 【核心修改】重新绘制数据点
+        set.setDrawCircles(true)
+        set.circleRadius = 2f
+        set.setCircleColor(ContextCompat.getColor(this, R.color.primary_light))
+
         set.setDrawValues(false)
         set.setDrawFilled(true)
         set.fillDrawable = ContextCompat.getDrawable(this, R.drawable.background_heart_rate_connected)
@@ -239,9 +274,12 @@ class MainActivity : AppCompatActivity() {
         viewModel.heartRate.observe(this) { rate ->
             binding.heartRateTextView.text = if (rate > 0) "$rate" else "--"
             updateHeartbeatAnimation(rate)
+        }
+
+        viewModel.newChartEntry.observe(this) { entry ->
             val isHistoryEnabled = sharedPreferences.getBoolean("history_recording_enabled", true)
-            if (rate > 0 && viewModel.appStatus.value == AppStatus.CONNECTED && isHistoryEnabled) {
-                addChartEntry(rate)
+            if (isHistoryEnabled && viewModel.appStatus.value == AppStatus.CONNECTED) {
+                addChartEntry(entry)
             }
         }
 
@@ -276,7 +314,6 @@ class MainActivity : AppCompatActivity() {
         val isConnected = status == AppStatus.CONNECTED
         val isHistoryEnabled = sharedPreferences.getBoolean("history_recording_enabled", true)
 
-        // 【核心修改】图表的可见性由连接状态和设置开关共同决定
         binding.realtimeChart.visibility = if (isConnected && isHistoryEnabled) View.VISIBLE else View.GONE
         binding.devicesRecyclerView.visibility = if (isConnected) View.GONE else View.VISIBLE
         binding.deviceListTitle.visibility = if (isConnected) View.GONE else View.VISIBLE
@@ -289,9 +326,6 @@ class MainActivity : AppCompatActivity() {
                 binding.heartIcon.text = "❤️"
                 binding.statusIcon.setImageResource(R.drawable.ic_bluetooth_connected)
                 binding.statusIcon.setColorFilter(ContextCompat.getColor(this, R.color.primary_light))
-
-                clearChart()
-                chartStartTime = System.currentTimeMillis()
             }
             else -> {
                 binding.heartRateCard.background = ContextCompat.getDrawable(this, R.drawable.background_heart_rate_disconnected)

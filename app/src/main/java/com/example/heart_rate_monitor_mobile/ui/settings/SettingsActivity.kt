@@ -12,6 +12,7 @@ import androidx.appcompat.app.AppCompatActivity
 import com.example.heart_rate_monitor_mobile.databinding.ActivitySettingsBinding
 import com.example.heart_rate_monitor_mobile.ui.server.ServerActivity
 import com.example.heart_rate_monitor_mobile.ui.webhook.WebhookActivity
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.skydoves.colorpickerview.ColorEnvelope
 import com.skydoves.colorpickerview.ColorPickerDialog
 import com.skydoves.colorpickerview.listeners.ColorEnvelopeListener
@@ -72,12 +73,29 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun setupSwitches() {
-        // 心率记录功能开关
-        val isHistoryRecordingEnabled = sharedPreferences.getBoolean("history_recording_enabled", true)
-        binding.historyRecordingSwitch.isChecked = isHistoryRecordingEnabled
-        binding.historyRecordingSwitch.setOnCheckedChangeListener { _, isChecked ->
-            sharedPreferences.edit().putBoolean("history_recording_enabled", isChecked).apply()
+        // 【核心修改】将默认值改为false，并添加带提醒的监听器
+        binding.historyRecordingSwitch.isChecked = sharedPreferences.getBoolean("history_recording_enabled", false)
+        binding.historyRecordingSwitch.setOnCheckedChangeListener { buttonView, isChecked ->
+            if (isChecked) {
+                // 当用户尝试打开开关时，显示警告对话框
+                MaterialAlertDialogBuilder(this)
+                    .setTitle("性能提醒")
+                    .setMessage("开启心率记录功能将在每次连接期间持续将数据写入手机存储，这可能会略微增加电池消耗。确定要开启吗？")
+                    .setNegativeButton("取消") { _, _ ->
+                        // 如果用户取消，将开关恢复到关闭状态
+                        buttonView.isChecked = false
+                    }
+                    .setPositiveButton("确定") { _, _ ->
+                        // 如果用户确认，保存设置
+                        sharedPreferences.edit().putBoolean("history_recording_enabled", true).apply()
+                    }
+                    .show()
+            } else {
+                // 关闭开关时，直接保存设置
+                sharedPreferences.edit().putBoolean("history_recording_enabled", false).apply()
+            }
         }
+
 
         val isAnimationEnabled = sharedPreferences.getBoolean("heartbeat_animation_enabled", true)
         binding.heartbeatAnimationSwitch.isChecked = isAnimationEnabled

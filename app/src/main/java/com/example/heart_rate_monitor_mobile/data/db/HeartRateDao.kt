@@ -4,6 +4,7 @@ import androidx.lifecycle.LiveData
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
+import androidx.room.Transaction
 
 @Dao
 interface HeartRateDao {
@@ -22,6 +23,17 @@ interface HeartRateDao {
     @Query("SELECT * FROM heart_rate_records WHERE sessionId = :sessionId ORDER BY timestamp ASC")
     suspend fun getRecordsForSession(sessionId: Long): List<HeartRateRecord>
 
+    @Query("DELETE FROM heart_rate_sessions WHERE id IN (:sessionIds)")
+    suspend fun deleteSessionsByIds(sessionIds: List<Long>)
+
     @Query("DELETE FROM heart_rate_sessions WHERE id = :sessionId")
     suspend fun deleteSession(sessionId: Long)
+
+    // 新增：查询所有未关闭的会话
+    @Query("SELECT * FROM heart_rate_sessions WHERE endTime IS NULL")
+    suspend fun getOpenSessions(): List<HeartRateSession>
+
+    // 新增：查询某个会话的最后一条记录时间
+    @Query("SELECT MAX(timestamp) FROM heart_rate_records WHERE sessionId = :sessionId")
+    suspend fun getLastRecordTimestampForSession(sessionId: Long): Long?
 }

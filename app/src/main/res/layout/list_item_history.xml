@@ -9,11 +9,22 @@
     app:cardCornerRadius="12dp">
 
     <LinearLayout
+        android:id="@+id/container"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:padding="16dp"
-        android:gravity="center_vertical">
+        android:gravity="center_vertical"
+        android:background="?attr/colorSurfaceBright">
+
+        <CheckBox
+            android:id="@+id/checkbox"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="16dp"
+            android:visibility="gone"
+            tools:visibility="visible"
+            android:clickable="false"/>
 
         <LinearLayout
             android:layout_width="0dp"
@@ -38,15 +49,5 @@
                 tools:text="2025-07-13 10:30 - 11:00" />
 
         </LinearLayout>
-
-        <ImageButton
-            android:id="@+id/deleteButton"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:src="@android:drawable/ic_menu_delete"
-            app:tint="?attr/colorOnSurfaceVariant"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="删除"
-            android:padding="8dp"/>
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

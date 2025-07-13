@@ -6,6 +6,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.database.sqlite.SQLiteConstraintException
 import android.os.Binder
 import android.os.Build
 import android.os.IBinder
@@ -81,10 +82,8 @@ class BleService : Service() {
         startForegroundService()
         registerSettingsListener()
 
-        // 首次启动时检查并启动服务器
         updateHttpServerState()
         updateWebSocketServerState()
-        // 发出初始状态
         broadcastWebSocketState()
     }
 
@@ -210,7 +209,6 @@ class BleService : Service() {
                                     _bleState.value = BleState.Connected(msg)
                                     webhookManager.triggerWebhooks(WebhookTrigger.CONNECTED)
 
-                                    // 检查是否开启了历史记录功能
                                     val isHistoryEnabled = sharedPreferences.getBoolean("history_recording_enabled", true)
                                     if (isHistoryEnabled) {
                                         val session = HeartRateSession(deviceName = deviceName, startTime = System.currentTimeMillis())
@@ -278,7 +276,6 @@ class BleService : Service() {
     }
 
     private fun cleanupConnection() {
-        // 结束会话
         currentSessionId?.let {
             serviceScope.launch {
                 db.heartRateDao().endSession(it, System.currentTimeMillis())
@@ -297,6 +294,7 @@ class BleService : Service() {
         connectedPeripheral = null
     }
 
+    // 【核心修改】为数据库操作添加try-catch块
     private suspend fun observeHeartRateData(peripheral: Peripheral) {
         try {
             val isHistoryEnabled = sharedPreferences.getBoolean("history_recording_enabled", true)
@@ -304,18 +302,22 @@ class BleService : Service() {
                 _heartRate.value = rate
                 webhookManager.triggerWebhooks(WebhookTrigger.HEART_RATE_UPDATED, rate)
 
-                // 记录心率数据点
-                if (isHistoryEnabled) {
-                    currentSessionId?.let {
-                        val record = HeartRateRecord(sessionId = it, timestamp = System.currentTimeMillis(), heartRate = rate)
+                if (isHistoryEnabled && currentSessionId != null) {
+                    try {
+                        // 使用not-null断言，因为我们已经在外部检查过了
+                        val record = HeartRateRecord(sessionId = currentSessionId!!, timestamp = System.currentTimeMillis(), heartRate = rate)
                         db.heartRateDao().insertRecord(record)
+                    } catch (e: SQLiteConstraintException) {
+                        // 这很可能意味着会话已从历史记录屏幕中删除
+                        // 在设备仍处于连接状态时。停止此会话的进一步录制。
+                        Log.w("BleService", "由于约束冲突，无法插入心率记录。会话可能已被删除。停止此会话的记录。", e)
+                        currentSessionId = null
                     }
                 }
-
                 broadcastWebSocketState()
             }
         } catch (e: Exception) {
-            Log.w("BleService", "Heart rate observation stopped or failed.", e)
+            Log.w("BleService", "心率观察流程已停止或失败。", e)
         }
     }
 
