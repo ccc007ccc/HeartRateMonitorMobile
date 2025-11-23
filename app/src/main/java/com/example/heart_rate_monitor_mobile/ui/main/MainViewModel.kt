@@ -42,6 +42,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     // --- Service Data Flows ---
     lateinit var heartRate: LiveData<Int>
+    lateinit var speed: LiveData<Float> // 新增速度 LiveData
     lateinit var scanResults: LiveData<List<Advertisement>>
 
     fun setBleService(service: BleService) {
@@ -52,6 +53,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private fun initializeDataStreams(service: BleService) {
         // Expose LiveData for UI text and animations
         heartRate = service.heartRate.asLiveData()
+        speed = service.speed.asLiveData() // 连接 Service 的速度数据
         scanResults = service.scanResults.asLiveData()
 
         // Observe the BLE connection state
@@ -73,8 +75,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
-        // 【核心修改】直接在ViewModel中收集心率数据以更新图表点
-        // 这个协程在ViewModel存在期间会一直运行，即使UI在后台
+        // 直接在ViewModel中收集心率数据以更新图表点
         viewModelScope.launch {
             service.heartRate.collect { rate ->
                 if (rate > 0 && _appStatus.value == AppStatus.CONNECTED) {

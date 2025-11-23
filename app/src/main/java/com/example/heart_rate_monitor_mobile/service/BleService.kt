@@ -1,17 +1,26 @@
 package com.example.heart_rate_monitor_mobile.service
 
+import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.content.pm.PackageManager
+import android.content.pm.ServiceInfo
 import android.database.sqlite.SQLiteConstraintException
+import android.location.Location
+import android.location.LocationListener
+import android.location.LocationManager
 import android.os.Binder
 import android.os.Build
+import android.os.Bundle
 import android.os.IBinder
 import android.util.Log
+import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
+import androidx.core.app.ServiceCompat
 import com.example.heart_rate_monitor_mobile.R
 import com.example.heart_rate_monitor_mobile.ble.BleManager
 import com.example.heart_rate_monitor_mobile.ble.BleState
@@ -44,24 +53,28 @@ class BleService : Service() {
     private lateinit var webhookManager: WebhookManager
     private lateinit var sharedPreferences: SharedPreferences
     private lateinit var db: AppDatabase
+    private var locationManager: LocationManager? = null
 
     // --- Server Managers ---
     private var httpServerManager: HttpServerManager? = null
     private var webSocketServerManager: WebSocketServerManager? = null
 
-    // --- StateFlow for modern UI state management ---
+    // --- StateFlow ---
     private val _bleState = MutableStateFlow<BleState>(BleState.Idle)
     val bleState: StateFlow<BleState> = _bleState.asStateFlow()
 
     private val _heartRate = MutableStateFlow(0)
     val heartRate: StateFlow<Int> = _heartRate.asStateFlow()
 
+    private val _speed = MutableStateFlow(0f)
+    val speed: StateFlow<Float> = _speed.asStateFlow()
+
     private val _scanResults = MutableStateFlow<List<Advertisement>>(emptyList())
     val scanResults: StateFlow<List<Advertisement>> = _scanResults.asStateFlow()
 
     private val webSocketStateFlow = MutableSharedFlow<String>(replay = 1)
 
-    // --- BLE State Management ---
+    // --- BLE State ---
     private var connectedPeripheral: Peripheral? = null
     private var connectionJob: Job? = null
     private var scanJob: Job? = null
@@ -69,6 +82,21 @@ class BleService : Service() {
     private val isScanning = AtomicBoolean(false)
     private var lastConnectedDeviceId: String? = null
     private var currentSessionId: Long? = null
+
+    // --- Location Listener ---
+    private val locationListener = object : LocationListener {
+        override fun onLocationChanged(location: Location) {
+            if (location.hasSpeed()) {
+                _speed.value = location.speed * 3.6f
+            } else {
+                _speed.value = 0f
+            }
+            broadcastWebSocketState()
+        }
+        override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
+        override fun onProviderEnabled(provider: String) {}
+        override fun onProviderDisabled(provider: String) {}
+    }
 
     fun isDeviceConnected(): Boolean = connectedPeripheral?.state?.value is State.Connected
 
@@ -78,12 +106,14 @@ class BleService : Service() {
         webhookManager = WebhookManager(applicationContext)
         sharedPreferences = getSharedPreferences("app_settings", Context.MODE_PRIVATE)
         db = AppDatabase.getDatabase(applicationContext)
+        locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
 
         startForegroundService()
         registerSettingsListener()
 
         updateHttpServerState()
         updateWebSocketServerState()
+        updateLocationUpdates()
         broadcastWebSocketState()
     }
 
@@ -98,11 +128,41 @@ class BleService : Service() {
 
         val notification = NotificationCompat.Builder(this, channelId)
             .setContentTitle("心率监控器")
-            .setContentText("服务正在后台运行以保持蓝牙连接")
+            .setContentText("服务正在后台运行")
             .setSmallIcon(R.drawable.ic_bluetooth_connected)
+            .setOngoing(true)
             .build()
 
-        startForeground(1, notification)
+        // 核心修复：防止崩溃
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            try {
+                var type = ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
+
+                // 只有当用户确实授予了位置权限时，才添加 LOCATION 类型
+                val hasLocationPermission = ActivityCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.ACCESS_FINE_LOCATION
+                ) == PackageManager.PERMISSION_GRANTED
+
+                val isSpeedEnabled = sharedPreferences.getBoolean("speed_display_enabled", false)
+
+                if (hasLocationPermission && isSpeedEnabled) {
+                    type = type or ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+                }
+
+                ServiceCompat.startForeground(this, 1, notification, type)
+            } catch (e: Exception) {
+                // 如果发生任何 SecurityException，降级启动
+                try {
+                    val safeType = ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
+                    ServiceCompat.startForeground(this, 1, notification, safeType)
+                } catch (e2: Exception) {
+                    Log.e("BleService", "Failed to start service", e2)
+                }
+            }
+        } else {
+            startForeground(1, notification)
+        }
     }
 
     override fun onBind(intent: Intent): IBinder = binder
@@ -124,7 +184,6 @@ class BleService : Service() {
                     }
                 }
             } catch (e: TimeoutCancellationException) {
-                // Expected timeout
             } finally {
                 withContext(NonCancellable) {
                     val statusMessage = if (foundDevices.isNotEmpty()) "扫描结束" else "未找到任何设备"
@@ -153,7 +212,6 @@ class BleService : Service() {
                             foundDevices.add(advertisement)
                             _scanResults.value = foundDevices.toList()
                         }
-
                         if (advertisement.identifier == favoriteDeviceId) {
                             favoriteFound = true
                             this.coroutineContext.job.cancel()
@@ -161,7 +219,6 @@ class BleService : Service() {
                     }
                 }
             } catch (e: Exception) {
-                // Ignore timeout or cancellation
             } finally {
                 withContext(NonCancellable) {
                     isScanning.set(false)
@@ -196,7 +253,6 @@ class BleService : Service() {
                     peripheral.state
                         .filter { it !is State.Disconnected || it.status != null }
                         .collect { state ->
-                            Log.d("BleService", "Filtered Connection State Changed: $state")
                             when (state) {
                                 is State.Connecting -> {
                                     if (_bleState.value !is BleState.AutoReconnecting) {
@@ -207,7 +263,7 @@ class BleService : Service() {
                                     val deviceName = peripheral.name ?: "未知设备"
                                     val msg = "已连接到 $deviceName"
                                     _bleState.value = BleState.Connected(msg)
-                                    webhookManager.triggerWebhooks(WebhookTrigger.CONNECTED)
+                                    webhookManager.triggerWebhooks(WebhookTrigger.CONNECTED, speed = _speed.value)
 
                                     val isHistoryEnabled = sharedPreferences.getBoolean("history_recording_enabled", true)
                                     if (isHistoryEnabled) {
@@ -246,15 +302,10 @@ class BleService : Service() {
                 withContext(NonCancellable) {
                     try {
                         peripheral?.disconnect()
-                    } catch (e: Exception) {
-                        Log.w("BleService", "Error during disconnect in finally block", e)
-                    }
-
+                    } catch (e: Exception) { }
                     cleanupConnection()
-
                     val autoReconnectEnabled = sharedPreferences.getBoolean("auto_reconnect_enabled", true)
                     if (autoReconnectEnabled && !isManuallyDisconnected && lastConnectedDeviceId != null) {
-                        Log.d("BleService", "自动重连已触发，目标: $lastConnectedDeviceId")
                         delay(1000)
                         _bleState.value = BleState.AutoReconnecting
                         startAutoConnectScan(lastConnectedDeviceId!!)
@@ -282,43 +333,33 @@ class BleService : Service() {
                 currentSessionId = null
             }
         }
-
         val message = if (isManuallyDisconnected) "已手动断开" else "设备连接已断开"
         if (_bleState.value !is State.Connected) {
             _bleState.value = BleState.Disconnected(message)
         }
-        webhookManager.triggerWebhooks(WebhookTrigger.DISCONNECTED, _heartRate.value)
+        webhookManager.triggerWebhooks(WebhookTrigger.DISCONNECTED, _heartRate.value, _speed.value)
         _heartRate.value = 0
         broadcastWebSocketState()
-
         connectedPeripheral = null
     }
 
-    // 【核心修改】为数据库操作添加try-catch块
     private suspend fun observeHeartRateData(peripheral: Peripheral) {
         try {
             val isHistoryEnabled = sharedPreferences.getBoolean("history_recording_enabled", true)
             bleManager.observeHeartRate(peripheral).collect { rate ->
                 _heartRate.value = rate
-                webhookManager.triggerWebhooks(WebhookTrigger.HEART_RATE_UPDATED, rate)
-
+                webhookManager.triggerWebhooks(WebhookTrigger.HEART_RATE_UPDATED, rate, _speed.value)
                 if (isHistoryEnabled && currentSessionId != null) {
                     try {
-                        // 使用not-null断言，因为我们已经在外部检查过了
                         val record = HeartRateRecord(sessionId = currentSessionId!!, timestamp = System.currentTimeMillis(), heartRate = rate)
                         db.heartRateDao().insertRecord(record)
                     } catch (e: SQLiteConstraintException) {
-                        // 这很可能意味着会话已从历史记录屏幕中删除
-                        // 在设备仍处于连接状态时。停止此会话的进一步录制。
-                        Log.w("BleService", "由于约束冲突，无法插入心率记录。会话可能已被删除。停止此会话的记录。", e)
                         currentSessionId = null
                     }
                 }
                 broadcastWebSocketState()
             }
-        } catch (e: Exception) {
-            Log.w("BleService", "心率观察流程已停止或失败。", e)
-        }
+        } catch (e: Exception) { }
     }
 
     private fun broadcastWebSocketState() {
@@ -327,6 +368,7 @@ class BleService : Service() {
             put("connected", isDeviceConnected())
             put("status", _bleState.value.message)
             put("timestamp", System.currentTimeMillis())
+            put("speed", _speed.value)
         }
         webSocketStateFlow.tryEmit(json.toString())
     }
@@ -335,11 +377,35 @@ class BleService : Service() {
         when (key) {
             "http_server_enabled", "http_server_port" -> updateHttpServerState()
             "websocket_server_enabled", "websocket_server_port" -> updateWebSocketServerState()
+            "speed_display_enabled" -> {
+                updateLocationUpdates()
+                startForegroundService()
+            }
         }
     }
 
     private fun registerSettingsListener() {
         sharedPreferences.registerOnSharedPreferenceChangeListener(settingsChangeListener)
+    }
+
+    private fun updateLocationUpdates() {
+        val isEnabled = sharedPreferences.getBoolean("speed_display_enabled", false)
+        if (isEnabled && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            try {
+                locationManager?.requestLocationUpdates(
+                    LocationManager.GPS_PROVIDER,
+                    1000L,
+                    1f,
+                    locationListener
+                )
+            } catch (e: Exception) {
+                Log.e("BleService", "Location update failed", e)
+            }
+        } else {
+            locationManager?.removeUpdates(locationListener)
+            _speed.value = 0f
+            broadcastWebSocketState()
+        }
     }
 
     private fun updateHttpServerState() {
@@ -348,7 +414,7 @@ class BleService : Service() {
             val port = sharedPreferences.getInt("http_server_port", 8000)
             if (httpServerManager == null) {
                 httpServerManager?.stop()
-                httpServerManager = HttpServerManager(port, _heartRate, ::isDeviceConnected)
+                httpServerManager = HttpServerManager(port, _heartRate, _speed, ::isDeviceConnected) { _bleState.value.message }
                 httpServerManager?.start()
             }
         } else {
@@ -373,10 +439,10 @@ class BleService : Service() {
         broadcastWebSocketState()
     }
 
-
     override fun onDestroy() {
         super.onDestroy()
         serviceScope.cancel()
+        locationManager?.removeUpdates(locationListener)
         httpServerManager?.stop()
         webSocketServerManager?.stop()
         sharedPreferences.unregisterOnSharedPreferenceChangeListener(settingsChangeListener)

@@ -24,33 +24,42 @@ class WebhookManager(private val context: Context) {
     private val scope = CoroutineScope(Dispatchers.IO)
     private val githubUrl = "https://raw.githubusercontent.com/ccc007ccc/HeartRateMonitor/main/config_webhook.json"
 
-    fun triggerWebhooks(trigger: WebhookTrigger, heartRate: Int = 0) {
+    // 增加 speed 参数
+    fun triggerWebhooks(trigger: WebhookTrigger, heartRate: Int = 0, speed: Float = 0f) {
         val webhooks = getWebhooks()
         webhooks.filter { it.enabled && it.triggers.contains(trigger) }.forEach { webhook ->
             scope.launch {
-                sendRequest(webhook, heartRate, trigger)
+                sendRequest(webhook, heartRate, speed, trigger)
             }
         }
     }
 
     fun testWebhook(webhook: Webhook, onResult: (String) -> Unit) {
         scope.launch {
-            val result = sendRequest(webhook, 88, WebhookTrigger.HEART_RATE_UPDATED, true)
+            val result = sendRequest(webhook, 88, 15.5f, WebhookTrigger.HEART_RATE_UPDATED, true)
             withContext(Dispatchers.Main) {
                 onResult(result)
             }
         }
     }
 
-    private suspend fun sendRequest(webhook: Webhook, heartRate: Int, trigger: WebhookTrigger, isTest: Boolean = false): String {
+    private suspend fun sendRequest(webhook: Webhook, heartRate: Int, speed: Float, trigger: WebhookTrigger, isTest: Boolean = false): String {
         return withContext(Dispatchers.IO) {
             val bpm = heartRate.toString()
-            // 检查触发器是否需要替换 {bpm} 占位符
-            val shouldReplaceBpm = trigger == WebhookTrigger.HEART_RATE_UPDATED || trigger == WebhookTrigger.DISCONNECTED
-            val urlString = if (shouldReplaceBpm) webhook.url.replace("{bpm}", bpm) else webhook.url
-            val bodyString = if (shouldReplaceBpm) webhook.body.replace("{bpm}", bpm) else webhook.body
-            val headersString = if (shouldReplaceBpm) webhook.headers.replace("{bpm}", bpm) else webhook.headers
+            val speedStr = String.format("%.1f", speed) // 格式化速度
 
+            // 检查触发器是否需要替换占位符
+            val shouldReplacePlaceholders = trigger == WebhookTrigger.HEART_RATE_UPDATED || trigger == WebhookTrigger.DISCONNECTED || trigger == WebhookTrigger.CONNECTED
+
+            var urlString = webhook.url
+            var bodyString = webhook.body
+            var headersString = webhook.headers
+
+            if (shouldReplacePlaceholders) {
+                urlString = urlString.replace("{bpm}", bpm).replace("{speed}", speedStr)
+                bodyString = bodyString.replace("{bpm}", bpm).replace("{speed}", speedStr)
+                headersString = headersString.replace("{bpm}", bpm).replace("{speed}", speedStr)
+            }
 
             var connection: HttpURLConnection? = null
             try {

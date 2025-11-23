@@ -38,6 +38,41 @@
         android:textSize="12sp"
         android:textStyle="bold" />
 
+    <TextView
+        android:id="@+id/floating_speed_divider"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="6dp"
+        android:layout_marginEnd="6dp"
+        android:text="|"
+        android:textSize="14sp"
+        android:visibility="gone"/>
+
+    <LinearLayout
+        android:id="@+id/floating_speed_layout"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/floating_speed_number"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="0.0"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/floating_speed_unit"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="2dp"
+            android:text="km/h"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
 </LinearLayout>
 
 </com.google.android.material.card.MaterialCardView>

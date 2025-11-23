@@ -73,25 +73,20 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun setupSwitches() {
-        // 【核心修改】将默认值改为false，并添加带提醒的监听器
         binding.historyRecordingSwitch.isChecked = sharedPreferences.getBoolean("history_recording_enabled", false)
         binding.historyRecordingSwitch.setOnCheckedChangeListener { buttonView, isChecked ->
             if (isChecked) {
-                // 当用户尝试打开开关时，显示警告对话框
                 MaterialAlertDialogBuilder(this)
                     .setTitle("性能提醒")
                     .setMessage("开启心率记录功能将在每次连接期间持续将数据写入手机存储，这可能会略微增加电池消耗。确定要开启吗？")
                     .setNegativeButton("取消") { _, _ ->
-                        // 如果用户取消，将开关恢复到关闭状态
                         buttonView.isChecked = false
                     }
                     .setPositiveButton("确定") { _, _ ->
-                        // 如果用户确认，保存设置
                         sharedPreferences.edit().putBoolean("history_recording_enabled", true).apply()
                     }
                     .show()
             } else {
-                // 关闭开关时，直接保存设置
                 sharedPreferences.edit().putBoolean("history_recording_enabled", false).apply()
             }
         }
@@ -125,6 +120,27 @@ class SettingsActivity : AppCompatActivity() {
         binding.heartIconSwitch.isChecked = isHeartIconEnabled
         binding.heartIconSwitch.setOnCheckedChangeListener { _, isChecked ->
             sharedPreferences.edit().putBoolean("heart_icon_enabled", isChecked).apply()
+        }
+
+        // 新增：时速显示开关
+        val isSpeedDisplayEnabled = sharedPreferences.getBoolean("speed_display_enabled", false)
+        binding.speedDisplaySwitch.isChecked = isSpeedDisplayEnabled
+        binding.speedDisplaySwitch.setOnCheckedChangeListener { buttonView, isChecked ->
+            if (isChecked) {
+                // 提醒用户这需要GPS权限和电量
+                MaterialAlertDialogBuilder(this)
+                    .setTitle("开启时速显示")
+                    .setMessage("开启此功能将使用GPS定位来计算时速，这会显著增加电池消耗并需要获取位置权限。确定要开启吗？")
+                    .setNegativeButton("取消") { _, _ ->
+                        buttonView.isChecked = false
+                    }
+                    .setPositiveButton("确定") { _, _ ->
+                        sharedPreferences.edit().putBoolean("speed_display_enabled", true).apply()
+                    }
+                    .show()
+            } else {
+                sharedPreferences.edit().putBoolean("speed_display_enabled", false).apply()
+            }
         }
     }
 

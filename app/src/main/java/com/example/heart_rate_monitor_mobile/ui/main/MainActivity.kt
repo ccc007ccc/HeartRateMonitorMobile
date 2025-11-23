@@ -123,12 +123,18 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         updateFloatingWindowUi(sharedPreferences.getBoolean("floating_window_enabled", false))
+        updateSpeedUiVisibility()
 
         viewModel.appStatus.value?.let { updateUiByStatus(it) }
         val history = viewModel.chartHistory
         if (history.isNotEmpty()) {
             updateChart(history)
         }
+    }
+
+    private fun updateSpeedUiVisibility() {
+        val isSpeedEnabled = sharedPreferences.getBoolean("speed_display_enabled", false)
+        binding.speedCard.visibility = if (isSpeedEnabled && viewModel.appStatus.value == AppStatus.CONNECTED) View.VISIBLE else View.GONE
     }
 
     override fun onDestroy() {
@@ -232,7 +238,6 @@ class MainActivity : AppCompatActivity() {
             data.notifyDataChanged()
 
             realtimeChart.notifyDataSetChanged()
-            // 【核心修改】将可见范围从60秒扩大到300秒（5分钟）
             realtimeChart.setVisibleXRangeMaximum(300f)
             realtimeChart.moveViewToX(data.entryCount.toFloat())
         }
@@ -243,7 +248,6 @@ class MainActivity : AppCompatActivity() {
         set.mode = LineDataSet.Mode.LINEAR
         set.color = ContextCompat.getColor(this, R.color.primary_light)
         set.lineWidth = 1.5f
-        // 【核心修改】重新绘制数据点
         set.setDrawCircles(true)
         set.circleRadius = 2f
         set.setCircleColor(ContextCompat.getColor(this, R.color.primary_light))
@@ -274,6 +278,10 @@ class MainActivity : AppCompatActivity() {
         viewModel.heartRate.observe(this) { rate ->
             binding.heartRateTextView.text = if (rate > 0) "$rate" else "--"
             updateHeartbeatAnimation(rate)
+        }
+
+        viewModel.speed.observe(this) { speed ->
+            binding.speedTextView.text = String.format("%.1f", speed)
         }
 
         viewModel.newChartEntry.observe(this) { entry ->
@@ -319,6 +327,8 @@ class MainActivity : AppCompatActivity() {
         binding.deviceListTitle.visibility = if (isConnected) View.GONE else View.VISIBLE
 
         binding.disconnectButton.visibility = if (isConnected) View.VISIBLE else View.GONE
+
+        updateSpeedUiVisibility()
 
         when (status) {
             AppStatus.CONNECTED -> {
@@ -397,14 +407,21 @@ class MainActivity : AppCompatActivity() {
 
     private fun requestPermissions() {
         val permissionsToRequest = mutableListOf<String>()
+
+        // 【关键修复】位置权限必须在所有版本（尤其是 Android 12+）上请求，为了测速
+        permissionsToRequest.add(Manifest.permission.ACCESS_FINE_LOCATION)
+        permissionsToRequest.add(Manifest.permission.ACCESS_COARSE_LOCATION)
+
+        // 蓝牙权限
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             permissionsToRequest.add(Manifest.permission.BLUETOOTH_SCAN)
             permissionsToRequest.add(Manifest.permission.BLUETOOTH_CONNECT)
         } else {
             permissionsToRequest.add(Manifest.permission.BLUETOOTH)
             permissionsToRequest.add(Manifest.permission.BLUETOOTH_ADMIN)
-            permissionsToRequest.add(Manifest.permission.ACCESS_FINE_LOCATION)
         }
+
+        // 通知权限
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
         }
@@ -412,14 +429,18 @@ class MainActivity : AppCompatActivity() {
         PermissionX.init(this)
             .permissions(permissionsToRequest)
             .onExplainRequestReason { scope, deniedList ->
-                scope.showRequestReasonDialog(deniedList, "App requires these permissions to find and connect to your heart rate monitor.", "OK", "Cancel")
+                scope.showRequestReasonDialog(deniedList, "App requires these permissions to find devices and calculate speed.", "OK", "Cancel")
             }
             .onForwardToSettings { scope, deniedList ->
                 scope.showForwardToSettingsDialog(deniedList, "You need to grant these permissions manually in settings.", "OK", "Cancel")
             }
             .request { allGranted, _, _ ->
                 if (!allGranted) {
-                    binding.statusTextView.text = "Some permissions were denied. The app may not work correctly!"
+                    binding.statusTextView.text = "Some permissions were denied. Features may be limited!"
+                } else {
+                    // 如果权限全部通过，尝试刷新服务状态（以便开启定位）
+                    val intent = Intent(this, BleService::class.java)
+                    startService(intent)
                 }
             }
     }

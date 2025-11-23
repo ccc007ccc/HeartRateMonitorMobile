@@ -9,7 +9,9 @@ import java.io.IOException
 class HttpServerManager(
     private val port: Int,
     private val heartRateFlow: StateFlow<Int>,
-    private val isDeviceConnected: () -> Boolean
+    private val speedFlow: StateFlow<Float>, // 新增速度流
+    private val isDeviceConnected: () -> Boolean,
+    private val getStatusMessage: () -> String // 新增状态消息提供者
 ) {
     private var server: HttpServer? = null
 
@@ -37,6 +39,9 @@ class HttpServerManager(
                 val json = JSONObject().apply {
                     put("heart_rate", heartRateFlow.value)
                     put("connected", isDeviceConnected())
+                    put("status", getStatusMessage()) // 添加状态
+                    put("timestamp", System.currentTimeMillis()) // 添加时间戳
+                    put("speed", speedFlow.value) // 添加速度
                 }
                 return newFixedLengthResponse(Response.Status.OK, "application/json", json.toString())
             }

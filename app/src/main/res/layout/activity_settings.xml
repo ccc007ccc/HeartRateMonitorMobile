@@ -1,456 +1,324 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="?attr/colorSurface"
-    android:fitsSystemWindows="true"
-    tools:context=".ui.settings.SettingsActivity">
+    android:orientation="vertical"
+    android:fitsSystemWindows="true">
 
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="?attr/colorSurface"
-        app:elevation="0dp">
+        android:layout_height="wrap_content">
 
         <com.google.android.material.appbar.MaterialToolbar
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
-            app:title="设置" />
+            app:title="设置"
+            style="@style/Widget.MaterialComponents.Toolbar.Primary" />
 
     </com.google.android.material.appbar.AppBarLayout>
 
-    <androidx.core.widget.NestedScrollView
+    <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+        android:layout_height="match_parent">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:paddingBottom="24dp">
 
             <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:layout_marginBottom="8dp"
-                android:text="功能设置"
-                android:textAppearance="?attr/textAppearanceTitleSmall"
-                android:textColor="?attr/colorPrimary" />
-            <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:cardBackgroundColor="?attr/colorSurfaceContainer"
-                app:cardCornerRadius="16dp"
-                app:cardElevation="0dp"
-                app:strokeWidth="0dp">
+                android:text="常规"
+                android:textColor="?attr/colorAccent"
+                android:textStyle="bold"
+                android:padding="16dp" />
+
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/historyRecordingSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="记录历史数据"
+                android:padding="16dp" />
+
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/heartbeatAnimationSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="心跳动画效果"
+                android:padding="16dp" />
+
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/speedDisplaySwitch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="显示时速 (GPS)"
+                android:padding="16dp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="开启时速显示将使用GPS定位，可能会增加耗电。"
+                android:textSize="12sp"
+                android:textColor="?android:attr/textColorSecondary"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:paddingBottom="8dp"/>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="?android:attr/listDivider" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="蓝牙"
+                android:textColor="?attr/colorAccent"
+                android:textStyle="bold"
+                android:padding="16dp" />
+
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/autoConnectSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="启动时自动连接收藏设备"
+                android:padding="16dp" />
+
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/autoReconnectSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="断开后自动重连"
+                android:padding="16dp" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="?android:attr/listDivider" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="集成 &amp; 外部访问"
+                android:textColor="?attr/colorAccent"
+                android:textStyle="bold"
+                android:padding="16dp" />
+
+            <TextView
+                android:id="@+id/serverSettingsLink"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="HTTP &amp; WebSocket 服务器设置"
+                android:padding="16dp"
+                android:background="?attr/selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true"
+                app:drawableEndCompat="@drawable/ic_arrow_forward" />
+
+            <TextView
+                android:id="@+id/webhookSettingsLink"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Webhook 设置"
+                android:padding="16dp"
+                android:background="?attr/selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true"
+                app:drawableEndCompat="@drawable/ic_arrow_forward" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="?android:attr/listDivider" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="悬浮窗样式"
+                android:textColor="?attr/colorAccent"
+                android:textStyle="bold"
+                android:padding="16dp" />
+
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/bpmTextSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="显示 'bpm' 文字"
+                android:padding="16dp" />
+
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/heartIconSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="显示心形图标"
+                android:padding="16dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="整体大小" />
+                <SeekBar
+                    android:id="@+id/sizeSeekBar"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:max="200"
+                    android:progress="100" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="图标大小"
+                    android:layout_marginTop="8dp"/>
+                <SeekBar
+                    android:id="@+id/iconSizeSeekBar"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:max="200"
+                    android:progress="100" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="圆角半径"
+                    android:layout_marginTop="8dp"/>
+                <SeekBar
+                    android:id="@+id/cornerRadiusSeekBar"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:max="100"
+                    android:progress="50" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="背景不透明度"
+                    android:layout_marginTop="8dp"/>
+                <SeekBar
+                    android:id="@+id/bgAlphaSeekBar"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:max="100"
+                    android:progress="80" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="边框不透明度"
+                    android:layout_marginTop="8dp"/>
+                <SeekBar
+                    android:id="@+id/borderAlphaSeekBar"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:max="100"
+                    android:progress="100" />
+
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical">
+                    android:orientation="horizontal"
+                    android:layout_marginTop="16dp"
+                    android:gravity="center">
 
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:gravity="center_vertical"
-                        android:minHeight="64dp"
-                        android:orientation="horizontal"
-                        android:padding="16dp">
-                        <ImageView
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
-                            android:src="@drawable/ic_info"
-                            app:tint="?attr/colorOnSurfaceVariant" />
-                        <TextView
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="16dp"
-                            android:layout_weight="1"
-                            android:text="心率记录功能"
-                            android:textAppearance="?attr/textAppearanceBodyLarge" />
-                        <com.google.android.material.materialswitch.MaterialSwitch
-                            android:id="@+id/historyRecordingSwitch"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content" />
-                    </LinearLayout>
                     <View
-                        android:layout_width="match_parent"
-                        android:layout_height="1dp"
-                        android:layout_marginStart="56dp"
-                        android:background="?attr/colorSurfaceContainerHighest" />
-
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:gravity="center_vertical"
-                        android:minHeight="64dp"
-                        android:orientation="horizontal"
-                        android:padding="16dp">
-                        <ImageView
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
-                            android:src="@drawable/ic_animation"
-                            app:tint="?attr/colorOnSurfaceVariant" />
-                        <TextView
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="16dp"
-                            android:layout_weight="1"
-                            android:text="心跳动画"
-                            android:textAppearance="?attr/textAppearanceBodyLarge" />
-                        <com.google.android.material.materialswitch.MaterialSwitch
-                            android:id="@+id/heartbeatAnimationSwitch"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content" />
-                    </LinearLayout>
-                    <View
-                        android:layout_width="match_parent"
-                        android:layout_height="1dp"
-                        android:layout_marginStart="56dp"
-                        android:background="?attr/colorSurfaceContainerHighest" />
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:gravity="center_vertical"
-                        android:minHeight="64dp"
-                        android:orientation="horizontal"
-                        android:padding="16dp">
-                        <ImageView
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
-                            android:src="@drawable/ic_star_filled"
-                            app:tint="?attr/colorOnSurfaceVariant" />
-                        <TextView
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="16dp"
-                            android:layout_weight="1"
-                            android:text="启动时自动连接收藏的设备"
-                            android:textAppearance="?attr/textAppearanceBodyLarge" />
-                        <com.google.android.material.materialswitch.MaterialSwitch
-                            android:id="@+id/autoConnectSwitch"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content" />
-                    </LinearLayout>
-                    <View
-                        android:layout_width="match_parent"
-                        android:layout_height="1dp"
-                        android:layout_marginStart="56dp"
-                        android:background="?attr/colorSurfaceContainerHighest" />
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:gravity="center_vertical"
-                        android:minHeight="64dp"
-                        android:orientation="horizontal"
-                        android:padding="16dp">
-                        <ImageView
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
-                            android:src="@drawable/ic_auto_connect"
-                            app:tint="?attr/colorOnSurfaceVariant" />
-                        <TextView
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="16dp"
-                            android:layout_weight="1"
-                            android:text="自动重连"
-                            android:textAppearance="?attr/textAppearanceBodyLarge" />
-                        <com.google.android.material.materialswitch.MaterialSwitch
-                            android:id="@+id/autoReconnectSwitch"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content" />
-                    </LinearLayout>
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:layout_marginTop="24dp"
-                android:layout_marginBottom="8dp"
-                android:text="悬浮窗设置"
-                android:textAppearance="?attr/textAppearanceTitleSmall"
-                android:textColor="?attr/colorPrimary" />
-
-            <com.google.android.material.card.MaterialCardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                app:cardBackgroundColor="?attr/colorSurfaceContainer"
-                app:cardCornerRadius="16dp"
-                app:cardElevation="0dp"
-                app:strokeWidth="0dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="16dp">
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal"
-                        android:paddingBottom="8dp">
-
-                        <TextView
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:text="显示bpm文本"
-                            android:textAppearance="?attr/textAppearanceBodyLarge"/>
-
-                        <com.google.android.material.materialswitch.MaterialSwitch
-                            android:id="@+id/bpmTextSwitch"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content" />
-                    </LinearLayout>
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal"
-                        android:paddingTop="8dp"
-                        android:paddingBottom="8dp">
-
-                        <TextView
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:text="显示心率图标"
-                            android:textAppearance="?attr/textAppearanceBodyLarge"/>
-
-                        <com.google.android.material.materialswitch.MaterialSwitch
-                            android:id="@+id/heartIconSwitch"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content" />
-                    </LinearLayout>
-
-
-                    <LinearLayout style="@style/SettingsRow">
-                        <TextView style="@style/SettingsLabel" android:text="文本颜色" />
-                        <View android:id="@+id/textColorPreview" style="@style/ColorPreview" />
-                    </LinearLayout>
-                    <LinearLayout style="@style/SettingsRow">
-                        <TextView style="@style/SettingsLabel" android:text="背景颜色" />
-                        <View android:id="@+id/bgColorPreview" style="@style/ColorPreview" />
-                    </LinearLayout>
-                    <LinearLayout style="@style/SettingsRow">
-                        <TextView style="@style/SettingsLabel" android:text="边框颜色" />
-                        <View android:id="@+id/borderColorPreview" style="@style/ColorPreview" />
-                    </LinearLayout>
-                    <TextView style="@style/SettingsSubLabel" android:text="背景透明度" />
-                    <SeekBar android:id="@+id/bgAlphaSeekBar" style="@style/SettingsSeekBar" />
-                    <TextView style="@style/SettingsSubLabel" android:text="边框透明度" />
-                    <SeekBar android:id="@+id/borderAlphaSeekBar" style="@style/SettingsSeekBar" />
-                    <TextView style="@style/SettingsSubLabel" android:text="圆角幅度" />
-                    <SeekBar android:id="@+id/cornerRadiusSeekBar" style="@style/SettingsSeekBar" />
-                    <TextView style="@style/SettingsSubLabel" android:text="悬浮窗大小" />
-                    <SeekBar
-                        android:id="@+id/sizeSeekBar"
-                        style="@style/SettingsSeekBar"
-                        android:max="200"
-                        android:min="50" />
+                        android:id="@+id/textColorPreview"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="@android:color/black"
+                        android:layout_marginEnd="16dp" />
                     <TextView
-                        style="@style/SettingsSubLabel"
-                        android:text="图标大小" />
-                    <SeekBar
-                        android:id="@+id/iconSizeSeekBar"
-                        style="@style/SettingsSeekBar"
-                        android:max="200"
-                        android:min="50" />
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="文本颜色"
+                        android:layout_marginEnd="24dp"/>
+
+                    <View
+                        android:id="@+id/bgColorPreview"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="@android:color/black"
+                        android:layout_marginEnd="16dp" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="背景颜色" />
                 </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:layout_marginTop="24dp"
-                android:layout_marginBottom="8dp"
-                android:text="数据与服务"
-                android:textAppearance="?attr/textAppearanceTitleSmall"
-                android:textColor="?attr/colorPrimary" />
-
-            <com.google.android.material.card.MaterialCardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                app:cardBackgroundColor="?attr/colorSurfaceContainer"
-                app:cardCornerRadius="16dp"
-                app:cardElevation="0dp"
-                app:strokeWidth="0dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical">
-
-                    <LinearLayout
-                        android:id="@+id/serverSettingsLink"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:background="?attr/selectableItemBackground"
-                        android:clickable="true"
-                        android:focusable="true"
-                        android:gravity="center_vertical"
-                        android:minHeight="64dp"
-                        android:orientation="horizontal"
-                        android:padding="16dp">
-
-                        <ImageView
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
-                            android:src="@drawable/ic_settings"
-                            app:tint="?attr/colorOnSurfaceVariant" />
-
-                        <TextView
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="16dp"
-                            android:layout_weight="1"
-                            android:text="@string/server_settings"
-                            android:textAppearance="?attr/textAppearanceBodyLarge" />
-
-                        <ImageView
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
-                            android:src="@drawable/ic_arrow_forward"
-                            app:tint="?attr/colorOnSurfaceVariant" />
-                    </LinearLayout>
+                    android:orientation="horizontal"
+                    android:layout_marginTop="16dp"
+                    android:gravity="center_vertical">
 
                     <View
-                        android:layout_width="match_parent"
-                        android:layout_height="1dp"
-                        android:layout_marginStart="56dp"
-                        android:background="?attr/colorSurfaceContainerHighest" />
-
-                    <LinearLayout
-                        android:id="@+id/webhookSettingsLink"
-                        android:layout_width="match_parent"
+                        android:id="@+id/borderColorPreview"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="@android:color/darker_gray"
+                        android:layout_marginEnd="16dp" />
+                    <TextView
+                        android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:background="?attr/selectableItemBackground"
-                        android:clickable="true"
-                        android:focusable="true"
-                        android:gravity="center_vertical"
-                        android:minHeight="64dp"
-                        android:orientation="horizontal"
-                        android:padding="16dp">
-
-                        <ImageView
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
-                            android:src="@drawable/ic_webhook"
-                            app:tint="?attr/colorOnSurfaceVariant" />
-
-                        <TextView
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="16dp"
-                            android:layout_weight="1"
-                            android:text="Webhook 设置"
-                            android:textAppearance="?attr/textAppearanceBodyLarge" />
-
-                        <ImageView
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
-                            android:src="@drawable/ic_arrow_forward"
-                            app:tint="?attr/colorOnSurfaceVariant" />
-                    </LinearLayout>
+                        android:text="边框颜色" />
                 </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
+
+            </LinearLayout>
+
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="?android:attr/listDivider" />
 
             <TextView
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:layout_marginTop="24dp"
-                android:layout_marginBottom="8dp"
                 android:text="关于"
-                android:textAppearance="?attr/textAppearanceTitleSmall"
-                android:textColor="?attr/colorPrimary" />
-            <com.google.android.material.card.MaterialCardView
+                android:textColor="?attr/colorAccent"
+                android:textStyle="bold"
+                android:padding="16dp" />
+
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:cardBackgroundColor="?attr/colorSurfaceContainer"
-                app:cardCornerRadius="16dp"
-                app:cardElevation="0dp"
-                app:strokeWidth="0dp">
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical">
-                    <LinearLayout
-                        android:id="@+id/githubLink"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:background="?attr/selectableItemBackground"
-                        android:clickable="true"
-                        android:focusable="true"
-                        android:gravity="center_vertical"
-                        android:minHeight="64dp"
-                        android:orientation="horizontal"
-                        android:padding="16dp">
-                        <ImageView
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
-                            android:src="@drawable/ic_github"
-                            app:tint="?attr/colorOnSurfaceVariant" />
-                        <TextView
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="16dp"
-                            android:layout_weight="1"
-                            android:text="GitHub 仓库"
-                            android:textAppearance="?attr/textAppearanceBodyLarge" />
-                        <ImageView
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
-                            android:src="@drawable/ic_arrow_forward"
-                            app:tint="?attr/colorOnSurfaceVariant" />
-                    </LinearLayout>
-                    <View
-                        android:layout_width="match_parent"
-                        android:layout_height="1dp"
-                        android:layout_marginStart="56dp"
-                        android:background="?attr/colorSurfaceContainerHighest" />
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:gravity="center_vertical"
-                        android:minHeight="64dp"
-                        android:orientation="horizontal"
-                        android:padding="16dp">
-                        <ImageView
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
-                            android:src="@drawable/ic_info"
-                            app:tint="?attr/colorOnSurfaceVariant" />
-                        <TextView
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="16dp"
-                            android:layout_weight="1"
-                            android:text="应用版本"
-                            android:textAppearance="?attr/textAppearanceBodyLarge" />
-                        <TextView
-                            android:id="@+id/appVersionText"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:textAppearance="?attr/textAppearanceBodyMedium"
-                            android:textColor="?attr/colorOnSurfaceVariant"
-                            tools:text="1.0" />
-                    </LinearLayout>
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-        </LinearLayout>
-    </androidx.core.widget.NestedScrollView>
+                android:orientation="horizontal"
+                android:padding="16dp">
 
-</androidx.coordinatorlayout.widget.CoordinatorLayout>
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="版本"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/appVersionText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:text="1.0.0" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/githubLink"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="访问 GitHub 仓库"
+                android:textColor="@color/design_default_color_primary"
+                android:padding="16dp"
+                android:background="?attr/selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true" />
+
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>
