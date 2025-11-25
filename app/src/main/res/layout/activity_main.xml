@@ -5,19 +5,22 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fitsSystemWindows="true"
+    android:background="?attr/colorSurface"
     tools:context=".ui.main.MainActivity">
 
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@android:color/transparent"
+        android:background="?attr/colorSurface"
         app:elevation="0dp">
 
         <com.google.android.material.appbar.MaterialToolbar
             android:id="@+id/toolbar"
+            style="@style/Widget.App.Toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
-            app:title="心率监控器">
+            app:title="心率监控器"
+            app:titleCentered="true">
 
             <LinearLayout
                 android:layout_width="wrap_content"
@@ -28,40 +31,36 @@
 
                 <ImageButton
                     android:id="@+id/floatingWindowButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:minWidth="48dp"
-                    android:minHeight="48dp"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="悬浮窗开关"
-                    android:padding="8dp"
-                    android:src="@drawable/ic_floating_window_off" />
+                    android:src="@drawable/ic_floating_window_off"
+                    android:scaleType="centerInside"
+                    app:tint="@color/selector_icon_button" />
 
-                <ImageView
+                <ImageButton
                     android:id="@+id/disconnectButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:minWidth="48dp"
-                    android:minHeight="48dp"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="断开连接"
-                    android:padding="8dp"
                     android:src="@drawable/ic_bluetooth_disabled"
                     android:visibility="gone"
-                    app:tint="@color/design_default_color_error"
+                    android:scaleType="centerInside"
+                    app:tint="@color/red_error"
                     tools:visibility="visible" />
 
                 <ImageButton
                     android:id="@+id/settingsButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp"
-                    android:minWidth="48dp"
-                    android:minHeight="48dp"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:layout_marginEnd="8dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="设置"
-                    android:padding="8dp"
-                    android:src="@drawable/ic_settings" />
+                    android:src="@drawable/ic_settings"
+                    android:scaleType="centerInside"
+                    app:tint="@color/selector_icon_button" />
             </LinearLayout>
 
         </com.google.android.material.appbar.MaterialToolbar>
@@ -77,237 +76,240 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingTop="16dp"
-            android:paddingBottom="16dp"
+            android:padding="16dp"
             android:clipToPadding="false">
 
-            <androidx.constraintlayout.widget.ConstraintLayout
-                android:id="@+id/heartRateCard"
+            <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
-                android:layout_height="220dp"
-                android:background="@drawable/background_heart_rate_disconnected"
-                android:elevation="8dp"
-                android:layout_marginStart="16dp"
-                android:layout_marginEnd="16dp">
+                android:layout_height="wrap_content"
+                app:cardCornerRadius="28dp"
+                app:cardElevation="4dp"
+                app:strokeWidth="0dp">
 
-                <TextView
-                    android:id="@+id/heartIcon"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="❤️"
-                    android:textSize="140sp"
-                    android:alpha="0.5"
-                    app:layout_constraintTop_toTopOf="parent"
-                    app:layout_constraintBottom_toBottomOf="parent"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintEnd_toEndOf="parent" />
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:id="@+id/heartRateCard"
+                    android:layout_width="match_parent"
+                    android:layout_height="240dp"
+                    android:background="@drawable/background_heart_rate_disconnected">
+
+                    <TextView
+                        android:id="@+id/heartIcon"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="❤️"
+                        android:textSize="140sp"
+                        android:alpha="0.2"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintBottom_toBottomOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintEnd_toEndOf="parent" />
+
+                    <LinearLayout
+                        android:id="@+id/heartRateHorizontalLayout"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_horizontal"
+                        android:baselineAligned="true"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintBottom_toBottomOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintEnd_toEndOf="parent">
+
+                        <TextView
+                            android:id="@+id/heartRateTextView"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:textColor="@android:color/white"
+                            android:textSize="72sp"
+                            android:fontFamily="sans-serif-medium"
+                            tools:text="--" />
+
+                        <TextView
+                            android:id="@+id/bpmTextView"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:text="bpm"
+                            android:textColor="@android:color/white"
+                            android:textSize="24sp"
+                            android:alpha="0.9" />
+                    </LinearLayout>
+                </androidx.constraintlayout.widget.ConstraintLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/statusCard"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:layout_gravity="center_horizontal"
+                app:cardCornerRadius="50dp"
+                app:cardElevation="0dp"
+                app:cardBackgroundColor="?attr/colorSurfaceContainerHighest"
+                app:strokeWidth="0dp">
 
                 <LinearLayout
-                    android:id="@+id/heartRateHorizontalLayout"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal"
                     android:gravity="center_vertical"
-                    app:layout_constraintTop_toTopOf="parent"
-                    app:layout_constraintBottom_toBottomOf="parent"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintEnd_toEndOf="parent">
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="20dp"
+                    android:paddingVertical="10dp">
+
+                    <ProgressBar
+                        android:id="@+id/statusProgressBar"
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:layout_marginEnd="8dp"
+                        android:indeterminateTint="?attr/colorPrimary"
+                        android:visibility="gone" />
+
+                    <ImageView
+                        android:id="@+id/statusIcon"
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:layout_marginEnd="8dp"
+                        android:src="@drawable/ic_bluetooth_disabled"
+                        app:tint="?attr/colorError" />
 
                     <TextView
-                        android:id="@+id/heartRateTextView"
+                        android:id="@+id/statusTextView"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:textColor="@android:color/white"
-                        android:textSize="60sp"
+                        android:textSize="14sp"
                         android:textStyle="bold"
-                        tools:text="--" />
-
-                    <TextView
-                        android:id="@+id/bpmTextView"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="6dp"
-                        android:text="bpm"
-                        android:textColor="@android:color/white"
-                        android:textSize="20sp"
-                        android:alpha="0.8" />
+                        android:textColor="?attr/colorOnSurfaceVariant"
+                        tools:text="请先扫描并连接设备" />
                 </LinearLayout>
-            </androidx.constraintlayout.widget.ConstraintLayout>
+            </com.google.android.material.card.MaterialCardView>
 
             <LinearLayout
                 android:id="@+id/speedCard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
-                android:layout_marginStart="16dp"
-                android:layout_marginEnd="16dp"
                 android:gravity="center"
                 android:orientation="vertical"
                 android:visibility="gone"
                 tools:visibility="visible">
-
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="时速"
-                    android:textColor="?attr/colorOnSurfaceVariant"
-                    android:textSize="14sp"/>
-
+                    android:textAppearance="?attr/textAppearanceLabelMedium"
+                    android:textColor="?attr/colorOnSurfaceVariant"/>
                 <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal">
-
+                    android:orientation="horizontal"
+                    android:baselineAligned="true">
                     <TextView
                         android:id="@+id/speedTextView"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="0.0"
-                        android:textSize="32sp"
+                        android:textAppearance="?attr/textAppearanceDisplaySmall"
                         android:textStyle="bold"
                         android:textColor="?attr/colorOnSurface"/>
-
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="4dp"
                         android:text="km/h"
-                        android:textSize="16sp"
+                        android:textAppearance="?attr/textAppearanceBodyLarge"
                         android:textColor="?attr/colorOnSurfaceVariant"/>
                 </LinearLayout>
             </LinearLayout>
 
-            <LinearLayout
-                android:id="@+id/statusCard"
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/historyCard"
+                style="@style/Widget.App.Card"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="24dp"
-                android:background="@drawable/background_card_status"
-                android:gravity="center_vertical"
-                android:minHeight="48dp"
-                android:orientation="horizontal"
-                android:paddingHorizontal="16dp"
-                android:paddingVertical="12dp"
-                android:layout_marginStart="16dp"
-                android:layout_marginEnd="16dp">
-
-                <ProgressBar
-                    android:id="@+id/statusProgressBar"
-                    style="?android:attr/progressBarStyleSmall"
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:layout_marginEnd="12dp"
-                    android:visibility="gone" />
-
-                <ImageView
-                    android:id="@+id/statusIcon"
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:layout_marginEnd="12dp"
-                    android:src="@drawable/ic_bluetooth_disabled"
-                    app:tint="@android:color/holo_red_dark" />
-
-                <TextView
-                    android:id="@+id/statusTextView"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:ellipsize="end"
-                    android:maxLines="1"
-                    android:textSize="15sp"
-                    android:textStyle="bold"
-                    tools:text="请先扫描并连接设备" />
-            </LinearLayout>
-
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/historyCard"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:layout_marginStart="16dp"
-                android:layout_marginEnd="16dp"
-                app:cardCornerRadius="16dp"
+                app:cardBackgroundColor="?attr/colorSurfaceContainerHigh"
                 android:clickable="true"
-                android:focusable="true"
-                app:cardBackgroundColor="?attr/colorSurfaceContainer"
-                app:strokeWidth="0dp"
-                app:cardElevation="0dp"
-                android:background="?attr/selectableItemBackground">
-
+                android:focusable="true">
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
                     android:gravity="center_vertical"
                     android:padding="16dp">
-
                     <ImageView
                         android:layout_width="24dp"
                         android:layout_height="24dp"
                         android:src="@drawable/ic_info"
-                        app:tint="?attr/colorOnSurfaceVariant"/>
-
+                        app:tint="?attr/colorPrimary"/>
                     <TextView
                         android:layout_width="0dp"
                         android:layout_weight="1"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="16dp"
                         android:text="查看心率历史记录"
-                        android:textAppearance="?attr/textAppearanceBodyLarge"/>
-
+                        android:textAppearance="?attr/textAppearanceTitleMedium"/>
                     <ImageView
                         android:layout_width="24dp"
                         android:layout_height="24dp"
                         android:src="@drawable/ic_arrow_forward"
                         app:tint="?attr/colorOnSurfaceVariant"/>
-
                 </LinearLayout>
-
             </com.google.android.material.card.MaterialCardView>
 
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                style="@style/Widget.App.Card"
+                android:layout_marginTop="24dp">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+                    <com.github.mikephil.charting.charts.LineChart
+                        android:id="@+id/realtimeChart"
+                        android:layout_width="match_parent"
+                        android:layout_height="250dp"
+                        android:visibility="gone"
+                        tools:visibility="visible"/>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
             <TextView
                 android:id="@+id/deviceListTitle"
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="24dp"
                 android:layout_marginBottom="8dp"
-                android:layout_marginStart="16dp"
-                android:layout_marginEnd="16dp"
                 android:text="可连接的设备"
-                android:textSize="18sp"
-                android:textStyle="bold" />
-
-            <com.github.mikephil.charting.charts.LineChart
-                android:id="@+id/realtimeChart"
-                android:layout_width="match_parent"
-                android:layout_height="300dp"
-                android:layout_marginTop="16dp"
-                android:visibility="gone"
-                tools:visibility="visible"/>
-
+                style="@style/TextAppearance.App.SettingSection" />
 
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/devicesRecyclerView"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:nestedScrollingEnabled="false"
-                android:clipToPadding="false" tools:itemCount="3"
-                tools:listitem="@layout/list_item_device"
-                android:paddingHorizontal="16dp"/>
-        </LinearLayout>
+                tools:itemCount="2"
+                tools:listitem="@layout/list_item_device"/>
 
+            <Space
+                android:layout_width="match_parent"
+                android:layout_height="80dp" />
+        </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
+    <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
         android:id="@+id/scanFab"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|end"
-        android:layout_margin="16dp"
+        android:layout_margin="24dp"
+        android:text="扫描设备"
+        android:textColor="?attr/colorOnPrimaryContainer"
         android:contentDescription="扫描设备"
-        android:src="@drawable/ic_search"
-        app:backgroundTint="@color/fab_background_selector"
-        app:tint="@color/fab_tint_selector" />
+        app:icon="@drawable/ic_search"
+        app:iconTint="?attr/colorOnPrimaryContainer"
+        app:backgroundTint="?attr/colorPrimaryContainer" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

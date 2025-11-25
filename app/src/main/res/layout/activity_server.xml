@@ -16,9 +16,11 @@
 
         <com.google.android.material.appbar.MaterialToolbar
             android:id="@+id/toolbar"
+            style="@style/Widget.App.Toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
-            app:title="@string/server_settings" />
+            app:title="@string/server_settings"
+            app:navigationIcon="@drawable/ic_arrow_forward"/>
 
     </com.google.android.material.appbar.AppBarLayout>
 
@@ -36,19 +38,14 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:layout_marginBottom="8dp"
                 android:text="HTTP 服务器 (被动拉取)"
-                android:textAppearance="?attr/textAppearanceTitleSmall"
-                android:textColor="?attr/colorPrimary" />
+                style="@style/TextAppearance.App.SettingSection"
+                android:layout_marginBottom="8dp" />
 
             <com.google.android.material.card.MaterialCardView
+                style="@style/Widget.App.Card"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                app:cardBackgroundColor="?attr/colorSurfaceContainer"
-                app:cardCornerRadius="16dp"
-                app:cardElevation="0dp"
-                app:strokeWidth="0dp">
+                android:layout_height="wrap_content">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -56,36 +53,26 @@
                     android:orientation="vertical"
                     android:padding="16dp">
 
-                    <LinearLayout
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/serverSwitch"
+                        style="@style/SettingsRow"
+                        android:text="@string/enable_server"
+                        android:padding="0dp"/>
+
+                    <com.google.android.material.textfield.TextInputLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal">
+                        android:layout_marginTop="12dp"
+                        android:hint="@string/server_port"
+                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox.Dense">
 
-                        <TextView
-                            android:layout_width="0dp"
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/portEditText"
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:text="@string/enable_server"
-                            android:textAppearance="?attr/textAppearanceBodyLarge" />
-
-                        <com.google.android.material.materialswitch.MaterialSwitch
-                            android:id="@+id/serverSwitch"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content" />
-                    </LinearLayout>
-
-                    <TextView
-                        style="@style/SettingsSubLabel"
-                        android:text="@string/server_port" />
-
-                    <EditText
-                        android:id="@+id/portEditText"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:hint="8000"
-                        android:inputType="number"
-                        android:maxLength="5" />
+                            android:inputType="number"
+                            android:maxLength="5" />
+                    </com.google.android.material.textfield.TextInputLayout>
 
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
@@ -93,20 +80,15 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
                 android:layout_marginTop="24dp"
                 android:layout_marginBottom="8dp"
                 android:text="WebSocket 服务器 (主动推送)"
-                android:textAppearance="?attr/textAppearanceTitleSmall"
-                android:textColor="?attr/colorPrimary" />
+                style="@style/TextAppearance.App.SettingSection" />
 
             <com.google.android.material.card.MaterialCardView
+                style="@style/Widget.App.Card"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                app:cardBackgroundColor="?attr/colorSurfaceContainer"
-                app:cardCornerRadius="16dp"
-                app:cardElevation="0dp"
-                app:strokeWidth="0dp">
+                android:layout_height="wrap_content">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -114,59 +96,44 @@
                     android:orientation="vertical"
                     android:padding="16dp">
 
-                    <LinearLayout
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/websocketSwitch"
+                        style="@style/SettingsRow"
+                        android:text="启用 WebSocket 服务器"
+                        android:padding="0dp"/>
+
+                    <com.google.android.material.textfield.TextInputLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal">
+                        android:layout_marginTop="12dp"
+                        android:hint="WebSocket 端口"
+                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox.Dense">
 
-                        <TextView
-                            android:layout_width="0dp"
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/websocketPortEditText"
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:text="启用 WebSocket 服务器"
-                            android:textAppearance="?attr/textAppearanceBodyLarge" />
-
-                        <com.google.android.material.materialswitch.MaterialSwitch
-                            android:id="@+id/websocketSwitch"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content" />
-                    </LinearLayout>
-
-                    <TextView
-                        style="@style/SettingsSubLabel"
-                        android:text="WebSocket 服务器端口" />
-
-                    <EditText
-                        android:id="@+id/websocketPortEditText"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:hint="8001"
-                        android:inputType="number"
-                        android:maxLength="5" />
+                            android:inputType="number"
+                            android:maxLength="5" />
+                    </com.google.android.material.textfield.TextInputLayout>
 
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
-
 
             <TextView
                 android:id="@+id/serverStatusTitle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
                 android:layout_marginTop="24dp"
                 android:layout_marginBottom="8dp"
                 android:text="@string/server_status"
-                android:textAppearance="?attr/textAppearanceTitleSmall"
-                android:textColor="?attr/colorPrimary" />
+                style="@style/TextAppearance.App.SettingSection" />
 
             <com.google.android.material.card.MaterialCardView
+                style="@style/Widget.App.Card"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:cardBackgroundColor="?attr/colorSurfaceContainer"
-                app:cardCornerRadius="16dp"
-                app:cardElevation="0dp"
-                app:strokeWidth="0dp">
+                app:cardBackgroundColor="?attr/colorSurfaceContainerHigh">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -191,11 +158,17 @@
                         android:textColor="?attr/colorOnSurfaceVariant"
                         tools:text="访问地址: http://192.168.1.100:8000/heartrate" />
 
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="?attr/colorOutlineVariant"
+                        android:layout_marginTop="12dp"
+                        android:layout_marginBottom="12dp"/>
+
                     <TextView
                         android:id="@+id/websocketStatusText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="16dp"
                         android:textAppearance="?attr/textAppearanceBodyLarge"
                         tools:text="WebSocket 未运行" />
 

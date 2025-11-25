@@ -5,6 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fitsSystemWindows="true"
+    android:background="?attr/colorSurface"
     tools:context=".ui.webhook.WebhookActivity">
 
     <com.google.android.material.appbar.AppBarLayout
@@ -15,9 +16,12 @@
 
         <com.google.android.material.appbar.MaterialToolbar
             android:id="@+id/toolbar"
+            style="@style/Widget.App.Toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
-            app:title="Webhook 设置" />
+            app:title="Webhook 设置"
+            app:navigationIcon="@drawable/ic_arrow_forward"
+            app:navigationIconTint="?attr/colorOnSurface" />
 
     </com.google.android.material.appbar.AppBarLayout>
 
@@ -41,8 +45,9 @@
                 android:layout_width="0dp"
                 android:layout_weight="1"
                 android:layout_height="wrap_content"
-                android:text="新增预设" />
-
+                android:text="新增预设"
+                app:icon="@drawable/ic_settings"
+                android:minHeight="56dp"/>
             <Button
                 android:id="@+id/syncButton"
                 style="@style/Widget.Material3.Button.OutlinedButton"
@@ -50,15 +55,25 @@
                 android:layout_weight="1"
                 android:layout_marginStart="16dp"
                 android:layout_height="wrap_content"
-                android:text="同步官方预设" />
+                android:text="同步官方预设"
+                android:minHeight="56dp"/>
 
         </LinearLayout>
 
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="已配置的 Webhook"
+            style="@style/TextAppearance.App.SettingSection"
+            android:layout_marginBottom="8dp"/>
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/webhooksRecyclerView"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:clipToPadding="false"
+            android:paddingBottom="16dp"
             tools:listitem="@layout/list_item_webhook" />
 
     </LinearLayout>
