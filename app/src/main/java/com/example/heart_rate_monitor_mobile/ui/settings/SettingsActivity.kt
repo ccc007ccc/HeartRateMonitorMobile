@@ -10,10 +10,8 @@ import android.net.Uri
 import android.os.Bundle
 import android.widget.SeekBar
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.widget.SwitchCompat
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.ColorUtils
-import androidx.core.graphics.drawable.DrawableCompat
 import com.example.heart_rate_monitor_mobile.R
 import com.example.heart_rate_monitor_mobile.databinding.ActivitySettingsBinding
 import com.example.heart_rate_monitor_mobile.ui.server.ServerActivity
@@ -45,7 +43,8 @@ class SettingsActivity : AppCompatActivity() {
     private fun setupToolbar() {
         setSupportActionBar(binding.toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
-        supportActionBar?.title = "Settings"
+        // 汉化：标题
+        supportActionBar?.title = "设置"
     }
 
     private fun setupClickListeners() {
@@ -74,7 +73,8 @@ class SettingsActivity : AppCompatActivity() {
             binding.appVersionText.text = version
         } catch (e: PackageManager.NameNotFoundException) {
             e.printStackTrace()
-            binding.appVersionText.text = "N/A"
+            // 汉化：版本获取失败提示
+            binding.appVersionText.text = "未知"
         }
     }
 
@@ -125,13 +125,14 @@ class SettingsActivity : AppCompatActivity() {
         binding.historyRecordingSwitch.isChecked = sharedPreferences.getBoolean("history_recording_enabled", false)
         binding.historyRecordingSwitch.setOnCheckedChangeListener { buttonView, isChecked ->
             if (isChecked) {
+                // 汉化：性能警告对话框
                 MaterialAlertDialogBuilder(this)
-                    .setTitle("Performance Warning")
-                    .setMessage("Enabling history recording will continuously write data to storage, potentially increasing battery usage. Confirm?")
-                    .setNegativeButton("Cancel") { _, _ ->
+                    .setTitle("性能警告")
+                    .setMessage("开启历史记录将持续写入数据到存储，可能会增加耗电量。确认开启吗？")
+                    .setNegativeButton("取消") { _, _ ->
                         buttonView.isChecked = false
                     }
-                    .setPositiveButton("Confirm") { _, _ ->
+                    .setPositiveButton("确认") { _, _ ->
                         sharedPreferences.edit().putBoolean("history_recording_enabled", true).apply()
                     }
                     .show()
@@ -174,13 +175,14 @@ class SettingsActivity : AppCompatActivity() {
         binding.speedDisplaySwitch.isChecked = isSpeedDisplayEnabled
         binding.speedDisplaySwitch.setOnCheckedChangeListener { buttonView, isChecked ->
             if (isChecked) {
+                // 汉化：速度显示警告对话框
                 MaterialAlertDialogBuilder(this)
-                    .setTitle("Enable Speed Display")
-                    .setMessage("This feature uses GPS to calculate speed, which may increase battery usage and requires location permissions. Confirm?")
-                    .setNegativeButton("Cancel") { _, _ ->
+                    .setTitle("开启速度显示")
+                    .setMessage("该功能使用 GPS 计算速度，可能会增加耗电量并需要定位权限。确认开启吗？")
+                    .setNegativeButton("取消") { _, _ ->
                         buttonView.isChecked = false
                     }
-                    .setPositiveButton("Confirm") { _, _ ->
+                    .setPositiveButton("确认") { _, _ ->
                         sharedPreferences.edit().putBoolean("speed_display_enabled", true).apply()
                     }
                     .show()
@@ -191,14 +193,15 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun setupFloatingWindowSettings() {
+        // 汉化：颜色选择器标题
         binding.textColorPreview.setOnClickListener {
-            showColorPicker("floating_text_color", "Text Color", Color.BLACK)
+            showColorPicker("floating_text_color", "文本颜色", Color.BLACK)
         }
         binding.bgColorPreview.setOnClickListener {
-            showColorPicker("floating_bg_color", "Background Color", Color.BLACK)
+            showColorPicker("floating_bg_color", "背景颜色", Color.BLACK)
         }
         binding.borderColorPreview.setOnClickListener {
-            showColorPicker("floating_border_color", "Border Color", Color.GRAY)
+            showColorPicker("floating_border_color", "边框颜色", Color.GRAY)
         }
 
         setupSeekBar(binding.bgAlphaSeekBar, "floating_bg_alpha", 10)
@@ -216,7 +219,8 @@ class SettingsActivity : AppCompatActivity() {
             .setPreferenceName("ColorPickerDialog")
             .attachBrightnessSlideBar(true)
             .attachAlphaSlideBar(false)
-            .setPositiveButton("Confirm", object : ColorEnvelopeListener {
+            // 汉化：颜色选择器按钮
+            .setPositiveButton("确认", object : ColorEnvelopeListener {
                 override fun onColorSelected(envelope: ColorEnvelope?, fromUser: Boolean) {
                     envelope?.let {
                         sharedPreferences.edit().putInt(prefKey, it.color).apply()
@@ -224,7 +228,7 @@ class SettingsActivity : AppCompatActivity() {
                     }
                 }
             })
-            .setNegativeButton("Cancel") { dialogInterface: DialogInterface, _: Int ->
+            .setNegativeButton("取消") { dialogInterface: DialogInterface, _: Int ->
                 dialogInterface.dismiss()
             }
             .show()

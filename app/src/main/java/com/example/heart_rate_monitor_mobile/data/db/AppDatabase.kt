@@ -5,7 +5,8 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-@Database(entities = [HeartRateSession::class, HeartRateRecord::class], version = 1)
+// 1. 将版本号从 1 增加到 2
+@Database(entities = [HeartRateSession::class, HeartRateRecord::class], version = 2)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun heartRateDao(): HeartRateDao
 
@@ -19,7 +20,10 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "heart_rate_database"
-                ).build()
+                )
+                    // 2. 添加这行代码，以便在版本升级时自动销毁并重建数据库
+                    .fallbackToDestructiveMigration()
+                    .build()
                 INSTANCE = instance
                 instance
             }

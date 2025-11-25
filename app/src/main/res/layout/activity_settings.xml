@@ -4,23 +4,23 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fitsSystemWindows="true"
     android:background="?attr/colorSurface"
+    android:fitsSystemWindows="true"
     tools:context=".ui.settings.SettingsActivity">
 
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="?attr/colorSurface"
-        app:liftOnScroll="true">
+        app:elevation="0dp">
 
         <com.google.android.material.appbar.MaterialToolbar
             android:id="@+id/toolbar"
             style="@style/Widget.App.Toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
-            app:title="设置"
-            app:navigationIcon="@drawable/ic_arrow_forward" />
+            app:navigationIcon="@drawable/ic_arrow_forward"
+            app:title="设置" />
     </com.google.android.material.appbar.AppBarLayout>
 
     <androidx.core.widget.NestedScrollView
@@ -35,11 +35,11 @@
             android:padding="16dp">
 
             <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="常规"
                 style="@style/TextAppearance.App.SettingSection"
-                android:layout_marginBottom="8dp"/>
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:text="常规" />
 
             <com.google.android.material.card.MaterialCardView
                 style="@style/Widget.App.Card"
@@ -50,127 +50,140 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:padding="8dp">
+                    android:padding="16dp">
 
                     <com.google.android.material.materialswitch.MaterialSwitch
                         android:id="@+id/historyRecordingSwitch"
                         style="@style/SettingsRow"
+                        android:layout_marginBottom="12dp"
+                        android:padding="0dp"
                         android:text="记录历史数据" />
 
                     <com.google.android.material.materialswitch.MaterialSwitch
                         android:id="@+id/heartbeatAnimationSwitch"
                         style="@style/SettingsRow"
+                        android:layout_marginBottom="12dp"
+                        android:padding="0dp"
                         android:text="心跳动画效果" />
 
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="vertical">
+
                         <com.google.android.material.materialswitch.MaterialSwitch
                             android:id="@+id/speedDisplaySwitch"
                             style="@style/SettingsRow"
+                            android:padding="0dp"
                             android:text="显示时速 (GPS)" />
+
                         <TextView
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
+                            android:paddingTop="4dp"
                             android:text="开启时速显示将使用GPS定位，可能会增加耗电。"
                             android:textAppearance="?attr/textAppearanceBodySmall"
-                            android:textColor="?attr/colorOnSurfaceVariant"
-                            android:paddingStart="4dp"
-                            android:paddingBottom="8dp"/>
+                            android:textColor="?attr/colorOnSurfaceVariant" />
                     </LinearLayout>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
             <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="蓝牙"
                 style="@style/TextAppearance.App.SettingSection"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
                 android:layout_marginTop="24dp"
-                android:layout_marginBottom="8dp"/>
+                android:layout_marginBottom="8dp"
+                android:text="蓝牙" />
 
             <com.google.android.material.card.MaterialCardView
                 style="@style/Widget.App.Card"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content">
+
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:padding="8dp">
+                    android:padding="16dp">
 
                     <com.google.android.material.materialswitch.MaterialSwitch
                         android:id="@+id/autoConnectSwitch"
                         style="@style/SettingsRow"
+                        android:layout_marginBottom="12dp"
+                        android:padding="0dp"
                         android:text="启动时自动连接收藏设备" />
 
                     <com.google.android.material.materialswitch.MaterialSwitch
                         android:id="@+id/autoReconnectSwitch"
                         style="@style/SettingsRow"
+                        android:padding="0dp"
                         android:text="断开后自动重连" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
             <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="集成 &amp; 外部访问"
                 style="@style/TextAppearance.App.SettingSection"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
                 android:layout_marginTop="24dp"
-                android:layout_marginBottom="8dp"/>
+                android:layout_marginBottom="8dp"
+                android:text="集成 &amp; 外部访问" />
 
             <com.google.android.material.card.MaterialCardView
                 style="@style/Widget.App.Card"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content">
+
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical">
+                    android:orientation="vertical"
+                    android:padding="0dp">
 
                     <TextView
                         android:id="@+id/serverSettingsLink"
                         style="@style/SettingsRow"
-                        android:padding="16dp"
-                        android:text="HTTP &amp; WebSocket 服务器"
                         android:background="?attr/selectableItemBackground"
                         android:clickable="true"
                         android:focusable="true"
+                        android:padding="16dp"
+                        android:text="HTTP &amp; WebSocket 服务器"
                         app:drawableEndCompat="@drawable/ic_arrow_forward"
-                        app:drawableTint="?attr/colorOnSurfaceVariant"/>
+                        app:drawableTint="?attr/colorOnSurfaceVariant" />
 
                     <View
                         android:layout_width="match_parent"
                         android:layout_height="1dp"
-                        android:background="?attr/colorOutlineVariant"
-                        android:layout_marginHorizontal="16dp"/>
+                        android:layout_marginHorizontal="16dp"
+                        android:background="?attr/colorOutlineVariant" />
 
                     <TextView
                         android:id="@+id/webhookSettingsLink"
                         style="@style/SettingsRow"
-                        android:padding="16dp"
-                        android:text="Webhook 设置"
                         android:background="?attr/selectableItemBackground"
                         android:clickable="true"
                         android:focusable="true"
+                        android:padding="16dp"
+                        android:text="Webhook 设置"
                         app:drawableEndCompat="@drawable/ic_arrow_forward"
-                        app:drawableTint="?attr/colorOnSurfaceVariant"/>
+                        app:drawableTint="?attr/colorOnSurfaceVariant" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
             <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="悬浮窗样式"
                 style="@style/TextAppearance.App.SettingSection"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
                 android:layout_marginTop="24dp"
-                android:layout_marginBottom="8dp"/>
+                android:layout_marginBottom="8dp"
+                android:text="悬浮窗样式" />
 
             <com.google.android.material.card.MaterialCardView
                 style="@style/Widget.App.Card"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content">
+
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -180,54 +193,70 @@
                     <com.google.android.material.materialswitch.MaterialSwitch
                         android:id="@+id/bpmTextSwitch"
                         style="@style/SettingsRow"
+                        android:layout_marginBottom="12dp"
                         android:padding="0dp"
                         android:text="显示 'bpm' 文字" />
 
                     <com.google.android.material.materialswitch.MaterialSwitch
                         android:id="@+id/heartIconSwitch"
                         style="@style/SettingsRow"
+                        android:layout_marginBottom="16dp"
                         android:padding="0dp"
                         android:text="显示心形图标" />
 
                     <TextView
                         style="@style/SettingsSubLabel"
+                        android:layout_marginBottom="4dp"
                         android:text="整体大小" />
+
                     <SeekBar
                         android:id="@+id/sizeSeekBar"
                         style="@style/SettingsSeekBar"
+                        android:layout_marginBottom="12dp"
                         android:max="200"
                         android:progress="100" />
 
                     <TextView
                         style="@style/SettingsSubLabel"
+                        android:layout_marginBottom="4dp"
                         android:text="图标大小" />
+
                     <SeekBar
                         android:id="@+id/iconSizeSeekBar"
                         style="@style/SettingsSeekBar"
+                        android:layout_marginBottom="12dp"
                         android:max="200"
                         android:progress="100" />
 
                     <TextView
                         style="@style/SettingsSubLabel"
+                        android:layout_marginBottom="4dp"
                         android:text="圆角半径" />
+
                     <SeekBar
                         android:id="@+id/cornerRadiusSeekBar"
                         style="@style/SettingsSeekBar"
+                        android:layout_marginBottom="12dp"
                         android:max="100"
                         android:progress="50" />
 
                     <TextView
                         style="@style/SettingsSubLabel"
+                        android:layout_marginBottom="4dp"
                         android:text="背景不透明度" />
+
                     <SeekBar
                         android:id="@+id/bgAlphaSeekBar"
                         style="@style/SettingsSeekBar"
+                        android:layout_marginBottom="12dp"
                         android:max="100"
                         android:progress="80" />
 
                     <TextView
                         style="@style/SettingsSubLabel"
+                        android:layout_marginBottom="4dp"
                         android:text="边框不透明度" />
+
                     <SeekBar
                         android:id="@+id/borderAlphaSeekBar"
                         style="@style/SettingsSeekBar"
@@ -237,61 +266,67 @@
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:layout_marginTop="24dp">
+                        android:layout_marginTop="16dp"
+                        android:orientation="horizontal">
 
                         <LinearLayout
                             android:layout_width="0dp"
-                            android:layout_weight="1"
                             android:layout_height="wrap_content"
+                            android:layout_weight="1"
                             android:gravity="center"
                             android:orientation="vertical">
+
                             <View
                                 android:id="@+id/textColorPreview"
                                 style="@style/ColorPreview"
                                 android:background="@android:color/black" />
+
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
+                                android:layout_marginTop="8dp"
                                 android:text="文本"
-                                android:layout_marginTop="4dp"
-                                android:textAppearance="?attr/textAppearanceBodySmall"/>
+                                android:textAppearance="?attr/textAppearanceBodySmall" />
                         </LinearLayout>
 
                         <LinearLayout
                             android:layout_width="0dp"
-                            android:layout_weight="1"
                             android:layout_height="wrap_content"
+                            android:layout_weight="1"
                             android:gravity="center"
                             android:orientation="vertical">
+
                             <View
                                 android:id="@+id/bgColorPreview"
                                 style="@style/ColorPreview"
                                 android:background="@android:color/black" />
+
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
+                                android:layout_marginTop="8dp"
                                 android:text="背景"
-                                android:layout_marginTop="4dp"
-                                android:textAppearance="?attr/textAppearanceBodySmall"/>
+                                android:textAppearance="?attr/textAppearanceBodySmall" />
                         </LinearLayout>
 
                         <LinearLayout
                             android:layout_width="0dp"
-                            android:layout_weight="1"
                             android:layout_height="wrap_content"
+                            android:layout_weight="1"
                             android:gravity="center"
                             android:orientation="vertical">
+
                             <View
                                 android:id="@+id/borderColorPreview"
                                 style="@style/ColorPreview"
                                 android:background="@android:color/darker_gray" />
+
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
+                                android:layout_marginTop="8dp"
                                 android:text="边框"
-                                android:layout_marginTop="4dp"
-                                android:textAppearance="?attr/textAppearanceBodySmall"/>
+                                android:textAppearance="?attr/textAppearanceBodySmall" />
                         </LinearLayout>
 
                     </LinearLayout>
@@ -299,32 +334,36 @@
             </com.google.android.material.card.MaterialCardView>
 
             <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="关于"
                 style="@style/TextAppearance.App.SettingSection"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
                 android:layout_marginTop="24dp"
-                android:layout_marginBottom="8dp"/>
+                android:layout_marginBottom="8dp"
+                android:text="关于" />
 
             <com.google.android.material.card.MaterialCardView
                 style="@style/Widget.App.Card"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content">
+
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical">
+                    android:orientation="vertical"
+                    android:padding="0dp">
 
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
                         android:padding="16dp">
+
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="版本"
                             android:textAppearance="?attr/textAppearanceBodyLarge" />
+
                         <TextView
                             android:id="@+id/appVersionText"
                             android:layout_width="wrap_content"
@@ -332,31 +371,35 @@
                             android:layout_marginStart="8dp"
                             android:text="1.0.0"
                             android:textAppearance="?attr/textAppearanceBodyLarge"
-                            android:textColor="?attr/colorOnSurfaceVariant"/>
+                            android:textColor="?attr/colorOnSurfaceVariant" />
                     </LinearLayout>
 
                     <View
                         android:layout_width="match_parent"
                         android:layout_height="1dp"
-                        android:background="?attr/colorOutlineVariant"
-                        android:layout_marginHorizontal="16dp"/>
+                        android:layout_marginHorizontal="16dp"
+                        android:background="?attr/colorOutlineVariant" />
 
                     <TextView
                         android:id="@+id/githubLink"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="访问 GitHub 仓库"
-                        android:padding="16dp"
                         android:background="?attr/selectableItemBackground"
                         android:clickable="true"
                         android:focusable="true"
+                        android:padding="16dp"
+                        android:text="访问 GitHub 仓库"
                         android:textColor="?attr/colorPrimary"
                         android:textStyle="bold"
                         app:drawableEndCompat="@drawable/ic_github"
-                        app:drawableTint="?attr/colorPrimary"/>
+                        app:drawableTint="?attr/colorPrimary" />
 
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
+
+            <Space
+                android:layout_width="match_parent"
+                android:layout_height="32dp" />
 
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>

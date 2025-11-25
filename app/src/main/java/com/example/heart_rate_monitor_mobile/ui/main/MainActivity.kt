@@ -334,13 +334,13 @@ class MainActivity : AppCompatActivity() {
         when (status) {
             AppStatus.CONNECTED -> {
                 binding.heartRateCard.background = ContextCompat.getDrawable(this, R.drawable.background_heart_rate_connected)
-                binding.heartIcon.text = "❤️"
+                binding.bgHeartIcon.text = "❤️"
                 binding.statusIcon.setImageResource(R.drawable.ic_bluetooth_connected)
                 binding.statusIcon.setColorFilter(ContextCompat.getColor(this, R.color.primary_light))
             }
             else -> {
                 binding.heartRateCard.background = ContextCompat.getDrawable(this, R.drawable.background_heart_rate_disconnected)
-                binding.heartIcon.text = "💔"
+                binding.bgHeartIcon.text = "💔"
                 binding.statusIcon.setImageResource(R.drawable.ic_bluetooth_disabled)
                 binding.statusIcon.setColorFilter(ContextCompat.getColor(this, R.color.red_error))
                 updateHeartbeatAnimation(0)
@@ -387,7 +387,7 @@ class MainActivity : AppCompatActivity() {
     private val beatInterpolator = AccelerateDecelerateInterpolator()
 
     private fun updateHeartbeatAnimation(bpm: Int) {
-        val heartIcon = binding.heartIcon
+        val heartIcon = binding.bgHeartIcon
         val isAnimationEnabled = sharedPreferences.getBoolean("heartbeat_animation_enabled", true)
         if (isAnimationEnabled && bpm > 30 && viewModel.appStatus.value == AppStatus.CONNECTED) {
             val targetDuration = (60000f / bpm).toLong()
