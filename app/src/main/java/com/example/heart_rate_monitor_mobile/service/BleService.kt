@@ -86,6 +86,7 @@ class BleService : Service() {
     // --- Location Listener ---
     private val locationListener = object : LocationListener {
         override fun onLocationChanged(location: Location) {
+            // 只有当 Location 包含速度信息时才更新，单位转换 m/s -> km/h
             if (location.hasSpeed()) {
                 _speed.value = location.speed * 3.6f
             } else {
@@ -93,6 +94,7 @@ class BleService : Service() {
             }
             broadcastWebSocketState()
         }
+        // 旧版本 API 兼容（空实现即可）
         override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
         override fun onProviderEnabled(provider: String) {}
         override fun onProviderDisabled(provider: String) {}
@@ -117,6 +119,16 @@ class BleService : Service() {
         broadcastWebSocketState()
     }
 
+    // 【重要修复】添加 onStartCommand 以响应 Activity 的刷新请求
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        Log.d("BleService", "Service received start command, refreshing location updates...")
+        // 强制刷新位置监听逻辑（当权限被授予后）
+        updateLocationUpdates()
+        // 刷新前台服务通知（如果需要升级权限类型）
+        startForegroundService()
+        return START_STICKY
+    }
+
     private fun startForegroundService() {
         val channelId = "BleServiceChannel"
         val channelName = "BLE 连接状态"
@@ -133,31 +145,33 @@ class BleService : Service() {
             .setOngoing(true)
             .build()
 
-        // 核心修复：防止崩溃
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             try {
+                // 默认仅连接设备类型
                 var type = ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
 
-                // 只有当用户确实授予了位置权限时，才添加 LOCATION 类型
                 val hasLocationPermission = ActivityCompat.checkSelfPermission(
                     this,
                     Manifest.permission.ACCESS_FINE_LOCATION
                 ) == PackageManager.PERMISSION_GRANTED
 
-                val isSpeedEnabled = sharedPreferences.getBoolean("speed_display_enabled", false)
+                // 注意：这里默认值为 true，防止因未设置过且默认为 false 导致刚开始没有速度
+                val isSpeedEnabled = sharedPreferences.getBoolean("speed_display_enabled", true)
 
+                // 只有当用户授予了位置权限 且 开启了速度显示开关时，才添加 LOCATION 类型
                 if (hasLocationPermission && isSpeedEnabled) {
                     type = type or ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
                 }
 
                 ServiceCompat.startForeground(this, 1, notification, type)
             } catch (e: Exception) {
-                // 如果发生任何 SecurityException，降级启动
+                // 【降级保护】如果因为清单文件缺少声明等原因崩溃，回退到仅 Connected Device 类型
+                Log.e("BleService", "Failed to start foreground service with specific types, falling back.", e)
                 try {
                     val safeType = ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
                     ServiceCompat.startForeground(this, 1, notification, safeType)
                 } catch (e2: Exception) {
-                    Log.e("BleService", "Failed to start service", e2)
+                    Log.e("BleService", "Critical: Failed to start foreground service", e2)
                 }
             }
         } else {
@@ -389,13 +403,18 @@ class BleService : Service() {
     }
 
     private fun updateLocationUpdates() {
-        val isEnabled = sharedPreferences.getBoolean("speed_display_enabled", false)
-        if (isEnabled && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+        val isEnabled = sharedPreferences.getBoolean("speed_display_enabled", true) // 建议默认为 true
+        val hasPermission = ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+
+        Log.d("BleService", "Updating location. Enabled: $isEnabled, Permission: $hasPermission")
+
+        if (isEnabled && hasPermission) {
             try {
+                // 使用 GPS_PROVIDER 以获取速度信息
                 locationManager?.requestLocationUpdates(
                     LocationManager.GPS_PROVIDER,
-                    1000L,
-                    1f,
+                    1000L, // 最小更新间隔 1秒
+                    1f,    // 最小距离间隔 1米
                     locationListener
                 )
             } catch (e: Exception) {
