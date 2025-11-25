@@ -185,21 +185,22 @@ class BleService : Service() {
         stopAllBleActivities()
 
         scanJob = serviceScope.launch {
-            val foundDevices = mutableSetOf<Advertisement>()
+            // [Fix]: Use Map to prevent duplicates/stacking of same device with updated RSSI
+            val foundDevicesMap = mutableMapOf<String, Advertisement>()
             try {
                 _bleState.value = BleState.Scanning
                 withTimeout(durationMillis) {
                     bleManager.scan().collect { advertisement ->
-                        if (foundDevices.add(advertisement)) {
-                            _scanResults.value = foundDevices.toList()
-                        }
+                        // Update the map with the latest advertisement for this ID
+                        foundDevicesMap[advertisement.identifier] = advertisement
+                        _scanResults.value = foundDevicesMap.values.toList()
                     }
                 }
             } catch (_: TimeoutCancellationException) {
                 // 修复：未使用变量重命名为 _
             } finally {
                 withContext(NonCancellable) {
-                    val statusMessage = if (foundDevices.isNotEmpty()) "扫描结束" else "未找到任何设备"
+                    val statusMessage = if (foundDevicesMap.isNotEmpty()) "扫描结束" else "未找到任何设备"
                     _bleState.value = BleState.ScanFailed(statusMessage)
                     isScanning.set(false)
                 }
@@ -212,7 +213,8 @@ class BleService : Service() {
         stopAllBleActivities()
 
         scanJob = serviceScope.launch {
-            val foundDevices = mutableSetOf<Advertisement>()
+            // [Fix]: Use Map here as well for consistency
+            val foundDevicesMap = mutableMapOf<String, Advertisement>()
             var favoriteFound = false
             if (_bleState.value !is BleState.AutoReconnecting) {
                 _bleState.value = BleState.AutoConnecting
@@ -221,8 +223,8 @@ class BleService : Service() {
             try {
                 withTimeout(durationMillis) {
                     bleManager.scan().collect { advertisement ->
-                        foundDevices.add(advertisement)
-                        _scanResults.value = foundDevices.toList()
+                        foundDevicesMap[advertisement.identifier] = advertisement
+                        _scanResults.value = foundDevicesMap.values.toList()
 
                         if (advertisement.identifier == favoriteDeviceId) {
                             favoriteFound = true
@@ -321,7 +323,8 @@ class BleService : Service() {
     }
 
     private fun startHistorySession(deviceName: String) {
-        val isHistoryEnabled = sharedPreferences.getBoolean("history_recording_enabled", true)
+        // [Fix]: Default value changed to false
+        val isHistoryEnabled = sharedPreferences.getBoolean("history_recording_enabled", false)
         if (isHistoryEnabled) {
             val session = HeartRateSession(deviceName = deviceName, startTime = System.currentTimeMillis())
             serviceScope.launch {
@@ -373,7 +376,8 @@ class BleService : Service() {
 
     private suspend fun observeHeartRateData(peripheral: Peripheral) {
         try {
-            val isHistoryEnabled = sharedPreferences.getBoolean("history_recording_enabled", true)
+            // [Fix]: Default value changed to false
+            val isHistoryEnabled = sharedPreferences.getBoolean("history_recording_enabled", false)
             bleManager.observeHeartRate(peripheral).collect { rate ->
                 _heartRate.value = rate
                 webhookManager.triggerWebhooks(WebhookTrigger.HEART_RATE_UPDATED, rate, _speed.value)

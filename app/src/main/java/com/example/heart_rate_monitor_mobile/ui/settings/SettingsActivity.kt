@@ -4,11 +4,17 @@ import android.content.DialogInterface
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
+import android.content.res.ColorStateList
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.widget.SeekBar
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.SwitchCompat
+import androidx.core.content.ContextCompat
+import androidx.core.graphics.ColorUtils
+import androidx.core.graphics.drawable.DrawableCompat
+import com.example.heart_rate_monitor_mobile.R
 import com.example.heart_rate_monitor_mobile.databinding.ActivitySettingsBinding
 import com.example.heart_rate_monitor_mobile.ui.server.ServerActivity
 import com.example.heart_rate_monitor_mobile.ui.webhook.WebhookActivity
@@ -39,7 +45,7 @@ class SettingsActivity : AppCompatActivity() {
     private fun setupToolbar() {
         setSupportActionBar(binding.toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
-        supportActionBar?.title = "设置"
+        supportActionBar?.title = "Settings"
     }
 
     private fun setupClickListeners() {
@@ -73,16 +79,59 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun setupSwitches() {
+        // 【关键修复】设置开关的颜色状态列表，修复关闭时颜色异常问题
+        val activeColor = ContextCompat.getColor(this, R.color.primary_light)
+        val inactiveTrackColor = Color.parseColor("#E0E0E0") // 浅灰色轨道
+        val inactiveThumbColor = Color.WHITE // 白色滑块
+
+        val thumbStates = ColorStateList(
+            arrayOf(
+                intArrayOf(-android.R.attr.state_checked), // 关闭状态
+                intArrayOf(android.R.attr.state_checked)  // 开启状态
+            ),
+            intArrayOf(
+                inactiveThumbColor,
+                activeColor
+            )
+        )
+
+        val trackStates = ColorStateList(
+            arrayOf(
+                intArrayOf(-android.R.attr.state_checked),
+                intArrayOf(android.R.attr.state_checked)
+            ),
+            intArrayOf(
+                inactiveTrackColor,
+                ColorUtils.setAlphaComponent(activeColor, 128) // 开启时轨道半透明
+            )
+        )
+
+        val switches = listOf(
+            binding.historyRecordingSwitch,
+            binding.heartbeatAnimationSwitch,
+            binding.autoConnectSwitch,
+            binding.autoReconnectSwitch,
+            binding.bpmTextSwitch,
+            binding.heartIconSwitch,
+            binding.speedDisplaySwitch
+        )
+
+        switches.forEach { switch ->
+            switch.thumbTintList = thumbStates
+            switch.trackTintList = trackStates
+        }
+
+        // 绑定逻辑
         binding.historyRecordingSwitch.isChecked = sharedPreferences.getBoolean("history_recording_enabled", false)
         binding.historyRecordingSwitch.setOnCheckedChangeListener { buttonView, isChecked ->
             if (isChecked) {
                 MaterialAlertDialogBuilder(this)
-                    .setTitle("性能提醒")
-                    .setMessage("开启心率记录功能将在每次连接期间持续将数据写入手机存储，这可能会略微增加电池消耗。确定要开启吗？")
-                    .setNegativeButton("取消") { _, _ ->
+                    .setTitle("Performance Warning")
+                    .setMessage("Enabling history recording will continuously write data to storage, potentially increasing battery usage. Confirm?")
+                    .setNegativeButton("Cancel") { _, _ ->
                         buttonView.isChecked = false
                     }
-                    .setPositiveButton("确定") { _, _ ->
+                    .setPositiveButton("Confirm") { _, _ ->
                         sharedPreferences.edit().putBoolean("history_recording_enabled", true).apply()
                     }
                     .show()
@@ -90,7 +139,6 @@ class SettingsActivity : AppCompatActivity() {
                 sharedPreferences.edit().putBoolean("history_recording_enabled", false).apply()
             }
         }
-
 
         val isAnimationEnabled = sharedPreferences.getBoolean("heartbeat_animation_enabled", true)
         binding.heartbeatAnimationSwitch.isChecked = isAnimationEnabled
@@ -122,19 +170,17 @@ class SettingsActivity : AppCompatActivity() {
             sharedPreferences.edit().putBoolean("heart_icon_enabled", isChecked).apply()
         }
 
-        // 新增：时速显示开关
         val isSpeedDisplayEnabled = sharedPreferences.getBoolean("speed_display_enabled", false)
         binding.speedDisplaySwitch.isChecked = isSpeedDisplayEnabled
         binding.speedDisplaySwitch.setOnCheckedChangeListener { buttonView, isChecked ->
             if (isChecked) {
-                // 提醒用户这需要GPS权限和电量
                 MaterialAlertDialogBuilder(this)
-                    .setTitle("开启时速显示")
-                    .setMessage("开启此功能将使用GPS定位来计算时速，这会显著增加电池消耗并需要获取位置权限。确定要开启吗？")
-                    .setNegativeButton("取消") { _, _ ->
+                    .setTitle("Enable Speed Display")
+                    .setMessage("This feature uses GPS to calculate speed, which may increase battery usage and requires location permissions. Confirm?")
+                    .setNegativeButton("Cancel") { _, _ ->
                         buttonView.isChecked = false
                     }
-                    .setPositiveButton("确定") { _, _ ->
+                    .setPositiveButton("Confirm") { _, _ ->
                         sharedPreferences.edit().putBoolean("speed_display_enabled", true).apply()
                     }
                     .show()
@@ -146,13 +192,13 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun setupFloatingWindowSettings() {
         binding.textColorPreview.setOnClickListener {
-            showColorPicker("floating_text_color", "文本颜色", Color.BLACK)
+            showColorPicker("floating_text_color", "Text Color", Color.BLACK)
         }
         binding.bgColorPreview.setOnClickListener {
-            showColorPicker("floating_bg_color", "背景颜色", Color.BLACK)
+            showColorPicker("floating_bg_color", "Background Color", Color.BLACK)
         }
         binding.borderColorPreview.setOnClickListener {
-            showColorPicker("floating_border_color", "边框颜色", Color.GRAY)
+            showColorPicker("floating_border_color", "Border Color", Color.GRAY)
         }
 
         setupSeekBar(binding.bgAlphaSeekBar, "floating_bg_alpha", 10)
@@ -170,7 +216,7 @@ class SettingsActivity : AppCompatActivity() {
             .setPreferenceName("ColorPickerDialog")
             .attachBrightnessSlideBar(true)
             .attachAlphaSlideBar(false)
-            .setPositiveButton("确定", object : ColorEnvelopeListener {
+            .setPositiveButton("Confirm", object : ColorEnvelopeListener {
                 override fun onColorSelected(envelope: ColorEnvelope?, fromUser: Boolean) {
                     envelope?.let {
                         sharedPreferences.edit().putInt(prefKey, it.color).apply()
@@ -178,7 +224,7 @@ class SettingsActivity : AppCompatActivity() {
                     }
                 }
             })
-            .setNegativeButton("取消") { dialogInterface: DialogInterface, _: Int ->
+            .setNegativeButton("Cancel") { dialogInterface: DialogInterface, _: Int ->
                 dialogInterface.dismiss()
             }
             .show()

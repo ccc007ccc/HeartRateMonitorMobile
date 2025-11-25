@@ -3,6 +3,7 @@ package com.example.heart_rate_monitor_mobile.ui.main
 import android.Manifest
 import android.animation.ValueAnimator
 import android.content.*
+import android.content.res.ColorStateList
 import android.graphics.Color
 import android.net.Uri
 import android.os.Build
@@ -285,7 +286,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         viewModel.newChartEntry.observe(this) { entry ->
-            val isHistoryEnabled = sharedPreferences.getBoolean("history_recording_enabled", true)
+            val isHistoryEnabled = sharedPreferences.getBoolean("history_recording_enabled", false)
             if (isHistoryEnabled && viewModel.appStatus.value == AppStatus.CONNECTED) {
                 addChartEntry(entry)
             }
@@ -320,7 +321,7 @@ class MainActivity : AppCompatActivity() {
         binding.scanFab.visibility = if (status == AppStatus.DISCONNECTED) View.VISIBLE else View.GONE
 
         val isConnected = status == AppStatus.CONNECTED
-        val isHistoryEnabled = sharedPreferences.getBoolean("history_recording_enabled", true)
+        val isHistoryEnabled = sharedPreferences.getBoolean("history_recording_enabled", false)
 
         binding.realtimeChart.visibility = if (isConnected && isHistoryEnabled) View.VISIBLE else View.GONE
         binding.devicesRecyclerView.visibility = if (isConnected) View.GONE else View.VISIBLE
@@ -369,7 +370,16 @@ class MainActivity : AppCompatActivity() {
     private fun updateFloatingWindowUi(isEnabled: Boolean) {
         if (!isFloatingServiceBound) return
         if (isEnabled) floatingService?.showWindow() else floatingService?.hideWindow()
+
+        // 【关键修复】更新图标和背景颜色，确保开关状态视觉明显
         binding.floatingWindowButton.setImageResource(if (isEnabled) R.drawable.ic_floating_window_on else R.drawable.ic_floating_window_off)
+
+        val activeColor = ContextCompat.getColor(this, R.color.primary_light)
+        val inactiveColor = Color.parseColor("#E0E0E0") // 浅灰色
+        val iconColor = if(isEnabled) Color.WHITE else Color.BLACK
+
+        binding.floatingWindowButton.backgroundTintList = ColorStateList.valueOf(if (isEnabled) activeColor else inactiveColor)
+        binding.floatingWindowButton.imageTintList = ColorStateList.valueOf(iconColor)
     }
 
     private var heartRateAnimator: ValueAnimator? = null
@@ -408,11 +418,9 @@ class MainActivity : AppCompatActivity() {
     private fun requestPermissions() {
         val permissionsToRequest = mutableListOf<String>()
 
-        // 【关键修复】位置权限必须在所有版本（尤其是 Android 12+）上请求，为了测速
         permissionsToRequest.add(Manifest.permission.ACCESS_FINE_LOCATION)
         permissionsToRequest.add(Manifest.permission.ACCESS_COARSE_LOCATION)
 
-        // 蓝牙权限
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             permissionsToRequest.add(Manifest.permission.BLUETOOTH_SCAN)
             permissionsToRequest.add(Manifest.permission.BLUETOOTH_CONNECT)
@@ -421,7 +429,6 @@ class MainActivity : AppCompatActivity() {
             permissionsToRequest.add(Manifest.permission.BLUETOOTH_ADMIN)
         }
 
-        // 通知权限
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
         }
@@ -438,7 +445,6 @@ class MainActivity : AppCompatActivity() {
                 if (!allGranted) {
                     binding.statusTextView.text = "Some permissions were denied. Features may be limited!"
                 } else {
-                    // 如果权限全部通过，尝试刷新服务状态（以便开启定位）
                     val intent = Intent(this, BleService::class.java)
                     startService(intent)
                 }
