@@ -1,53 +1,45 @@
 package com.example.heart_rate_monitor_mobile.ble
 
-import android.content.Context
 import android.util.Log
 import com.juul.kable.Advertisement
-import com.juul.kable.Characteristic
 import com.juul.kable.Peripheral
 import com.juul.kable.Scanner
 import com.juul.kable.characteristicOf
-import com.juul.kable.peripheral
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onCompletion
 import java.util.UUID
 import java.util.concurrent.CancellationException
-import kotlinx.coroutines.flow.onCompletion
 
 fun String.toUuid(): UUID = UUID.fromString(this)
 
-class BleManager(private val context: Context) {
+// 修复：移除未使用的 context 参数
+class BleManager {
 
     private val scanner = Scanner()
 
     fun scan(): Flow<Advertisement> = scanner.advertisements
-        .catch {
-            Log.e("BleManager", "扫描时出错", it)
+        .catch { cause ->
+            Log.e("BleManager", "扫描过程中发生错误", cause)
         }
 
-    fun getPeripheral(advertisement: Advertisement, scope: CoroutineScope): Peripheral {
-        return scope.peripheral(advertisement)
-    }
+    // 修复：移除未使用的 getPeripheral 函数
 
-    suspend fun observeHeartRate(peripheral: Peripheral): Flow<Int> {
+    // 修复：移除冗余的 suspend 修饰符
+    fun observeHeartRate(peripheral: Peripheral): Flow<Int> {
         val characteristic = characteristicOf(
             service = BleConstants.HEART_RATE_SERVICE_UUID,
             characteristic = BleConstants.HEART_RATE_MEASUREMENT_CHARACTERISTIC_UUID
         )
 
-        // **【关键修复】** 移除 .catch 操作符，让异常可以向上传播
         return peripheral.observe(characteristic)
             .map { data -> parseHeartRate(data) }
             .onCompletion { cause ->
-                // onCompletion 会在Flow正常结束或因异常/取消而结束时调用
                 if (cause != null && cause !is CancellationException) {
-                    Log.w("BleManager", "心率监听Flow因异常而终止", cause)
+                    Log.w("BleManager", "心率数据流异常终止", cause)
                 } else {
-                    Log.d("BleManager", "心率监听Flow完成。")
+                    Log.d("BleManager", "心率数据流正常结束")
                 }
             }
     }

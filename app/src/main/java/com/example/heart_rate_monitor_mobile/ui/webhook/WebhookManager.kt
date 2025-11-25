@@ -17,14 +17,15 @@ import java.io.InputStreamReader
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.Locale
 
-class WebhookManager(private val context: Context) {
+// 修复：移除 'private val'，使 context 仅作为构造参数，不作为属性
+class WebhookManager(context: Context) {
 
     private val webhookFile = File(context.filesDir, "config_webhook.json")
     private val scope = CoroutineScope(Dispatchers.IO)
     private val githubUrl = "https://raw.githubusercontent.com/ccc007ccc/HeartRateMonitor/main/config_webhook.json"
 
-    // 增加 speed 参数
     fun triggerWebhooks(trigger: WebhookTrigger, heartRate: Int = 0, speed: Float = 0f) {
         val webhooks = getWebhooks()
         webhooks.filter { it.enabled && it.triggers.contains(trigger) }.forEach { webhook ->
@@ -46,9 +47,9 @@ class WebhookManager(private val context: Context) {
     private suspend fun sendRequest(webhook: Webhook, heartRate: Int, speed: Float, trigger: WebhookTrigger, isTest: Boolean = false): String {
         return withContext(Dispatchers.IO) {
             val bpm = heartRate.toString()
-            val speedStr = String.format("%.1f", speed) // 格式化速度
+            // 修复：指定 Locale.US 以防止隐式使用默认 Locale 导致的格式问题
+            val speedStr = String.format(Locale.US, "%.1f", speed)
 
-            // 检查触发器是否需要替换占位符
             val shouldReplacePlaceholders = trigger == WebhookTrigger.HEART_RATE_UPDATED || trigger == WebhookTrigger.DISCONNECTED || trigger == WebhookTrigger.CONNECTED
 
             var urlString = webhook.url
@@ -85,10 +86,12 @@ class WebhookManager(private val context: Context) {
                 }
 
                 connection.doOutput = true
-                val writer = OutputStreamWriter(connection.outputStream)
-                writer.write(bodyString)
-                writer.flush()
-                writer.close()
+                connection.outputStream.use { os ->
+                    OutputStreamWriter(os).use { writer ->
+                        writer.write(bodyString)
+                        writer.flush()
+                    }
+                }
 
                 val responseCode = connection.responseCode
                 val responseMessage = connection.responseMessage
@@ -97,9 +100,12 @@ class WebhookManager(private val context: Context) {
                 } else {
                     connection.errorStream
                 }
-                val reader = BufferedReader(InputStreamReader(inputStream))
-                val responseBody = reader.readText()
-                reader.close()
+
+                val responseBody = inputStream?.use { stream ->
+                    BufferedReader(InputStreamReader(stream)).use { reader ->
+                        reader.readText()
+                    }
+                } ?: ""
 
                 val responseTitle = if (isTest) "Webhook 测试响应" else "Webhook 已发送"
                 """
@@ -150,13 +156,15 @@ class WebhookManager(private val context: Context) {
         scope.launch {
             try {
                 val url = URL(githubUrl)
-                val connection = url.openConnection() as HttpURLConnection
-                connection.connectTimeout = 15000
-                connection.readTimeout = 15000
-                val response = connection.inputStream.bufferedReader().use { it.readText() }
+                val response = withContext(Dispatchers.IO) {
+                    (url.openConnection() as HttpURLConnection).run {
+                        connectTimeout = 15000
+                        readTimeout = 15000
+                        inputStream.bufferedReader().use { it.readText() }
+                    }
+                }
 
                 JSONArray(response)
-
                 webhookFile.writeText(response)
 
                 withContext(Dispatchers.Main) {
