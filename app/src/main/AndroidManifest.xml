@@ -15,6 +15,8 @@
 
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
@@ -40,6 +42,19 @@
 
         <service
             android:name=".service.FloatingWindowService"
+            android:exported="false" />
+
+        <service
+            android:name=".service.StatusBarResidentService"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection|specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Heart rate status bar overlay" />
+        </service>
+
+        <activity
+            android:name=".ui.favorite.FavoriteDevicesActivity"
             android:exported="false" />
 
         <activity
@@ -71,6 +86,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <provider
+            android:name=".init.StatusBarResidentInitializer"
+            android:authorities="${applicationId}.init"
+            android:exported="false" />
     </application>
 
 </manifest>
