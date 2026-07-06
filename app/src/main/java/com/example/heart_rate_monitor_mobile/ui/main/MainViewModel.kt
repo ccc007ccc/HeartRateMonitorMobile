@@ -10,6 +10,8 @@ import com.juul.kable.Advertisement
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import org.json.JSONArray
+import org.json.JSONObject
 import java.lang.ref.WeakReference
 
 enum class AppStatus {
@@ -149,6 +151,44 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         // 修复：使用 KTX edit 扩展函数替代 edit()...apply()
         sharedPrefs.edit {
             putString("favorite_device_id", newFavorite)
+        }
+        // 收藏时同步记录到历史列表（去重，最近收藏的排最前）
+        if (newFavorite != null) {
+            addToFavoriteHistory(id, ad.name ?: "未知设备")
+        }
+    }
+
+    /**
+     * 将设备添加到收藏历史列表（JSON 数组存储于 SharedPreferences）。
+     * - 去重：同 ID 的旧记录先移除
+     * - 新记录插入到数组头部（最近收藏排最前）
+     * - 最多保留 20 条
+     */
+    private fun addToFavoriteHistory(id: String, name: String) {
+        val json = sharedPrefs.getString("favorite_device_history", null) ?: "[]"
+        try {
+            val oldArr = JSONArray(json)
+            val filtered = JSONArray()
+            for (i in 0 until oldArr.length()) {
+                val obj = oldArr.getJSONObject(i)
+                if (obj.getString("id") != id) {
+                    filtered.put(obj)
+                }
+            }
+            val newArr = JSONArray()
+            newArr.put(JSONObject().apply {
+                put("id", id)
+                put("name", name)
+                put("timestamp", System.currentTimeMillis())
+            })
+            for (i in 0 until filtered.length()) {
+                newArr.put(filtered.getJSONObject(i))
+            }
+            while (newArr.length() > 20) {
+                newArr.remove(newArr.length() - 1)
+            }
+            sharedPrefs.edit { putString("favorite_device_history", newArr.toString()) }
+        } catch (_: Exception) {
         }
     }
 

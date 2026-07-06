@@ -27,11 +27,20 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         signingConfig = signingConfigs.getByName("release")
+
+        // 仅编译 arm64-v8a，移除 32 位（armeabi-v7a）和 x86/x86_64 兼容
+        // 现代设备（minSdk 27）几乎全部为 arm64-v8a，可显著减小 APK 体积
+        ndk {
+            abiFilters += "arm64-v8a"
+        }
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+             // 开启代码混淆和压缩
+            isMinifyEnabled = true
+            // 开启资源压缩
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
