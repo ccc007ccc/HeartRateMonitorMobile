@@ -6,7 +6,7 @@
     <color name="on_primary_container_light">#001F2D</color>
     <color name="background_light">#F8F9FA</color>
     <color name="on_background_light">#191C1E</color>
-    <color name="surface_light">#F8F9FA</color>
+    <color name="surface_light">#FFFBFE</color>
     <color name="on_surface_light">#191C1E</color>
     <color name="surface_variant_light">#DDE3EA</color>
     <color name="on_surface_variant_light">#41484D</color>
@@ -17,7 +17,7 @@
     <color name="on_primary_container_dark">#C3E8FF</color>
     <color name="background_dark">#191C1E</color>
     <color name="on_background_dark">#E1E2E5</color>
-    <color name="surface_dark">#191C1E</color>
+    <color name="surface_dark">#1C1B1F</color>
     <color name="on_surface_dark">#E1E2E5</color>
     <color name="surface_variant_dark">#41484D</color>
     <color name="on_surface_variant_dark">#C1C7CE</color>

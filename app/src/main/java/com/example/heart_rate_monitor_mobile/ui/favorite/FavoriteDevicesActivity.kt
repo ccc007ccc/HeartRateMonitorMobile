@@ -5,6 +5,7 @@ import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import com.example.heart_rate_monitor_mobile.databinding.ActivityFavoriteDevicesBinding
 import com.example.heart_rate_monitor_mobile.databinding.ListItemFavoriteDeviceBinding
+import com.example.heart_rate_monitor_mobile.util.EdgeToEdgeUtils
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import org.json.JSONArray
 
@@ -29,6 +30,8 @@ class FavoriteDevicesActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityFavoriteDevicesBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        EdgeToEdgeUtils.setup(this, binding.appBar)
 
         setupToolbar()
     }

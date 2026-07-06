@@ -21,8 +21,12 @@ import com.example.heart_rate_monitor_mobile.R
 import com.example.heart_rate_monitor_mobile.service.StatusBarResidentService
 import com.example.heart_rate_monitor_mobile.databinding.ActivitySettingsBinding
 import com.example.heart_rate_monitor_mobile.ui.favorite.FavoriteDevicesActivity
+import com.example.heart_rate_monitor_mobile.ui.alarm.HeartRateAlarmActivity
+import com.example.heart_rate_monitor_mobile.service.HeartRateAlarmService
 import com.example.heart_rate_monitor_mobile.ui.server.ServerActivity
+import com.example.heart_rate_monitor_mobile.util.EdgeToEdgeUtils
 import com.example.heart_rate_monitor_mobile.ui.webhook.WebhookActivity
+import com.google.android.material.color.MaterialColors
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.skydoves.colorpickerview.ColorEnvelope
 import com.skydoves.colorpickerview.ColorPickerDialog
@@ -70,6 +74,8 @@ class SettingsActivity : AppCompatActivity() {
         binding = ActivitySettingsBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        EdgeToEdgeUtils.setup(this, binding.appBar)
+
         sharedPreferences = getSharedPreferences("app_settings", MODE_PRIVATE)
 
         setupToolbar()
@@ -79,6 +85,7 @@ class SettingsActivity : AppCompatActivity() {
         setupFloatingWindowSettings()
         setupStatusBarSettings()
         recoverStatusBarResidentIfNeeded()
+        recoverHeartRateAlarmIfNeeded()
     }
 
     private fun setupToolbar() {
@@ -110,6 +117,10 @@ class SettingsActivity : AppCompatActivity() {
         binding.favoriteDevicesLink.setOnClickListener {
             startActivity(Intent(this, FavoriteDevicesActivity::class.java))
         }
+
+        binding.heartRateAlarmLink.setOnClickListener {
+            startActivity(Intent(this, HeartRateAlarmActivity::class.java))
+        }
     }
 
     private fun displayAppVersion() {
@@ -125,7 +136,12 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun setupSwitches() {
         // 【关键修复】设置开关的颜色状态列表，修复关闭时颜色异常问题
-        val activeColor = ContextCompat.getColor(this, R.color.primary_light)
+        // 使用 ?attr/colorPrimary 解析后的颜色，开启莫奈取色时随动态主题色变化
+        val activeColor = MaterialColors.getColor(
+            this,
+            android.R.attr.colorPrimary,
+            ContextCompat.getColor(this, R.color.primary_light)
+        )
         val inactiveTrackColor = Color.parseColor("#E0E0E0") // 浅灰色轨道
         val inactiveThumbColor = Color.WHITE // 白色滑块
 
@@ -154,6 +170,7 @@ class SettingsActivity : AppCompatActivity() {
         val switches = listOf(
             binding.historyRecordingSwitch,
             binding.heartbeatAnimationSwitch,
+            binding.monetColorSwitch,
             binding.autoConnectSwitch,
             binding.autoReconnectSwitch,
             binding.bpmTextSwitch,
@@ -194,6 +211,17 @@ class SettingsActivity : AppCompatActivity() {
         binding.heartbeatAnimationSwitch.isChecked = isAnimationEnabled
         binding.heartbeatAnimationSwitch.setOnCheckedChangeListener { _, isChecked ->
             sharedPreferences.edit().putBoolean("heartbeat_animation_enabled", isChecked).apply()
+        }
+
+        // 莫奈取色（Material You 动态取色）：已锁定为常开，不允许用户关闭
+        // 强制写入 true，处理旧版本用户曾关闭过的情况
+        sharedPreferences.edit().putBoolean("monet_color_enabled", true).apply()
+        binding.monetColorSwitch.isChecked = true
+        binding.monetColorSwitch.setOnCheckedChangeListener { buttonView, isChecked ->
+            // 阻止关闭：用户尝试关闭时强制恢复开启状态
+            if (!isChecked) {
+                buttonView.isChecked = true
+            }
         }
 
         val isAutoConnectEnabled = sharedPreferences.getBoolean("auto_connect_enabled", false)
@@ -390,6 +418,18 @@ class SettingsActivity : AppCompatActivity() {
         val enabled = sharedPreferences.getBoolean("status_bar_resident_enabled", false)
         if (enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && Settings.canDrawOverlays(this)) {
             startService(Intent(this, StatusBarResidentService::class.java))
+        }
+    }
+
+    /**
+     * 兜底恢复：App 被 force-stop 后进程被杀，pref 仍为 true 但服务已停止。
+     * 重进设置页（onCreate 冷启动）时重新拉起服务。
+     * 心率预警服务无需特殊运行时权限（VIBRATE 为普通权限），直接检查 pref 即可。
+     */
+    private fun recoverHeartRateAlarmIfNeeded() {
+        val enabled = sharedPreferences.getBoolean("heart_rate_alarm_enabled", false)
+        if (enabled) {
+            startService(Intent(this, HeartRateAlarmService::class.java))
         }
     }
 

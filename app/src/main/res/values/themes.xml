@@ -17,6 +17,8 @@
 
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">true</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightNavigationBar">true</item>
         <item name="android:windowBackground">@color/background_light</item>
     </style>
 
@@ -36,6 +38,11 @@
     <style name="TextAppearance.App.SettingSection" parent="TextAppearance.Material3.TitleSmall">
         <item name="android:textColor">?attr/colorPrimary</item>
         <item name="android:textStyle">bold</item>
+    </style>
+
+    <!-- 底部导航栏文字样式：active/inactive 共用，统一颜色与粗细 -->
+    <style name="TextAppearance.App.NavLabel" parent="TextAppearance.Material3.LabelMedium">
+        <item name="android:textStyle">normal</item>
     </style>
 
     <style name="SettingsRow">

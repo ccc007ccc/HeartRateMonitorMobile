@@ -10,7 +10,7 @@ import com.juul.kable.Advertisement
  */
 sealed class BleState(val message: String) {
     // 空闲/初始状态
-    object Idle : BleState("点击右下角按钮扫描设备")
+    object Idle : BleState("点击右上角按钮扫描设备")
 
     // 扫描状态
     object Scanning : BleState("正在扫描设备...")

@@ -7,6 +7,7 @@ import android.text.format.Formatter
 import android.view.inputmethod.EditorInfo
 import androidx.appcompat.app.AppCompatActivity
 import com.example.heart_rate_monitor_mobile.databinding.ActivityServerBinding
+import com.example.heart_rate_monitor_mobile.util.EdgeToEdgeUtils
 
 class ServerActivity : AppCompatActivity() {
 
@@ -27,6 +28,8 @@ class ServerActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityServerBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        EdgeToEdgeUtils.setup(this, binding.appBar)
 
         sharedPreferences = getSharedPreferences("app_settings", MODE_PRIVATE)
         sharedPreferences.registerOnSharedPreferenceChangeListener(settingsChangeListener)
