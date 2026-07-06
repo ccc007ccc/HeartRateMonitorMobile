@@ -1,14 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.coordinatorlayout.widget.CoordinatorLayout
+<LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fitsSystemWindows="true"
-    tools:context=".ui.main.MainActivity">
+    android:background="?attr/colorSurface"
+    android:orientation="vertical">
 
     <com.google.android.material.appbar.AppBarLayout
+        android:id="@+id/appBar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="?attr/colorSurface"
@@ -40,14 +41,14 @@
                     app:tint="@android:color/white" />
 
                 <ImageButton
-                    android:id="@+id/settingsButton"
+                    android:id="@+id/scanButton"
                     android:layout_width="48dp"
                     android:layout_height="48dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
-                    android:contentDescription="设置"
+                    android:contentDescription="搜索蓝牙设备"
                     android:padding="12dp"
                     android:scaleType="fitCenter"
-                    android:src="@drawable/ic_settings"
+                    android:src="@drawable/ic_search"
                     app:tint="?attr/colorOnSurface" />
             </LinearLayout>
 
@@ -56,9 +57,9 @@
 
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:clipToPadding="false"
-        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false">
 
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
@@ -249,7 +250,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="60dp"
                 android:layout_marginTop="24dp"
-                android:layout_marginBottom="100dp"
+                android:layout_marginBottom="16dp"
                 android:clickable="true"
                 android:focusable="true"
                 android:foreground="?attr/selectableItemBackground"
@@ -295,6 +296,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
+                android:layout_marginBottom="16dp"
                 android:backgroundTint="@color/red_error"
                 android:elevation="4dp"
                 android:text="断开连接"
@@ -308,15 +310,24 @@
         </androidx.constraintlayout.widget.ConstraintLayout>
     </androidx.core.widget.NestedScrollView>
 
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/scanFab"
-        android:layout_width="wrap_content"
+    <FrameLayout
+        android:id="@+id/bottomNavContainer"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_margin="24dp"
-        android:layout_gravity="bottom|end"
-        android:contentDescription="扫描"
-        app:backgroundTint="?attr/colorPrimary"
-        app:srcCompat="@drawable/ic_search"
-        app:tint="@android:color/white" />
+        android:background="?attr/colorSurfaceContainer">
 
-</androidx.coordinatorlayout.widget.CoordinatorLayout>
+        <com.google.android.material.bottomnavigation.BottomNavigationView
+            android:id="@+id/bottomNavigation"
+            android:layout_width="match_parent"
+            android:layout_height="64dp"
+            app:itemIconSize="24dp"
+            app:itemPaddingBottom="0dp"
+            app:itemTextAppearanceActive="@style/TextAppearance.App.NavLabel"
+            app:itemTextAppearanceActiveBoldEnabled="false"
+            app:itemTextAppearanceInactive="@style/TextAppearance.App.NavLabel"
+            app:itemTextColor="@color/bottom_nav_label_color"
+            app:labelVisibilityMode="labeled"
+            app:menu="@menu/bottom_nav_menu" />
+    </FrameLayout>
+
+</LinearLayout>

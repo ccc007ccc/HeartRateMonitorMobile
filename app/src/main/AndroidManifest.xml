@@ -21,10 +21,12 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.VIBRATE" />
 
     <uses-feature android:name="android.hardware.location.gps" android:required="false" />
 
     <application
+        android:name=".HeartRateApp"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -53,8 +55,21 @@
                 android:value="Heart rate status bar overlay" />
         </service>
 
+        <service
+            android:name=".service.HeartRateAlarmService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Heart rate alarm monitoring" />
+        </service>
+
         <activity
             android:name=".ui.favorite.FavoriteDevicesActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".ui.alarm.HeartRateAlarmActivity"
             android:exported="false" />
 
         <activity
@@ -90,6 +105,11 @@
         <provider
             android:name=".init.StatusBarResidentInitializer"
             android:authorities="${applicationId}.init"
+            android:exported="false" />
+
+        <provider
+            android:name=".init.HeartRateAlarmInitializer"
+            android:authorities="${applicationId}.alarm_init"
             android:exported="false" />
     </application>
 

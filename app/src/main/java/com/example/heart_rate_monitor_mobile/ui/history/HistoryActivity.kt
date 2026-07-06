@@ -13,6 +13,7 @@ import com.example.heart_rate_monitor_mobile.R
 import com.example.heart_rate_monitor_mobile.data.db.AppDatabase
 import com.example.heart_rate_monitor_mobile.data.db.HeartRateSession
 import com.example.heart_rate_monitor_mobile.databinding.ActivityHistoryBinding
+import com.example.heart_rate_monitor_mobile.util.EdgeToEdgeUtils
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.launch
 
@@ -27,6 +28,9 @@ class HistoryActivity : AppCompatActivity(), HistoryAdapterListener {
         super.onCreate(savedInstanceState)
         binding = ActivityHistoryBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        EdgeToEdgeUtils.setup(this, binding.appBar)
+
         db = AppDatabase.getDatabase(this)
 
         setupToolbar()

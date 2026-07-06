@@ -13,6 +13,7 @@ import com.example.heart_rate_monitor_mobile.R
 import com.example.heart_rate_monitor_mobile.data.Webhook
 import com.example.heart_rate_monitor_mobile.data.WebhookTrigger
 import com.example.heart_rate_monitor_mobile.databinding.ActivityWebhookBinding
+import com.example.heart_rate_monitor_mobile.util.EdgeToEdgeUtils
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.switchmaterial.SwitchMaterial
 
@@ -27,6 +28,8 @@ class WebhookActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityWebhookBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        EdgeToEdgeUtils.setup(this, binding.appBar)
 
         webhookManager = WebhookManager(this)
 

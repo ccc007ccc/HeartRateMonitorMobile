@@ -16,6 +16,9 @@ import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.heart_rate_monitor_mobile.R
@@ -26,6 +29,7 @@ import com.example.heart_rate_monitor_mobile.service.BleService
 import com.example.heart_rate_monitor_mobile.service.FloatingWindowService
 import com.example.heart_rate_monitor_mobile.ui.history.HistoryActivity
 import com.example.heart_rate_monitor_mobile.ui.settings.SettingsActivity
+import com.example.heart_rate_monitor_mobile.util.EdgeToEdgeUtils
 import com.github.mikephil.charting.charts.LineChart
 import com.github.mikephil.charting.components.XAxis
 import com.github.mikephil.charting.data.Entry
@@ -44,6 +48,13 @@ class MainActivity : AppCompatActivity() {
     private val viewModel: MainViewModel by viewModels()
     private lateinit var deviceAdapter: DeviceAdapter
     private lateinit var sharedPreferences: SharedPreferences
+
+    /**
+     * 记录 MainActivity 创建时莫奈取色的开关状态。
+     * DynamicColors 的 overlay 仅在 Activity 创建时应用，onResume 不会重评。
+     * 若用户在设置页切换了莫奈开关，返回首页时需重建 MainActivity 才能应用/移除 overlay。
+     */
+    private var monetEnabledAtCreate = true
 
     private var floatingService: FloatingWindowService? = null
     private var isFloatingServiceBound = false
@@ -83,8 +94,21 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        // 沉浸式系统栏：顶部状态栏内边距应用到 AppBarLayout，底部手势条内边距应用到 bottomNavContainer
+        // 消费 systemBars 内边距，避免 Material3 BottomNavigationView 二次应用导致底部留白过高
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            binding.appBar.setPadding(0, systemBars.top, 0, 0)
+            binding.bottomNavContainer.setPadding(0, 0, 0, systemBars.bottom)
+            WindowInsetsCompat.CONSUMED
+        }
+
+        // 状态栏/导航栏图标根据 colorSurface 亮度自适应（支持莫奈取色动态变化）
+        EdgeToEdgeUtils.adaptSystemBarIcons(this, binding.appBar)
 
         db = AppDatabase.getDatabase(this)
         cleanupOpenSessions()
@@ -93,6 +117,7 @@ class MainActivity : AppCompatActivity() {
         setupRealtimeChart()
 
         sharedPreferences = getSharedPreferences("app_settings", Context.MODE_PRIVATE)
+        monetEnabledAtCreate = sharedPreferences.getBoolean("monet_color_enabled", true)
 
         startAndBindServices()
 
@@ -123,6 +148,18 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        // 莫奈取色状态若在离开首页期间被切换，需重启 MainActivity 以应用/移除 DynamicColors overlay。
+        // 使用 startActivity + finish 而非 recreate()：后者在新实例上 setDecorFitsSystemWindows(false)
+        // 可能未及时生效，导致底部导航栏 edge-to-edge 失效、系统手势条无法沉浸。
+        val monetEnabledNow = sharedPreferences.getBoolean("monet_color_enabled", true)
+        if (monetEnabledNow != monetEnabledAtCreate) {
+            monetEnabledAtCreate = monetEnabledNow
+            val intent = Intent(this, MainActivity::class.java)
+            startActivity(intent)
+            overridePendingTransition(0, 0)
+            finish()
+            return
+        }
         updateFloatingWindowUi(sharedPreferences.getBoolean("floating_window_enabled", false))
         updateSpeedUiVisibility()
 
@@ -172,12 +209,21 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupClickListeners() {
-        binding.scanFab.setOnClickListener { viewModel.startScan() }
+        binding.scanButton.setOnClickListener { viewModel.startScan() }
         binding.disconnectButton.setOnClickListener { viewModel.disconnectDevice() }
-        binding.settingsButton.setOnClickListener { startActivity(Intent(this, SettingsActivity::class.java)) }
         binding.floatingWindowButton.setOnClickListener { toggleFloatingWindow() }
         binding.historyCard.setOnClickListener {
             startActivity(Intent(this, HistoryActivity::class.java))
+        }
+        binding.bottomNavigation.setOnItemSelectedListener { item ->
+            when (item.itemId) {
+                R.id.nav_settings -> {
+                    startActivity(Intent(this, SettingsActivity::class.java))
+                    false
+                }
+                R.id.nav_home -> true
+                else -> false
+            }
         }
     }
 
@@ -317,8 +363,8 @@ class MainActivity : AppCompatActivity() {
     private fun updateUiByStatus(status: AppStatus) {
         binding.statusProgressBar.visibility = if (status == AppStatus.SCANNING || status == AppStatus.CONNECTING) View.VISIBLE else View.GONE
         binding.statusIcon.visibility = if (binding.statusProgressBar.visibility == View.VISIBLE) View.GONE else View.VISIBLE
-        binding.scanFab.isEnabled = status == AppStatus.DISCONNECTED
-        binding.scanFab.visibility = if (status == AppStatus.DISCONNECTED) View.VISIBLE else View.GONE
+        binding.scanButton.isEnabled = status == AppStatus.DISCONNECTED
+        binding.scanButton.alpha = if (status == AppStatus.DISCONNECTED) 1f else 0.4f
 
         val isConnected = status == AppStatus.CONNECTED
         val isHistoryEnabled = sharedPreferences.getBoolean("history_recording_enabled", false)

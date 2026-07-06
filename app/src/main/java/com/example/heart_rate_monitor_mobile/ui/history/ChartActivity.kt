@@ -11,6 +11,7 @@ import androidx.lifecycle.lifecycleScope
 import com.example.heart_rate_monitor_mobile.R
 import com.example.heart_rate_monitor_mobile.data.db.AppDatabase
 import com.example.heart_rate_monitor_mobile.databinding.ActivityChartBinding
+import com.example.heart_rate_monitor_mobile.util.EdgeToEdgeUtils
 import com.github.mikephil.charting.components.XAxis
 import com.github.mikephil.charting.data.Entry
 import com.github.mikephil.charting.data.LineData
@@ -31,6 +32,8 @@ class ChartActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityChartBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        EdgeToEdgeUtils.setup(this, binding.appBar)
 
         sessionId = intent.getLongExtra("SESSION_ID", -1)
         if (sessionId == -1L) {
