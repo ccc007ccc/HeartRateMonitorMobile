@@ -44,16 +44,22 @@ class FloatingWindowService : Service() {
     override fun onBind(intent: Intent?): IBinder = binder
 
     /**
-     * 处理通知栏「关闭触摸穿透」按钮触发的 startService 调用。
-     * 处理完毕后调用 stopSelf(startId) 清理 start 请求；
-     * 若 Activity 仍绑定本服务则服务不会被销毁，行为与纯绑定模式一致。
+     * 处理两类 startService 调用：
+     * 1. 通知栏「关闭触摸穿透」按钮（ACTION_DISABLE_TOUCH_THROUGH）：一次性动作，处理完即
+     *    stopSelf(startId) 释放本次 start 请求；若 Activity 仍绑定本服务则服务不会被销毁。
+     * 2. showWindow() 中的无 action 保活 start：使服务在 Activity 解绑（如开启"退出应用隐藏
+     *    后台"后按 HOME 触发 finishAffinity）后仍能存活，悬浮窗持续显示。hideWindow() 时
+     *    stopSelf() 释放该保活 start。
      */
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
-            ACTION_DISABLE_TOUCH_THROUGH -> disableTouchThrough()
+            ACTION_DISABLE_TOUCH_THROUGH -> {
+                disableTouchThrough()
+                stopSelf(startId)
+            }
+            // 无 action：showWindow 保活 start，不释放
         }
-        stopSelf(startId)
-        return START_NOT_STICKY
+        return START_STICKY
     }
 
     private lateinit var windowManager: WindowManager
@@ -138,6 +144,8 @@ class FloatingWindowService : Service() {
             windowManager.addView(binding.root, layoutParams)
             isWindowShown = true
             updateWindowAppearance()
+            // 提升为 started 服务，使悬浮窗在 Activity 解绑（如开启"退出应用隐藏后台"后按 HOME 触发 finishAffinity）后仍能存活
+            startService(Intent(this, FloatingWindowService::class.java))
         } catch (e: Exception) {
             // Handle exception
         }
@@ -158,6 +166,8 @@ class FloatingWindowService : Service() {
         try {
             windowManager.removeView(binding.root)
             isWindowShown = false
+            // 释放 showWindow 时的 start 保活；若仍被绑定则服务继续存活
+            stopSelf()
         } catch (e: Exception) {
             // Handle exception
         }

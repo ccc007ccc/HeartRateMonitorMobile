@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
 import androidx.appcompat.app.AppCompatActivity
+import com.example.heart_rate_monitor_mobile.ui.BaseActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.example.heart_rate_monitor_mobile.R
@@ -22,7 +23,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.TimeUnit
 
-class ChartActivity : AppCompatActivity() {
+class ChartActivity : BaseActivity() {
 
     private lateinit var binding: ActivityChartBinding
     private lateinit var db: AppDatabase

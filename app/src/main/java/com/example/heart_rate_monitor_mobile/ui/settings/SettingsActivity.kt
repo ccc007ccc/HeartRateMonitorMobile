@@ -15,6 +15,7 @@ import android.provider.Settings
 import android.widget.SeekBar
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import com.example.heart_rate_monitor_mobile.ui.BaseActivity
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.ColorUtils
 import com.example.heart_rate_monitor_mobile.R
@@ -32,7 +33,7 @@ import com.skydoves.colorpickerview.ColorEnvelope
 import com.skydoves.colorpickerview.ColorPickerDialog
 import com.skydoves.colorpickerview.listeners.ColorEnvelopeListener
 
-class SettingsActivity : AppCompatActivity() {
+class SettingsActivity : BaseActivity() {
 
     private lateinit var binding: ActivitySettingsBinding
     private lateinit var sharedPreferences: SharedPreferences
@@ -103,6 +104,7 @@ class SettingsActivity : AppCompatActivity() {
                 Intent.ACTION_VIEW,
                 Uri.parse("https://github.com/ccc007ccc/HeartRateMonitorMobile")
             )
+            BaseActivity.suppressHideForExternalLaunch = true
             startActivity(intent)
         }
 
@@ -176,6 +178,7 @@ class SettingsActivity : AppCompatActivity() {
             binding.bpmTextSwitch,
             binding.heartIconSwitch,
             binding.speedDisplaySwitch,
+            binding.hideFromRecentsSwitch,
             binding.statusBarResidentSwitch,
             binding.statusBarBpmTextSwitch,
             binding.statusBarAutoColorSwitch,
@@ -268,6 +271,13 @@ class SettingsActivity : AppCompatActivity() {
             }
         }
 
+        // 退出应用隐藏后台：开启后按 HOME 退出时从最近任务列表移除，进程由前台服务保活
+        val isHideFromRecentsEnabled = sharedPreferences.getBoolean("hide_from_recents_enabled", false)
+        binding.hideFromRecentsSwitch.isChecked = isHideFromRecentsEnabled
+        binding.hideFromRecentsSwitch.setOnCheckedChangeListener { _, isChecked ->
+            sharedPreferences.edit().putBoolean("hide_from_recents_enabled", isChecked).apply()
+        }
+
         val isStatusBarResidentEnabled = sharedPreferences.getBoolean("status_bar_resident_enabled", false)
         binding.statusBarResidentSwitch.isChecked = isStatusBarResidentEnabled
         binding.statusBarResidentSwitch.setOnCheckedChangeListener { buttonView, isChecked ->
@@ -276,6 +286,7 @@ class SettingsActivity : AppCompatActivity() {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
                     // 未授权：跳转权限页，回退开关状态，不写 pref
                     buttonView.isChecked = false
+                    BaseActivity.suppressHideForExternalLaunch = true
                     startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
                 } else {
                     sharedPreferences.edit().putBoolean("status_bar_resident_enabled", true).apply()

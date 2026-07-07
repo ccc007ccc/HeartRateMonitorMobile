@@ -20,6 +20,7 @@ import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import com.example.heart_rate_monitor_mobile.ui.BaseActivity
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.ColorUtils
 import com.example.heart_rate_monitor_mobile.R
@@ -47,7 +48,7 @@ import kotlin.math.sqrt
  * - SharedPreferences 存储预警配置和校准数据
  * - 心率/蓝牙逻辑由 HeartRateAlarmService 独立处理，Activity 不涉及
  */
-class HeartRateAlarmActivity : AppCompatActivity() {
+class HeartRateAlarmActivity : BaseActivity() {
 
     private lateinit var binding: ActivityHeartRateAlarmBinding
     private lateinit var sharedPreferences: SharedPreferences
@@ -230,6 +231,29 @@ class HeartRateAlarmActivity : AppCompatActivity() {
     private fun setupCalibrationButtons() {
         binding.calibrateSittingButton.setOnClickListener { startCalibration(isSitting = true) }
         binding.calibrateStandingButton.setOnClickListener { startCalibration(isSitting = false) }
+        binding.clearCalibrationButton.setOnClickListener { confirmClearCalibration() }
+    }
+
+    /** 清除校准数据（需二次确认，避免误触丢失多样本） */
+    private fun confirmClearCalibration() {
+        val cal = PostureCalibration.fromJson(
+            sharedPreferences.getString("posture_calibration_data", null)
+        )
+        if (cal == null || !cal.isComplete()) {
+            Toast.makeText(this, "当前无校准数据", Toast.LENGTH_SHORT).show()
+            return
+        }
+        MaterialAlertDialogBuilder(this)
+            .setTitle("清除校准")
+            .setMessage("将清除全部静坐/站立校准样本，需重新采集。确认清除吗？")
+            .setNegativeButton("取消", null)
+            .setPositiveButton("清除") { _, _ ->
+                sharedPreferences.edit().remove("posture_calibration_data").apply()
+                postureDetector.setCalibration(null)
+                refreshCalibrationStatus()
+                Toast.makeText(this, "校准已清除", Toast.LENGTH_SHORT).show()
+            }
+            .show()
     }
 
     private fun startCalibration(isSitting: Boolean) {
@@ -309,16 +333,26 @@ class HeartRateAlarmActivity : AppCompatActivity() {
 
         val features = PostureFeatures(meanX, meanY, meanZ, stdMag, n)
 
-        // 合并入现有校准数据（保留另一姿态）
+        // 追加到现有样本列表（保留另一姿态与已有样本），支持不同体位多次采集
         val existing = PostureCalibration.fromJson(
             sharedPreferences.getString("posture_calibration_data", null)
         )
+        val sitSamples = existing?.sittingSamples ?: emptyList()
+        val standSamples = existing?.standingSamples ?: emptyList()
         val updated = if (isSitting) {
-            PostureCalibration(features, existing?.standing, existing?.motionThreshold ?: 1.5f,
-                System.currentTimeMillis())
+            PostureCalibration(
+                sittingSamples = sitSamples + features,
+                standingSamples = standSamples,
+                motionThreshold = existing?.motionThreshold ?: 1.5f,
+                calibratedAt = System.currentTimeMillis()
+            )
         } else {
-            PostureCalibration(existing?.sitting, features, existing?.motionThreshold ?: 1.5f,
-                System.currentTimeMillis())
+            PostureCalibration(
+                sittingSamples = sitSamples,
+                standingSamples = standSamples + features,
+                motionThreshold = existing?.motionThreshold ?: 1.5f,
+                calibratedAt = System.currentTimeMillis()
+            )
         }
 
         sharedPreferences.edit().putString("posture_calibration_data", updated.toJson()).apply()
@@ -326,16 +360,29 @@ class HeartRateAlarmActivity : AppCompatActivity() {
         refreshCalibrationStatus()
 
         val postureName = if (isSitting) "静坐" else "站立"
-        Toast.makeText(this, "${postureName}姿态校准完成（${n} 个样本）", Toast.LENGTH_SHORT).show()
+        val total = if (isSitting) updated.sittingSamples.size else updated.standingSamples.size
+        Toast.makeText(
+            this,
+            "${postureName}姿态已采集（共 ${total} 个样本）",
+            Toast.LENGTH_SHORT
+        ).show()
     }
 
     private fun refreshCalibrationStatus() {
         val cal = PostureCalibration.fromJson(
             sharedPreferences.getString("posture_calibration_data", null)
         )
-        val sitStatus = if (cal?.sitting != null) "已校准 ✓" else "未校准"
-        val standStatus = if (cal?.standing != null) "已校准 ✓" else "未校准"
-        binding.calibrationStatus.text = "静坐：$sitStatus    站立：$standStatus"
+        val sitStatus = if (cal?.sittingSamples?.isNotEmpty() == true) {
+            "已校准 ✓（${cal.sittingSamples.size} 个样本）"
+        } else {
+            "未校准"
+        }
+        val standStatus = if (cal?.standingSamples?.isNotEmpty() == true) {
+            "已校准 ✓（${cal.standingSamples.size} 个样本）"
+        } else {
+            "未校准"
+        }
+        binding.calibrationStatus.text = "静坐：$sitStatus\n站立：$standStatus"
     }
 
     // ========== 预警设置 ==========

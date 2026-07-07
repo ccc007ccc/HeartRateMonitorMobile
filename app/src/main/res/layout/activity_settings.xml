@@ -99,19 +99,34 @@
                             android:text="显示时速 (GPS)" />
 
                         <TextView
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:paddingTop="4dp"
-                            android:text="开启时速显示将使用GPS定位，可能会增加耗电。"
-                            android:textAppearance="?attr/textAppearanceBodySmall"
-                            android:textColor="?attr/colorOnSurfaceVariant" />
-                    </LinearLayout>
-
-                    <View
                         android:layout_width="match_parent"
-                        android:layout_height="1dp"
-                        android:layout_marginVertical="12dp"
-                        android:background="?attr/colorOutlineVariant" />
+                        android:layout_height="wrap_content"
+                        android:paddingTop="4dp"
+                        android:text="开启时速显示将使用GPS定位，可能会增加耗电。"
+                        android:textAppearance="?attr/textAppearanceBodySmall"
+                        android:textColor="?attr/colorOnSurfaceVariant" />
+                </LinearLayout>
+
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/hideFromRecentsSwitch"
+                    style="@style/SettingsRow"
+                    android:layout_marginTop="12dp"
+                    android:padding="0dp"
+                    android:text="退出应用隐藏后台" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingTop="4dp"
+                    android:text="开启后应用不会出现在最近任务列表中"
+                    android:textAppearance="?attr/textAppearanceBodySmall"
+                    android:textColor="?attr/colorOnSurfaceVariant" />
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginVertical="12dp"
+                    android:background="?attr/colorOutlineVariant" />
 
                     <TextView
                         android:id="@+id/favoriteDevicesLink"

@@ -3,6 +3,7 @@ package com.example.heart_rate_monitor_mobile.ui.favorite
 import android.os.Bundle
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
+import com.example.heart_rate_monitor_mobile.ui.BaseActivity
 import com.example.heart_rate_monitor_mobile.databinding.ActivityFavoriteDevicesBinding
 import com.example.heart_rate_monitor_mobile.databinding.ListItemFavoriteDeviceBinding
 import com.example.heart_rate_monitor_mobile.util.EdgeToEdgeUtils
@@ -19,7 +20,7 @@ import org.json.JSONArray
  * 删除记录时，若删除的恰好是当前收藏设备（favorite_device_id），
  * 同步清除当前收藏以避免自动连接仍指向已删除设备。
  */
-class FavoriteDevicesActivity : AppCompatActivity() {
+class FavoriteDevicesActivity : BaseActivity() {
 
     private lateinit var binding: ActivityFavoriteDevicesBinding
     private val sharedPreferences by lazy {

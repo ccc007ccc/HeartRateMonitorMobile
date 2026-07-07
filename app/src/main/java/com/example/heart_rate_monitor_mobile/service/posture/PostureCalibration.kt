@@ -1,5 +1,6 @@
 package com.example.heart_rate_monitor_mobile.service.posture
 
+import org.json.JSONArray
 import org.json.JSONObject
 
 /**
@@ -20,29 +21,43 @@ data class PostureFeatures(
 /**
  * 姿态校准数据。
  *
- * 包含静坐、站立两种姿态的特征，以及运动判定阈值。
- * 序列化为 JSON 存储于 SharedPreferences key [posture_calibration_data]。
+ * 每种姿态可采集多个样本（[sittingSamples]/[standingSamples]），以应对不同体位
+ * （如手机放口袋、握在手中、置于桌面等不同朝向）。实时检测时取与当前窗口欧氏距离
+ * 最小的样本参与判定。
  *
- * 实时检测时，计算当前窗口特征，用欧氏距离与校准样本匹配：
- * - 距离 < [MATCH_THRESHOLD] 才判定为对应姿态，否则返回 UNKNOWN（避免睡眠误报）
+ * 序列化为 JSON 存储于 SharedPreferences key [posture_calibration_data]。
+ * 新格式使用 `sitting_samples`/`standing_samples` 数组；旧格式（单对象 `sitting`/`standing`）
+ * 在 [fromJson] 中自动兼容，解析为单元素列表。
  */
 data class PostureCalibration(
-    val sitting: PostureFeatures?,
-    val standing: PostureFeatures?,
+    val sittingSamples: List<PostureFeatures>,
+    val standingSamples: List<PostureFeatures>,
     val motionThreshold: Float = 1.5f,
     val calibratedAt: Long = 0L
 ) {
-    /** 静坐和站立均已采集才算校准完成 */
-    fun isComplete(): Boolean = sitting != null && standing != null
+    /** 兼容旧用法：取首个静坐样本（无则 null） */
+    val sitting: PostureFeatures? get() = sittingSamples.firstOrNull()
+
+    /** 兼容旧用法：取首个站立样本（无则 null） */
+    val standing: PostureFeatures? get() = standingSamples.firstOrNull()
+
+    /** 静坐和站立均至少有一个样本才算校准完成 */
+    fun isComplete(): Boolean = sittingSamples.isNotEmpty() && standingSamples.isNotEmpty()
 
     /** 序列化为 JSON 字符串 */
     fun toJson(): String {
         val obj = JSONObject()
         obj.put("motion_threshold", motionThreshold)
         obj.put("calibrated_at", calibratedAt)
-        sitting?.let { obj.put("sitting", featuresToJson(it)) }
-        standing?.let { obj.put("standing", featuresToJson(it)) }
+        obj.put("sitting_samples", featuresListToJson(sittingSamples))
+        obj.put("standing_samples", featuresListToJson(standingSamples))
         return obj.toString()
+    }
+
+    private fun featuresListToJson(list: List<PostureFeatures>): JSONArray {
+        val arr = JSONArray()
+        for (f in list) arr.put(featuresToJson(f))
+        return arr
     }
 
     private fun featuresToJson(f: PostureFeatures): JSONObject = JSONObject().apply {
@@ -57,20 +72,39 @@ data class PostureCalibration(
         /** 欧氏距离匹配阈值（m/s²），距离小于此值才判定为对应姿态 */
         const val MATCH_THRESHOLD = 5.0f
 
-        /** 从 JSON 字符串反序列化，解析失败返回 null */
+        /** 从 JSON 字符串反序列化，解析失败返回 null。兼容旧单对象格式。 */
         fun fromJson(json: String?): PostureCalibration? {
             if (json.isNullOrBlank()) return null
             return try {
                 val obj = JSONObject(json)
+                val sitting = parseSamples(obj, "sitting_samples", "sitting")
+                val standing = parseSamples(obj, "standing_samples", "standing")
                 PostureCalibration(
-                    sitting = obj.optJSONObject("sitting")?.let { parseFeatures(it) },
-                    standing = obj.optJSONObject("standing")?.let { parseFeatures(it) },
+                    sittingSamples = sitting,
+                    standingSamples = standing,
                     motionThreshold = obj.optDouble("motion_threshold", 1.5).toFloat(),
                     calibratedAt = obj.optLong("calibrated_at", 0L)
                 )
             } catch (_: Exception) {
                 null
             }
+        }
+
+        /**
+         * 解析某姿态的样本列表。
+         * 优先读取新数组字段 [arrayKey]；若不存在则回退到旧单对象字段 [legacyKey]，
+         * 包装为单元素列表，保证旧数据平滑迁移。
+         */
+        private fun parseSamples(obj: JSONObject, arrayKey: String, legacyKey: String): List<PostureFeatures> {
+            obj.optJSONArray(arrayKey)?.let { arr ->
+                val list = mutableListOf<PostureFeatures>()
+                for (i in 0 until arr.length()) {
+                    arr.optJSONObject(i)?.let { list.add(parseFeatures(it)) }
+                }
+                return list
+            }
+            obj.optJSONObject(legacyKey)?.let { return listOf(parseFeatures(it)) }
+            return emptyList()
         }
 
         private fun parseFeatures(o: JSONObject): PostureFeatures = PostureFeatures(

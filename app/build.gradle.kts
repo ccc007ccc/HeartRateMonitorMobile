@@ -100,6 +100,7 @@ dependencies {
     // ViewModel and LiveData for modern UI development
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0")
     implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.7.0")
+    implementation("androidx.lifecycle:lifecycle-process:2.7.0")
     implementation("androidx.activity:activity-ktx:1.9.0")
 
     // Kable for Bluetooth LE
