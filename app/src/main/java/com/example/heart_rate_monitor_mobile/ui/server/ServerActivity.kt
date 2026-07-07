@@ -6,10 +6,11 @@ import android.os.Bundle
 import android.text.format.Formatter
 import android.view.inputmethod.EditorInfo
 import androidx.appcompat.app.AppCompatActivity
+import com.example.heart_rate_monitor_mobile.ui.BaseActivity
 import com.example.heart_rate_monitor_mobile.databinding.ActivityServerBinding
 import com.example.heart_rate_monitor_mobile.util.EdgeToEdgeUtils
 
-class ServerActivity : AppCompatActivity() {
+class ServerActivity : BaseActivity() {
 
     private lateinit var binding: ActivityServerBinding
     private lateinit var sharedPreferences: SharedPreferences
