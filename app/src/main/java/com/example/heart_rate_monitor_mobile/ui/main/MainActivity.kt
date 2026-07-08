@@ -213,7 +213,7 @@ class MainActivity : BaseActivity() {
         binding.scanButton.setOnClickListener { viewModel.startScan() }
         binding.disconnectButton.setOnClickListener { viewModel.disconnectDevice() }
         binding.floatingWindowButton.setOnClickListener { toggleFloatingWindow() }
-        binding.historyCard.setOnClickListener {
+        binding.historyButton.setOnClickListener {
             startActivity(Intent(this, HistoryActivity::class.java))
         }
         binding.bottomNavigation.setOnItemSelectedListener { item ->
