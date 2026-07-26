@@ -2,12 +2,12 @@ package com.example.heart_rate_monitor_mobile.init
 
 import android.content.ContentProvider
 import android.content.ContentValues
-import android.content.Context
 import android.content.Intent
 import android.database.Cursor
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import com.example.heart_rate_monitor_mobile.core.AppContainer
 import com.example.heart_rate_monitor_mobile.service.StatusBarResidentService
 
 /**
@@ -26,15 +26,16 @@ class StatusBarResidentInitializer : ContentProvider() {
 
     override fun onCreate(): Boolean {
         val ctx = context ?: return false
-        val prefs = ctx.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
-        if (!prefs.getBoolean("status_bar_resident_enabled", false)) return true
+        val settings = AppContainer.get(ctx).settings.settings.value
+        if (!settings.statusBar.residentEnabled) return true
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(ctx)) {
             return true
         }
         try {
             ctx.startService(Intent(ctx, StatusBarResidentService::class.java))
-        } catch (_: Exception) {
-            // 后台启动被拒时忽略，用户进入设置页时 recoverStatusBarResidentIfNeeded 兜底
+        } catch (e: Exception) {
+            // 后台启动被拒时降级，用户进入设置页时 recoverStatusBarResidentIfNeeded 兜底
+            android.util.Log.w("StatusBarInit", "冷启动恢复状态栏常驻失败", e)
         }
         return true
     }

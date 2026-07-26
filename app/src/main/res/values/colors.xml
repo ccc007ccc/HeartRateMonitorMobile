@@ -27,4 +27,17 @@
     <color name="black">#000000</color>
     <color name="card_stroke_light">#E5E7EB</color>
     <color name="card_stroke_dark">#41484D</color>
+
+    <!-- M3 surfaceContainer 色阶：卡片与页面背景分层，关闭莫奈取色时也有层次感 -->
+    <color name="surface_container_low_light">#F3F4F6</color>
+    <color name="surface_container_light">#EDEFF2</color>
+    <color name="surface_container_high_light">#E7EAED</color>
+    <color name="surface_container_highest_light">#E1E5E9</color>
+    <color name="outline_light">#74777F</color>
+
+    <color name="surface_container_low_dark">#212528</color>
+    <color name="surface_container_dark">#262A2D</color>
+    <color name="surface_container_high_dark">#2B3033</color>
+    <color name="surface_container_highest_dark">#303438</color>
+    <color name="outline_dark">#8E9299</color>
 </resources>

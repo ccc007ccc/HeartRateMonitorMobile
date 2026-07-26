@@ -19,8 +19,8 @@
             style="@style/Widget.App.Toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
-            app:navigationIcon="@drawable/ic_arrow_forward"
-            app:title="设置" />
+            app:navigationIcon="@drawable/ic_arrow_back"
+            app:title="@string/settings_title" />
     </com.google.android.material.appbar.AppBarLayout>
 
     <androidx.core.widget.NestedScrollView
@@ -39,7 +39,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="8dp"
-                android:text="常规" />
+                android:text="@string/settings_section_general" />
 
             <com.google.android.material.card.MaterialCardView
                 style="@style/Widget.App.Card"
@@ -57,14 +57,14 @@
                         style="@style/SettingsRow"
                         android:layout_marginBottom="12dp"
                         android:padding="0dp"
-                        android:text="记录历史数据" />
+                        android:text="@string/settings_record_history" />
 
                     <com.google.android.material.materialswitch.MaterialSwitch
                         android:id="@+id/heartbeatAnimationSwitch"
                         style="@style/SettingsRow"
                         android:layout_marginBottom="12dp"
                         android:padding="0dp"
-                        android:text="心跳动画效果" />
+                        android:text="@string/settings_heartbeat_animation" />
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -76,13 +76,13 @@
                             android:id="@+id/monetColorSwitch"
                             style="@style/SettingsRow"
                             android:padding="0dp"
-                            android:text="莫奈取色" />
+                            android:text="@string/settings_dynamic_color" />
 
                         <TextView
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:paddingTop="4dp"
-                            android:text="根据壁纸动态提取主题色（需 Android 12 及以上）。已默认开启且不可关闭。"
+                            android:text="@string/settings_dynamic_color_hint"
                             android:textAppearance="?attr/textAppearanceBodySmall"
                             android:textColor="?attr/colorOnSurfaceVariant" />
                     </LinearLayout>
@@ -96,13 +96,13 @@
                             android:id="@+id/speedDisplaySwitch"
                             style="@style/SettingsRow"
                             android:padding="0dp"
-                            android:text="显示时速 (GPS)" />
+                            android:text="@string/settings_show_speed" />
 
                         <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:paddingTop="4dp"
-                        android:text="开启时速显示将使用GPS定位，可能会增加耗电。"
+                        android:text="@string/settings_show_speed_hint"
                         android:textAppearance="?attr/textAppearanceBodySmall"
                         android:textColor="?attr/colorOnSurfaceVariant" />
                 </LinearLayout>
@@ -112,13 +112,13 @@
                     style="@style/SettingsRow"
                     android:layout_marginTop="12dp"
                     android:padding="0dp"
-                    android:text="退出应用隐藏后台" />
+                    android:text="@string/settings_hide_recents" />
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:paddingTop="4dp"
-                    android:text="开启后应用不会出现在最近任务列表中"
+                    android:text="@string/settings_hide_recents_hint"
                     android:textAppearance="?attr/textAppearanceBodySmall"
                     android:textColor="?attr/colorOnSurfaceVariant" />
 
@@ -135,7 +135,7 @@
                         android:clickable="true"
                         android:focusable="true"
                         android:padding="0dp"
-                        android:text="收藏设备"
+                        android:text="@string/favorite_title"
                         app:drawableEndCompat="@drawable/ic_arrow_forward"
                         app:drawableTint="?attr/colorOnSurfaceVariant" />
 
@@ -152,7 +152,7 @@
                         android:clickable="true"
                         android:focusable="true"
                         android:padding="0dp"
-                        android:text="心率预警"
+                        android:text="@string/alarm_title"
                         app:drawableEndCompat="@drawable/ic_arrow_forward"
                         app:drawableTint="?attr/colorOnSurfaceVariant" />
                 </LinearLayout>
@@ -164,7 +164,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="24dp"
                 android:layout_marginBottom="8dp"
-                android:text="蓝牙" />
+                android:text="@string/settings_section_bluetooth" />
 
             <com.google.android.material.card.MaterialCardView
                 style="@style/Widget.App.Card"
@@ -182,13 +182,13 @@
                         style="@style/SettingsRow"
                         android:layout_marginBottom="12dp"
                         android:padding="0dp"
-                        android:text="启动时自动连接收藏设备" />
+                        android:text="@string/settings_auto_connect" />
 
                     <com.google.android.material.materialswitch.MaterialSwitch
                         android:id="@+id/autoReconnectSwitch"
                         style="@style/SettingsRow"
                         android:padding="0dp"
-                        android:text="断开后自动重连" />
+                        android:text="@string/settings_auto_reconnect" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
@@ -198,7 +198,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="24dp"
                 android:layout_marginBottom="8dp"
-                android:text="集成 &amp; 外部访问" />
+                android:text="@string/settings_section_integrations" />
 
             <com.google.android.material.card.MaterialCardView
                 style="@style/Widget.App.Card"
@@ -218,7 +218,7 @@
                         android:clickable="true"
                         android:focusable="true"
                         android:padding="16dp"
-                        android:text="HTTP &amp; WebSocket 服务器"
+                        android:text="@string/settings_http_ws_server"
                         app:drawableEndCompat="@drawable/ic_arrow_forward"
                         app:drawableTint="?attr/colorOnSurfaceVariant" />
 
@@ -235,7 +235,7 @@
                         android:clickable="true"
                         android:focusable="true"
                         android:padding="16dp"
-                        android:text="Webhook 设置"
+                        android:text="@string/webhook_settings"
                         app:drawableEndCompat="@drawable/ic_arrow_forward"
                         app:drawableTint="?attr/colorOnSurfaceVariant" />
                 </LinearLayout>
@@ -247,7 +247,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="24dp"
                 android:layout_marginBottom="8dp"
-                android:text="状态栏常驻" />
+                android:text="@string/settings_section_statusbar" />
 
             <com.google.android.material.card.MaterialCardView
                 style="@style/Widget.App.Card"
@@ -265,15 +265,22 @@
                         style="@style/SettingsRow"
                         android:layout_marginBottom="12dp"
                         android:padding="0dp"
-                        android:text="状态栏常驻心率" />
+                        android:text="@string/statusbar_resident" />
 
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:paddingTop="4dp"
-                        android:text="在顶部状态栏显示实时心率（需悬浮窗权限）"
+                        android:text="@string/statusbar_resident_hint"
                         android:textAppearance="?attr/textAppearanceBodySmall"
                         android:textColor="?attr/colorOnSurfaceVariant" />
+
+                    <!-- 常驻开关关闭时整块隐藏（由 SettingsActivity 按设置流控制） -->
+                    <LinearLayout
+                        android:id="@+id/statusBarOptionsContainer"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical">
 
                     <com.google.android.material.materialswitch.MaterialSwitch
                         android:id="@+id/statusBarBpmTextSwitch"
@@ -281,61 +288,65 @@
                         android:layout_marginTop="12dp"
                         android:layout_marginBottom="4dp"
                         android:padding="0dp"
-                        android:text="显示 'bpm' 单位" />
+                        android:text="@string/statusbar_show_bpm_unit" />
 
                     <TextView
                         style="@style/SettingsSubLabel"
                         android:layout_marginTop="16dp"
                         android:layout_marginBottom="4dp"
-                        android:text="水平位置" />
+                        android:text="@string/statusbar_horizontal_position" />
 
-                    <SeekBar
+                    <com.google.android.material.slider.Slider
                         android:id="@+id/statusBarXPositionSeekBar"
                         style="@style/SettingsSeekBar"
                         android:layout_marginBottom="12dp"
-                        android:max="100"
-                        android:progress="0" />
+                        android:valueFrom="0"
+                        android:valueTo="100"
+                        android:stepSize="1" />
 
                     <TextView
                         style="@style/SettingsSubLabel"
                         android:layout_marginBottom="4dp"
-                        android:text="垂直微调" />
+                        android:text="@string/statusbar_vertical_offset" />
 
-                    <SeekBar
+                    <com.google.android.material.slider.Slider
                         android:id="@+id/statusBarYOffsetSeekBar"
                         style="@style/SettingsSeekBar"
                         android:layout_marginBottom="12dp"
-                        android:max="20"
-                        android:progress="10" />
+                        android:valueFrom="0"
+                        android:valueTo="20"
+                        android:stepSize="1" />
 
                     <TextView
                         style="@style/SettingsSubLabel"
                         android:layout_marginBottom="4dp"
-                        android:text="整体大小" />
+                        android:text="@string/statusbar_overall_size" />
 
-                    <SeekBar
+                    <com.google.android.material.slider.Slider
                         android:id="@+id/statusBarSizeSeekBar"
                         style="@style/SettingsSeekBar"
                         android:layout_marginBottom="12dp"
-                        android:max="200"
-                        android:progress="100" />
+                        android:valueFrom="0"
+                        android:valueTo="200"
+                        android:stepSize="1" />
 
                     <TextView
                         style="@style/SettingsSubLabel"
                         android:layout_marginBottom="4dp"
-                        android:text="文字粗细" />
+                        android:text="@string/statusbar_text_weight" />
 
-                    <SeekBar
+                    <com.google.android.material.slider.Slider
                         android:id="@+id/statusBarTextThicknessSeekBar"
                         style="@style/SettingsSeekBar"
-                        android:max="100"
-                        android:progress="0" />
+                        android:valueFrom="0"
+                        android:valueTo="100"
+                        android:stepSize="1" />
 
                     <TextView
                         style="@style/SettingsSubLabel"
                         android:layout_marginTop="16dp"
                         android:layout_marginBottom="4dp"
-                        android:text="文字颜色" />
+                        android:text="@string/statusbar_text_color" />
 
                     <com.google.android.material.materialswitch.MaterialSwitch
                         android:id="@+id/statusBarAutoColorSwitch"
@@ -343,13 +354,13 @@
                         android:layout_marginTop="12dp"
                         android:layout_marginBottom="4dp"
                         android:padding="0dp"
-                        android:text="自动识别屏幕颜色" />
+                        android:text="@string/statusbar_auto_color" />
 
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:paddingTop="4dp"
-                        android:text="通过截屏采样状态栏区域亮度，自动切换黑/白文字。需要一次录屏授权，会增加少量耗电；服务被系统杀死后重启需重新授权。"
+                        android:text="@string/statusbar_auto_color_hint"
                         android:textAppearance="?attr/textAppearanceBodySmall"
                         android:textColor="?attr/colorOnSurfaceVariant" />
 
@@ -359,27 +370,30 @@
                         android:layout_marginTop="12dp"
                         android:layout_marginBottom="4dp"
                         android:padding="0dp"
-                        android:text="使用白色文字" />
+                        android:text="@string/statusbar_white_text" />
 
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:paddingTop="4dp"
-                        android:text="关闭“自动识别”时生效。默认关闭即为纯黑文字。"
+                        android:text="@string/statusbar_white_text_hint"
                         android:textAppearance="?attr/textAppearanceBodySmall"
                         android:textColor="?attr/colorOnSurfaceVariant" />
+                    </LinearLayout>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
             <TextView
+                android:id="@+id/floatingSectionTitle"
                 style="@style/TextAppearance.App.SettingSection"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="24dp"
                 android:layout_marginBottom="8dp"
-                android:text="悬浮窗样式" />
+                android:text="@string/settings_section_floating" />
 
             <com.google.android.material.card.MaterialCardView
+                android:id="@+id/floatingSectionCard"
                 style="@style/Widget.App.Card"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content">
@@ -394,7 +408,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginBottom="12dp"
-                        android:text="长按悬浮窗开启触摸穿透，开启后触摸直接传递给下方应用，不影响手机其他操作。再次长按悬浮窗或点击通知栏按钮关闭。"
+                        android:text="@string/floating_pass_through_hint"
                         android:textAppearance="?attr/textAppearanceBodySmall"
                         android:textColor="?attr/colorOnSurfaceVariant" />
 
@@ -403,73 +417,78 @@
                         style="@style/SettingsRow"
                         android:layout_marginBottom="12dp"
                         android:padding="0dp"
-                        android:text="显示 'bpm' 文字" />
+                        android:text="@string/floating_show_bpm_text" />
 
                     <com.google.android.material.materialswitch.MaterialSwitch
                         android:id="@+id/heartIconSwitch"
                         style="@style/SettingsRow"
                         android:layout_marginBottom="16dp"
                         android:padding="0dp"
-                        android:text="显示心形图标" />
+                        android:text="@string/floating_show_heart_icon" />
 
                     <TextView
                         style="@style/SettingsSubLabel"
                         android:layout_marginBottom="4dp"
-                        android:text="整体大小" />
+                        android:text="@string/floating_overall_size" />
 
-                    <SeekBar
+                    <com.google.android.material.slider.Slider
                         android:id="@+id/sizeSeekBar"
                         style="@style/SettingsSeekBar"
                         android:layout_marginBottom="12dp"
-                        android:max="200"
-                        android:progress="100" />
+                        android:valueFrom="0"
+                        android:valueTo="200"
+                        android:stepSize="1" />
 
                     <TextView
                         style="@style/SettingsSubLabel"
                         android:layout_marginBottom="4dp"
-                        android:text="图标大小" />
+                        android:text="@string/floating_icon_size" />
 
-                    <SeekBar
+                    <com.google.android.material.slider.Slider
                         android:id="@+id/iconSizeSeekBar"
                         style="@style/SettingsSeekBar"
                         android:layout_marginBottom="12dp"
-                        android:max="200"
-                        android:progress="100" />
+                        android:valueFrom="0"
+                        android:valueTo="200"
+                        android:stepSize="1" />
 
                     <TextView
                         style="@style/SettingsSubLabel"
                         android:layout_marginBottom="4dp"
-                        android:text="圆角半径" />
+                        android:text="@string/floating_corner_radius" />
 
-                    <SeekBar
+                    <com.google.android.material.slider.Slider
                         android:id="@+id/cornerRadiusSeekBar"
                         style="@style/SettingsSeekBar"
                         android:layout_marginBottom="12dp"
-                        android:max="100"
-                        android:progress="50" />
+                        android:valueFrom="0"
+                        android:valueTo="100"
+                        android:stepSize="1" />
 
                     <TextView
                         style="@style/SettingsSubLabel"
                         android:layout_marginBottom="4dp"
-                        android:text="背景不透明度" />
+                        android:text="@string/floating_bg_opacity" />
 
-                    <SeekBar
+                    <com.google.android.material.slider.Slider
                         android:id="@+id/bgAlphaSeekBar"
                         style="@style/SettingsSeekBar"
                         android:layout_marginBottom="12dp"
-                        android:max="100"
-                        android:progress="80" />
+                        android:valueFrom="0"
+                        android:valueTo="100"
+                        android:stepSize="1" />
 
                     <TextView
                         style="@style/SettingsSubLabel"
                         android:layout_marginBottom="4dp"
-                        android:text="边框不透明度" />
+                        android:text="@string/floating_border_opacity" />
 
-                    <SeekBar
+                    <com.google.android.material.slider.Slider
                         android:id="@+id/borderAlphaSeekBar"
                         style="@style/SettingsSeekBar"
-                        android:max="100"
-                        android:progress="100" />
+                        android:valueFrom="0"
+                        android:valueTo="100"
+                        android:stepSize="1" />
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -493,7 +512,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="8dp"
-                                android:text="文本"
+                                android:text="@string/floating_label_text"
                                 android:textAppearance="?attr/textAppearanceBodySmall" />
                         </LinearLayout>
 
@@ -513,7 +532,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="8dp"
-                                android:text="背景"
+                                android:text="@string/floating_label_bg"
                                 android:textAppearance="?attr/textAppearanceBodySmall" />
                         </LinearLayout>
 
@@ -533,7 +552,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="8dp"
-                                android:text="边框"
+                                android:text="@string/floating_label_border"
                                 android:textAppearance="?attr/textAppearanceBodySmall" />
                         </LinearLayout>
 
@@ -547,7 +566,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="24dp"
                 android:layout_marginBottom="8dp"
-                android:text="关于" />
+                android:text="@string/settings_section_about" />
 
             <com.google.android.material.card.MaterialCardView
                 style="@style/Widget.App.Card"
@@ -569,7 +588,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="版本"
+                            android:text="@string/settings_version"
                             android:textAppearance="?attr/textAppearanceBodyLarge" />
 
                         <TextView
@@ -596,7 +615,7 @@
                         android:clickable="true"
                         android:focusable="true"
                         android:padding="16dp"
-                        android:text="访问 GitHub 仓库"
+                        android:text="@string/settings_visit_github"
                         android:textColor="?attr/colorPrimary"
                         android:textStyle="bold"
                         app:drawableEndCompat="@drawable/ic_github"

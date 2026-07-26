@@ -3,40 +3,46 @@ package com.example.heart_rate_monitor_mobile.ui.settings
 import android.app.Activity
 import android.content.DialogInterface
 import android.content.Intent
-import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.media.projection.MediaProjectionManager
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
-import android.widget.SeekBar
+import android.view.View
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AppCompatActivity
-import com.example.heart_rate_monitor_mobile.ui.BaseActivity
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.ColorUtils
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.datastore.preferences.core.Preferences
 import com.example.heart_rate_monitor_mobile.R
-import com.example.heart_rate_monitor_mobile.service.StatusBarResidentService
+import com.example.heart_rate_monitor_mobile.data.settings.SettingsKeys
 import com.example.heart_rate_monitor_mobile.databinding.ActivitySettingsBinding
-import com.example.heart_rate_monitor_mobile.ui.favorite.FavoriteDevicesActivity
-import com.example.heart_rate_monitor_mobile.ui.alarm.HeartRateAlarmActivity
 import com.example.heart_rate_monitor_mobile.service.HeartRateAlarmService
+import com.example.heart_rate_monitor_mobile.service.StatusBarResidentService
+import com.example.heart_rate_monitor_mobile.ui.BaseActivity
+import com.example.heart_rate_monitor_mobile.ui.alarm.HeartRateAlarmActivity
+import com.example.heart_rate_monitor_mobile.ui.favorite.FavoriteDevicesActivity
 import com.example.heart_rate_monitor_mobile.ui.server.ServerActivity
-import com.example.heart_rate_monitor_mobile.util.EdgeToEdgeUtils
 import com.example.heart_rate_monitor_mobile.ui.webhook.WebhookActivity
+import com.example.heart_rate_monitor_mobile.util.EdgeToEdgeUtils
 import com.google.android.material.color.MaterialColors
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.slider.Slider
 import com.skydoves.colorpickerview.ColorEnvelope
 import com.skydoves.colorpickerview.ColorPickerDialog
 import com.skydoves.colorpickerview.listeners.ColorEnvelopeListener
+import kotlinx.coroutines.launch
 
 class SettingsActivity : BaseActivity() {
 
     private lateinit var binding: ActivitySettingsBinding
-    private lateinit var sharedPreferences: SharedPreferences
+
+    private val settings get() = container.settings
+    private val current get() = settings.settings.value
 
     /**
      * MediaProjection 权限请求 launcher。
@@ -46,27 +52,20 @@ class SettingsActivity : BaseActivity() {
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK && result.data != null) {
-            // 写 pref，通知 Service 启动采样
-            sharedPreferences.edit().putBoolean("status_bar_auto_color", true).apply()
+            settings.setAsync(SettingsKeys.STATUS_BAR_AUTO_COLOR, true)
             binding.statusBarAutoColorSwitch.isChecked = true
-            updateWhiteTextSwitchEnabledState()
+            updateWhiteTextSwitchEnabledState(autoColor = true)
             val intent = Intent(this, StatusBarResidentService::class.java).apply {
                 action = StatusBarResidentService.ACTION_START_MEDIA_PROJECTION
-                putExtra(
-                    StatusBarResidentService.EXTRA_RESULT_CODE,
-                    result.resultCode
-                )
-                putExtra(
-                    StatusBarResidentService.EXTRA_RESULT_DATA,
-                    result.data
-                )
+                putExtra(StatusBarResidentService.EXTRA_RESULT_CODE, result.resultCode)
+                putExtra(StatusBarResidentService.EXTRA_RESULT_DATA, result.data)
             }
             startService(intent)
         } else {
             // 用户拒绝授权，回退开关
             binding.statusBarAutoColorSwitch.isChecked = false
-            sharedPreferences.edit().putBoolean("status_bar_auto_color", false).apply()
-            updateWhiteTextSwitchEnabledState()
+            settings.setAsync(SettingsKeys.STATUS_BAR_AUTO_COLOR, false)
+            updateWhiteTextSwitchEnabledState(autoColor = false)
         }
     }
 
@@ -77,49 +76,65 @@ class SettingsActivity : BaseActivity() {
 
         EdgeToEdgeUtils.setup(this, binding.appBar)
 
-        sharedPreferences = getSharedPreferences("app_settings", MODE_PRIVATE)
-
         setupToolbar()
         setupClickListeners()
         displayAppVersion()
         setupSwitches()
         setupFloatingWindowSettings()
         setupStatusBarSettings()
+        observeSectionVisibility()
         recoverStatusBarResidentIfNeeded()
         recoverHeartRateAlarmIfNeeded()
+    }
+
+    /**
+     * 强关联调节项收纳：功能开关关闭时对应的调节区没必要显示。
+     * 由设置流驱动（而非本地点击回调），主页切换悬浮窗开关后回到本页也能正确同步。
+     */
+    private fun observeSectionVisibility() {
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                launch {
+                    settings.flowOf { it.statusBar.residentEnabled }.collect { enabled ->
+                        binding.statusBarOptionsContainer.visibility =
+                            if (enabled) View.VISIBLE else View.GONE
+                    }
+                }
+                launch {
+                    settings.flowOf { it.floating.enabled }.collect { enabled ->
+                        val visibility = if (enabled) View.VISIBLE else View.GONE
+                        binding.floatingSectionTitle.visibility = visibility
+                        binding.floatingSectionCard.visibility = visibility
+                    }
+                }
+            }
+        }
     }
 
     private fun setupToolbar() {
         setSupportActionBar(binding.toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
-        // 汉化：标题
-        supportActionBar?.title = "设置"
+        supportActionBar?.title = getString(R.string.settings_title)
     }
 
     private fun setupClickListeners() {
         binding.toolbar.setNavigationOnClickListener { onBackPressedDispatcher.onBackPressed() }
 
         binding.githubLink.setOnClickListener {
-            val intent = Intent(
-                Intent.ACTION_VIEW,
-                Uri.parse("https://github.com/ccc007ccc/HeartRateMonitorMobile")
+            suppressHideForExternalLaunch = true
+            startActivity(
+                Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/ccc007ccc/HeartRateMonitorMobile"))
             )
-            BaseActivity.suppressHideForExternalLaunch = true
-            startActivity(intent)
         }
-
         binding.serverSettingsLink.setOnClickListener {
             startActivity(Intent(this, ServerActivity::class.java))
         }
-
         binding.webhookSettingsLink.setOnClickListener {
             startActivity(Intent(this, WebhookActivity::class.java))
         }
-
         binding.favoriteDevicesLink.setOnClickListener {
             startActivity(Intent(this, FavoriteDevicesActivity::class.java))
         }
-
         binding.heartRateAlarmLink.setOnClickListener {
             startActivity(Intent(this, HeartRateAlarmActivity::class.java))
         }
@@ -127,49 +142,38 @@ class SettingsActivity : BaseActivity() {
 
     private fun displayAppVersion() {
         try {
-            val version = packageManager.getPackageInfo(packageName, 0).versionName
-            binding.appVersionText.text = version
+            binding.appVersionText.text = packageManager.getPackageInfo(packageName, 0).versionName
         } catch (e: PackageManager.NameNotFoundException) {
-            e.printStackTrace()
-            // 汉化：版本获取失败提示
-            binding.appVersionText.text = "未知"
+            binding.appVersionText.text = getString(R.string.common_unknown)
         }
     }
 
     private fun setupSwitches() {
-        // 【关键修复】设置开关的颜色状态列表，修复关闭时颜色异常问题
-        // 使用 ?attr/colorPrimary 解析后的颜色，开启莫奈取色时随动态主题色变化
+        // 设置开关的颜色状态列表：使用解析后的 colorPrimary，开启莫奈取色时随动态主题色变化
         val activeColor = MaterialColors.getColor(
             this,
             android.R.attr.colorPrimary,
             ContextCompat.getColor(this, R.color.primary_light)
         )
-        val inactiveTrackColor = Color.parseColor("#E0E0E0") // 浅灰色轨道
-        val inactiveThumbColor = Color.WHITE // 白色滑块
+        val inactiveTrackColor = Color.parseColor("#E0E0E0")
+        val inactiveThumbColor = Color.WHITE
 
         val thumbStates = ColorStateList(
             arrayOf(
-                intArrayOf(-android.R.attr.state_checked), // 关闭状态
-                intArrayOf(android.R.attr.state_checked)  // 开启状态
+                intArrayOf(-android.R.attr.state_checked),
+                intArrayOf(android.R.attr.state_checked)
             ),
-            intArrayOf(
-                inactiveThumbColor,
-                activeColor
-            )
+            intArrayOf(inactiveThumbColor, activeColor)
         )
-
         val trackStates = ColorStateList(
             arrayOf(
                 intArrayOf(-android.R.attr.state_checked),
                 intArrayOf(android.R.attr.state_checked)
             ),
-            intArrayOf(
-                inactiveTrackColor,
-                ColorUtils.setAlphaComponent(activeColor, 128) // 开启时轨道半透明
-            )
+            intArrayOf(inactiveTrackColor, ColorUtils.setAlphaComponent(activeColor, 128))
         )
 
-        val switches = listOf(
+        listOf(
             binding.historyRecordingSwitch,
             binding.heartbeatAnimationSwitch,
             binding.monetColorSwitch,
@@ -182,169 +186,150 @@ class SettingsActivity : BaseActivity() {
             binding.statusBarResidentSwitch,
             binding.statusBarBpmTextSwitch,
             binding.statusBarAutoColorSwitch,
-            binding.statusBarWhiteTextSwitch
-        )
-
-        switches.forEach { switch ->
+            binding.statusBarWhiteTextSwitch,
+        ).forEach { switch ->
             switch.thumbTintList = thumbStates
             switch.trackTintList = trackStates
         }
 
-        // 绑定逻辑
-        binding.historyRecordingSwitch.isChecked = sharedPreferences.getBoolean("history_recording_enabled", false)
+        // 历史记录（开启前弹性能警告）
+        binding.historyRecordingSwitch.isChecked = current.general.historyRecordingEnabled
         binding.historyRecordingSwitch.setOnCheckedChangeListener { buttonView, isChecked ->
             if (isChecked) {
-                // 汉化：性能警告对话框
                 MaterialAlertDialogBuilder(this)
-                    .setTitle("性能警告")
-                    .setMessage("开启历史记录将持续写入数据到存储，可能会增加耗电量。确认开启吗？")
-                    .setNegativeButton("取消") { _, _ ->
-                        buttonView.isChecked = false
-                    }
-                    .setPositiveButton("确认") { _, _ ->
-                        sharedPreferences.edit().putBoolean("history_recording_enabled", true).apply()
+                    .setTitle(R.string.settings_perf_warning_title)
+                    .setMessage(R.string.settings_perf_warning_message)
+                    .setNegativeButton(R.string.common_cancel) { _, _ -> buttonView.isChecked = false }
+                    .setPositiveButton(R.string.common_confirm) { _, _ ->
+                        settings.setAsync(SettingsKeys.HISTORY_RECORDING_ENABLED, true)
                     }
                     .show()
             } else {
-                sharedPreferences.edit().putBoolean("history_recording_enabled", false).apply()
+                settings.setAsync(SettingsKeys.HISTORY_RECORDING_ENABLED, false)
             }
         }
 
-        val isAnimationEnabled = sharedPreferences.getBoolean("heartbeat_animation_enabled", true)
-        binding.heartbeatAnimationSwitch.isChecked = isAnimationEnabled
+        binding.heartbeatAnimationSwitch.isChecked = current.general.heartbeatAnimationEnabled
         binding.heartbeatAnimationSwitch.setOnCheckedChangeListener { _, isChecked ->
-            sharedPreferences.edit().putBoolean("heartbeat_animation_enabled", isChecked).apply()
+            settings.setAsync(SettingsKeys.HEARTBEAT_ANIMATION_ENABLED, isChecked)
         }
 
-        // 莫奈取色（Material You 动态取色）：已锁定为常开，不允许用户关闭
-        // 强制写入 true，处理旧版本用户曾关闭过的情况
-        sharedPreferences.edit().putBoolean("monet_color_enabled", true).apply()
-        binding.monetColorSwitch.isChecked = true
-        binding.monetColorSwitch.setOnCheckedChangeListener { buttonView, isChecked ->
-            // 阻止关闭：用户尝试关闭时强制恢复开启状态
-            if (!isChecked) {
-                buttonView.isChecked = true
+        // 莫奈取色（Material You 动态取色）：可自由开关；
+        // 主题 overlay 只在 Activity 创建时应用，切换后重建本页立即生效（主页在 onResume 自行重建）
+        binding.monetColorSwitch.isChecked = current.general.monetColorEnabled
+        binding.monetColorSwitch.setOnCheckedChangeListener { _, isChecked ->
+            lifecycleScope.launch {
+                settings.set(SettingsKeys.MONET_COLOR_ENABLED, isChecked)
+                recreate()
             }
         }
 
-        val isAutoConnectEnabled = sharedPreferences.getBoolean("auto_connect_enabled", false)
-        binding.autoConnectSwitch.isChecked = isAutoConnectEnabled
+        binding.autoConnectSwitch.isChecked = current.connection.autoConnectEnabled
         binding.autoConnectSwitch.setOnCheckedChangeListener { _, isChecked ->
-            sharedPreferences.edit().putBoolean("auto_connect_enabled", isChecked).apply()
+            settings.setAsync(SettingsKeys.AUTO_CONNECT_ENABLED, isChecked)
         }
 
-        val isAutoReconnectEnabled = sharedPreferences.getBoolean("auto_reconnect_enabled", true)
-        binding.autoReconnectSwitch.isChecked = isAutoReconnectEnabled
+        binding.autoReconnectSwitch.isChecked = current.connection.autoReconnectEnabled
         binding.autoReconnectSwitch.setOnCheckedChangeListener { _, isChecked ->
-            sharedPreferences.edit().putBoolean("auto_reconnect_enabled", isChecked).apply()
+            settings.setAsync(SettingsKeys.AUTO_RECONNECT_ENABLED, isChecked)
         }
 
-        val isBpmTextEnabled = sharedPreferences.getBoolean("bpm_text_enabled", true)
-        binding.bpmTextSwitch.isChecked = isBpmTextEnabled
+        binding.bpmTextSwitch.isChecked = current.floating.bpmTextEnabled
         binding.bpmTextSwitch.setOnCheckedChangeListener { _, isChecked ->
-            sharedPreferences.edit().putBoolean("bpm_text_enabled", isChecked).apply()
+            settings.setAsync(SettingsKeys.FLOATING_BPM_TEXT_ENABLED, isChecked)
         }
 
-        val isHeartIconEnabled = sharedPreferences.getBoolean("heart_icon_enabled", true)
-        binding.heartIconSwitch.isChecked = isHeartIconEnabled
+        binding.heartIconSwitch.isChecked = current.floating.heartIconEnabled
         binding.heartIconSwitch.setOnCheckedChangeListener { _, isChecked ->
-            sharedPreferences.edit().putBoolean("heart_icon_enabled", isChecked).apply()
+            settings.setAsync(SettingsKeys.FLOATING_HEART_ICON_ENABLED, isChecked)
         }
 
-        val isSpeedDisplayEnabled = sharedPreferences.getBoolean("speed_display_enabled", false)
-        binding.speedDisplaySwitch.isChecked = isSpeedDisplayEnabled
+        // 速度显示（开启前弹 GPS 耗电警告）
+        binding.speedDisplaySwitch.isChecked = current.general.speedDisplayEnabled
         binding.speedDisplaySwitch.setOnCheckedChangeListener { buttonView, isChecked ->
             if (isChecked) {
-                // 汉化：速度显示警告对话框
                 MaterialAlertDialogBuilder(this)
-                    .setTitle("开启速度显示")
-                    .setMessage("该功能使用 GPS 计算速度，可能会增加耗电量并需要定位权限。确认开启吗？")
-                    .setNegativeButton("取消") { _, _ ->
-                        buttonView.isChecked = false
-                    }
-                    .setPositiveButton("确认") { _, _ ->
-                        sharedPreferences.edit().putBoolean("speed_display_enabled", true).apply()
+                    .setTitle(R.string.settings_speed_warning_title)
+                    .setMessage(R.string.settings_speed_warning_message)
+                    .setNegativeButton(R.string.common_cancel) { _, _ -> buttonView.isChecked = false }
+                    .setPositiveButton(R.string.common_confirm) { _, _ ->
+                        settings.setAsync(SettingsKeys.SPEED_DISPLAY_ENABLED, true)
                     }
                     .show()
             } else {
-                sharedPreferences.edit().putBoolean("speed_display_enabled", false).apply()
+                settings.setAsync(SettingsKeys.SPEED_DISPLAY_ENABLED, false)
             }
         }
 
         // 退出应用隐藏后台：开启后按 HOME 退出时从最近任务列表移除，进程由前台服务保活
-        val isHideFromRecentsEnabled = sharedPreferences.getBoolean("hide_from_recents_enabled", false)
-        binding.hideFromRecentsSwitch.isChecked = isHideFromRecentsEnabled
+        binding.hideFromRecentsSwitch.isChecked = current.general.hideFromRecentsEnabled
         binding.hideFromRecentsSwitch.setOnCheckedChangeListener { _, isChecked ->
-            sharedPreferences.edit().putBoolean("hide_from_recents_enabled", isChecked).apply()
+            settings.setAsync(SettingsKeys.HIDE_FROM_RECENTS_ENABLED, isChecked)
         }
 
-        val isStatusBarResidentEnabled = sharedPreferences.getBoolean("status_bar_resident_enabled", false)
-        binding.statusBarResidentSwitch.isChecked = isStatusBarResidentEnabled
+        binding.statusBarResidentSwitch.isChecked = current.statusBar.residentEnabled
         binding.statusBarResidentSwitch.setOnCheckedChangeListener { buttonView, isChecked ->
             if (isChecked) {
                 // 开启：先校验悬浮窗权限
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
-                    // 未授权：跳转权限页，回退开关状态，不写 pref
+                if (!Settings.canDrawOverlays(this)) {
                     buttonView.isChecked = false
-                    BaseActivity.suppressHideForExternalLaunch = true
-                    startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
+                    suppressHideForExternalLaunch = true
+                    startActivity(
+                        Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
+                    )
                 } else {
-                    sharedPreferences.edit().putBoolean("status_bar_resident_enabled", true).apply()
+                    settings.setAsync(SettingsKeys.STATUS_BAR_RESIDENT_ENABLED, true)
                     startService(Intent(this, StatusBarResidentService::class.java))
                 }
             } else {
-                sharedPreferences.edit().putBoolean("status_bar_resident_enabled", false).apply()
+                settings.setAsync(SettingsKeys.STATUS_BAR_RESIDENT_ENABLED, false)
                 stopService(Intent(this, StatusBarResidentService::class.java))
             }
         }
     }
 
     private fun setupFloatingWindowSettings() {
-        // 汉化：颜色选择器标题
         binding.textColorPreview.setOnClickListener {
-            showColorPicker("floating_text_color", "文本颜色", Color.BLACK)
+            showColorPicker(SettingsKeys.FLOATING_TEXT_COLOR, getString(R.string.floating_text_color_title))
         }
         binding.bgColorPreview.setOnClickListener {
-            showColorPicker("floating_bg_color", "背景颜色", Color.BLACK)
+            showColorPicker(SettingsKeys.FLOATING_BG_COLOR, getString(R.string.floating_bg_color_title))
         }
         binding.borderColorPreview.setOnClickListener {
-            showColorPicker("floating_border_color", "边框颜色", Color.GRAY)
+            showColorPicker(SettingsKeys.FLOATING_BORDER_COLOR, getString(R.string.floating_border_color_title))
         }
 
-        setupSeekBar(binding.bgAlphaSeekBar, "floating_bg_alpha", 10)
-        setupSeekBar(binding.borderAlphaSeekBar, "floating_border_alpha", 100)
-        setupSeekBar(binding.cornerRadiusSeekBar, "floating_corner_radius", 100)
-        setupSeekBar(binding.sizeSeekBar, "floating_size", 100)
-        setupSeekBar(binding.iconSizeSeekBar, "floating_icon_size", 100)
+        setupSeekBar(binding.bgAlphaSeekBar, SettingsKeys.FLOATING_BG_ALPHA, current.floating.backgroundAlphaPercent)
+        setupSeekBar(binding.borderAlphaSeekBar, SettingsKeys.FLOATING_BORDER_ALPHA, current.floating.borderAlphaPercent)
+        setupSeekBar(binding.cornerRadiusSeekBar, SettingsKeys.FLOATING_CORNER_RADIUS, current.floating.cornerRadius)
+        setupSeekBar(binding.sizeSeekBar, SettingsKeys.FLOATING_SIZE, current.floating.sizePercent)
+        setupSeekBar(binding.iconSizeSeekBar, SettingsKeys.FLOATING_ICON_SIZE, current.floating.iconSizePercent)
 
         updateColorPreviews()
     }
 
     private fun setupStatusBarSettings() {
-        setupSeekBar(binding.statusBarXPositionSeekBar, "status_bar_x_position", 0)
-        setupSeekBar(binding.statusBarYOffsetSeekBar, "status_bar_y_offset", 10)
-        setupSeekBar(binding.statusBarSizeSeekBar, "status_bar_size", 100)
-        setupSeekBar(binding.statusBarTextThicknessSeekBar, "status_bar_text_thickness", 0)
+        setupSeekBar(binding.statusBarXPositionSeekBar, SettingsKeys.STATUS_BAR_X_POSITION, current.statusBar.xPositionPercent)
+        setupSeekBar(binding.statusBarYOffsetSeekBar, SettingsKeys.STATUS_BAR_Y_OFFSET, current.statusBar.yOffset)
+        setupSeekBar(binding.statusBarSizeSeekBar, SettingsKeys.STATUS_BAR_SIZE, current.statusBar.sizePercent)
+        setupSeekBar(binding.statusBarTextThicknessSeekBar, SettingsKeys.STATUS_BAR_TEXT_THICKNESS, current.statusBar.textThickness)
 
-        // BPM 文字显示开关：默认开启
-        val isBpmTextEnabled = sharedPreferences.getBoolean("status_bar_bpm_text_enabled", true)
-        binding.statusBarBpmTextSwitch.isChecked = isBpmTextEnabled
+        binding.statusBarBpmTextSwitch.isChecked = current.statusBar.bpmTextEnabled
         binding.statusBarBpmTextSwitch.setOnCheckedChangeListener { _, isChecked ->
-            sharedPreferences.edit().putBoolean("status_bar_bpm_text_enabled", isChecked).apply()
+            settings.setAsync(SettingsKeys.STATUS_BAR_BPM_TEXT_ENABLED, isChecked)
         }
 
         // 自动识别屏幕颜色开关（MediaProjection 截屏采样）
-        val isAutoColorEnabled = sharedPreferences.getBoolean("status_bar_auto_color", false)
-        binding.statusBarAutoColorSwitch.isChecked = isAutoColorEnabled
+        binding.statusBarAutoColorSwitch.isChecked = current.statusBar.autoColor
         binding.statusBarAutoColorSwitch.setOnCheckedChangeListener { buttonView, isChecked ->
             if (isChecked) {
                 // 前置：状态栏常驻必须已开启
-                if (!sharedPreferences.getBoolean("status_bar_resident_enabled", false)) {
+                if (!current.statusBar.residentEnabled) {
                     buttonView.isChecked = false
                     MaterialAlertDialogBuilder(this)
-                        .setTitle("提示")
-                        .setMessage("请先开启“状态栏常驻心率”开关后再使用自动识别。")
-                        .setPositiveButton("知道了", null)
+                        .setTitle(R.string.settings_notice_title)
+                        .setMessage(R.string.settings_statusbar_enable_first)
+                        .setPositiveButton(R.string.common_got_it, null)
                         .show()
                     return@setOnCheckedChangeListener
                 }
@@ -352,94 +337,89 @@ class SettingsActivity : BaseActivity() {
                 val projectionManager = getSystemService(MediaProjectionManager::class.java)
                 mediaProjectionLauncher.launch(projectionManager.createScreenCaptureIntent())
             } else {
-                // 关闭：写 pref + 通知 Service 停止采样
-                sharedPreferences.edit().putBoolean("status_bar_auto_color", false).apply()
-                updateWhiteTextSwitchEnabledState()
-                val intent = Intent(this, StatusBarResidentService::class.java).apply {
-                    action = StatusBarResidentService.ACTION_STOP_MEDIA_PROJECTION
-                }
-                startService(intent)
+                // 关闭：写设置 + 通知 Service 停止采样
+                settings.setAsync(SettingsKeys.STATUS_BAR_AUTO_COLOR, false)
+                updateWhiteTextSwitchEnabledState(autoColor = false)
+                startService(
+                    Intent(this, StatusBarResidentService::class.java).apply {
+                        action = StatusBarResidentService.ACTION_STOP_MEDIA_PROJECTION
+                    }
+                )
             }
         }
 
         // 手动白色文字开关（仅在自动识别关闭时生效）
-        val isWhiteTextEnabled = sharedPreferences.getBoolean("status_bar_white_text", false)
-        binding.statusBarWhiteTextSwitch.isChecked = isWhiteTextEnabled
+        binding.statusBarWhiteTextSwitch.isChecked = current.statusBar.whiteText
         binding.statusBarWhiteTextSwitch.setOnCheckedChangeListener { _, isChecked ->
-            sharedPreferences.edit().putBoolean("status_bar_white_text", isChecked).apply()
+            settings.setAsync(SettingsKeys.STATUS_BAR_WHITE_TEXT, isChecked)
         }
 
-        updateWhiteTextSwitchEnabledState()
+        updateWhiteTextSwitchEnabledState(autoColor = current.statusBar.autoColor)
     }
 
-    /**
-     * 自动识别开启时禁用手动白色文字开关（自动模式覆盖手动选择）。
-     */
-    private fun updateWhiteTextSwitchEnabledState() {
-        val autoColor = sharedPreferences.getBoolean("status_bar_auto_color", false)
+    /** 自动识别开启时禁用手动白色文字开关（自动模式覆盖手动选择） */
+    private fun updateWhiteTextSwitchEnabledState(autoColor: Boolean) {
         binding.statusBarWhiteTextSwitch.isEnabled = !autoColor
         binding.statusBarWhiteTextSwitch.alpha = if (autoColor) 0.4f else 1f
     }
 
-    private fun showColorPicker(prefKey: String, title: String, defaultColor: Int) {
+    private fun showColorPicker(prefKey: Preferences.Key<Int>, title: String) {
         ColorPickerDialog.Builder(this)
             .setTitle(title)
             .setPreferenceName("ColorPickerDialog")
             .attachBrightnessSlideBar(true)
             .attachAlphaSlideBar(false)
-            // 汉化：颜色选择器按钮
-            .setPositiveButton("确认", object : ColorEnvelopeListener {
+            .setPositiveButton(getString(R.string.common_confirm), object : ColorEnvelopeListener {
                 override fun onColorSelected(envelope: ColorEnvelope?, fromUser: Boolean) {
                     envelope?.let {
-                        sharedPreferences.edit().putInt(prefKey, it.color).apply()
-                        updateColorPreviews()
+                        settings.setAsync(prefKey, it.color)
+                        // setAsync 为异步写，预览直接用选中值刷新
+                        applyColorPreview(prefKey, it.color)
                     }
                 }
             })
-            .setNegativeButton("取消") { dialogInterface: DialogInterface, _: Int ->
+            .setNegativeButton(getString(R.string.common_cancel)) { dialogInterface: DialogInterface, _: Int ->
                 dialogInterface.dismiss()
             }
             .show()
     }
 
-    private fun setupSeekBar(seekBar: SeekBar, prefKey: String, defaultValue: Int) {
-        seekBar.progress = sharedPreferences.getInt(prefKey, defaultValue)
-        seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                if (fromUser) {
-                    sharedPreferences.edit().putInt(prefKey, progress).apply()
-                }
+    private fun setupSeekBar(slider: Slider, prefKey: Preferences.Key<Int>, initialValue: Int) {
+        slider.value = initialValue.toFloat().coerceIn(slider.valueFrom, slider.valueTo)
+        slider.addOnChangeListener { _, value, fromUser ->
+            if (fromUser) {
+                settings.setAsync(prefKey, value.toInt())
             }
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-        })
+        }
+    }
+
+    private fun applyColorPreview(prefKey: Preferences.Key<Int>, color: Int) {
+        when (prefKey) {
+            SettingsKeys.FLOATING_TEXT_COLOR -> binding.textColorPreview.setBackgroundColor(color)
+            SettingsKeys.FLOATING_BG_COLOR -> binding.bgColorPreview.setBackgroundColor(color)
+            SettingsKeys.FLOATING_BORDER_COLOR -> binding.borderColorPreview.setBackgroundColor(color)
+        }
     }
 
     private fun updateColorPreviews() {
-        binding.textColorPreview.setBackgroundColor(sharedPreferences.getInt("floating_text_color", Color.BLACK))
-        binding.bgColorPreview.setBackgroundColor(sharedPreferences.getInt("floating_bg_color", Color.BLACK))
-        binding.borderColorPreview.setBackgroundColor(sharedPreferences.getInt("floating_border_color", Color.GRAY))
+        binding.textColorPreview.setBackgroundColor(current.floating.textColor)
+        binding.bgColorPreview.setBackgroundColor(current.floating.backgroundColor)
+        binding.borderColorPreview.setBackgroundColor(current.floating.borderColor)
     }
 
     /**
-     * 兜底恢复：App 被 force-stop 后进程被杀，pref 仍为 true 但 overlay 消失。
+     * 兜底恢复：App 被 force-stop 后进程被杀，设置仍为 true 但 overlay 消失。
      * 重进设置页（onCreate 冷启动）时若权限仍在，则重新拉起服务。
      */
     private fun recoverStatusBarResidentIfNeeded() {
-        val enabled = sharedPreferences.getBoolean("status_bar_resident_enabled", false)
-        if (enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && Settings.canDrawOverlays(this)) {
+        if (current.statusBar.residentEnabled && Settings.canDrawOverlays(this)) {
             startService(Intent(this, StatusBarResidentService::class.java))
         }
     }
 
-    /**
-     * 兜底恢复：App 被 force-stop 后进程被杀，pref 仍为 true 但服务已停止。
-     * 重进设置页（onCreate 冷启动）时重新拉起服务。
-     * 心率预警服务无需特殊运行时权限（VIBRATE 为普通权限），直接检查 pref 即可。
-     */
+    /** 兜底恢复：同上，心率预警服务无需特殊运行时权限，直接检查设置即可 */
     private fun recoverHeartRateAlarmIfNeeded() {
-        val enabled = sharedPreferences.getBoolean("heart_rate_alarm_enabled", false)
-        if (enabled) {
+        if (current.alarm.enabled) {
             startService(Intent(this, HeartRateAlarmService::class.java))
         }
     }

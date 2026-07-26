@@ -1,36 +1,57 @@
 package com.example.heart_rate_monitor_mobile.service
 
-import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
-import android.content.*
+import android.content.Intent
 import android.graphics.Color
 import android.graphics.PixelFormat
-import android.os.*
+import android.os.Build
+import android.os.Handler
+import android.os.IBinder
+import android.os.Looper
 import android.provider.Settings
+import android.util.Log
 import android.util.TypedValue
-import android.view.*
-import android.view.animation.AccelerateDecelerateInterpolator
+import android.view.ContextThemeWrapper
+import android.view.Gravity
+import android.view.LayoutInflater
+import android.view.MotionEvent
+import android.view.View
+import android.view.WindowManager
 import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import com.example.heart_rate_monitor_mobile.R
+import com.example.heart_rate_monitor_mobile.core.AppContainer
 import com.example.heart_rate_monitor_mobile.databinding.LayoutFloatingWindowBinding
+import com.example.heart_rate_monitor_mobile.service.overlay.HeartbeatAnimator
 import com.google.android.material.card.MaterialCardView
-import com.juul.kable.State
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
+import java.util.Locale
 import kotlin.math.absoluteValue
 import kotlin.math.roundToInt
 
+/**
+ * 心率悬浮窗服务。
+ *
+ * 重构后：数据一律来自 AppContainer.heartRate（进程级 repository），
+ * 不再 bindService(BleService)；窗口显隐由 floating_window_enabled 设置流驱动，
+ * 外观由 FloatingWindowSettings 设置流驱动（替代 OnSharedPreferenceChangeListener）。
+ */
 class FloatingWindowService : Service() {
 
     companion object {
         /** 通知栏动作：关闭触摸穿透 */
         const val ACTION_DISABLE_TOUCH_THROUGH = "com.example.heart_rate_monitor_mobile.DISABLE_TOUCH_THROUGH"
+        private const val TAG = "FloatingWindowService"
         private const val TOUCH_THROUGH_CHANNEL_ID = "floating_touch_through"
         private const val TOUCH_THROUGH_NOTIFICATION_ID = 1001
         /** 长按触发阈值（毫秒） */
@@ -39,17 +60,16 @@ class FloatingWindowService : Service() {
         private const val TOUCH_SLOP = 10f
     }
 
-    private val binder = LocalBinder()
-    inner class LocalBinder : Binder() { fun getService(): FloatingWindowService = this@FloatingWindowService }
-    override fun onBind(intent: Intent?): IBinder = binder
+    private val container by lazy { AppContainer.get(this) }
+
+    override fun onBind(intent: Intent?): IBinder? = null
 
     /**
      * 处理两类 startService 调用：
      * 1. 通知栏「关闭触摸穿透」按钮（ACTION_DISABLE_TOUCH_THROUGH）：一次性动作，处理完即
-     *    stopSelf(startId) 释放本次 start 请求；若 Activity 仍绑定本服务则服务不会被销毁。
-     * 2. showWindow() 中的无 action 保活 start：使服务在 Activity 解绑（如开启"退出应用隐藏
-     *    后台"后按 HOME 触发 finishAffinity）后仍能存活，悬浮窗持续显示。hideWindow() 时
-     *    stopSelf() 释放该保活 start。
+     *    stopSelf(startId) 释放本次 start 请求。
+     * 2. 开启悬浮窗时的保活 start：使服务在开启"退出应用隐藏后台"后按 HOME 触发
+     *    finishAffinity 时仍能存活，悬浮窗持续显示。设置关闭时 stopSelf() 释放。
      */
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
@@ -57,7 +77,7 @@ class FloatingWindowService : Service() {
                 disableTouchThrough()
                 stopSelf(startId)
             }
-            // 无 action：showWindow 保活 start，不释放
+            // 无 action：保活 start，不释放
         }
         return START_STICKY
     }
@@ -65,18 +85,15 @@ class FloatingWindowService : Service() {
     private lateinit var windowManager: WindowManager
     private lateinit var binding: LayoutFloatingWindowBinding
     private lateinit var layoutParams: WindowManager.LayoutParams
-    private lateinit var sharedPreferences: SharedPreferences
 
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
-    private var bleService: BleService? = null
-    private var isServiceBound = false
+    private lateinit var heartbeatAnimator: HeartbeatAnimator
 
     private var isWindowShown = false
-    private var heartRateAnimator: ValueAnimator? = null
-    private var currentDuration: Long = 0L
-    private val beatInterpolator = AccelerateDecelerateInterpolator()
-    private var initialX = 0; private var initialY = 0
-    private var initialTouchX = 0f; private var initialTouchY = 0f
+    private var initialX = 0
+    private var initialY = 0
+    private var initialTouchX = 0f
+    private var initialTouchY = 0f
 
     /** 触摸穿透是否已开启：开启后悬浮窗不再接收触摸事件，触摸直接传递给下方应用 */
     private var isTouchThroughEnabled = false
@@ -85,73 +102,81 @@ class FloatingWindowService : Service() {
     /** 触摸穿透开启时覆盖在悬浮窗中心的不可见触摸接收窗口，用于长按关闭穿透 */
     private var touchThroughCatcherView: View? = null
 
-    private val serviceConnection = object : ServiceConnection {
-        override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
-            val binder = service as BleService.LocalBinder
-            bleService = binder.getService()
-            isServiceBound = true
-            observeBleData()
-        }
-
-        override fun onServiceDisconnected(name: ComponentName?) {
-            bleService = null
-            isServiceBound = false
-        }
-    }
-
-    private val settingsChangeListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
-        if (isWindowShown) updateWindowAppearance()
-    }
-
     override fun onCreate() {
         super.onCreate()
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
-        sharedPreferences = getSharedPreferences("app_settings", Context.MODE_PRIVATE)
 
         val contextWithTheme = ContextThemeWrapper(this, R.style.Theme_HeartRateMonitorMobile)
         binding = LayoutFloatingWindowBinding.inflate(LayoutInflater.from(contextWithTheme))
+        heartbeatAnimator = HeartbeatAnimator(binding.floatingHeartIcon)
 
         initLayoutParams()
         setupTouchListener()
         createTouchThroughNotificationChannel()
-        sharedPreferences.registerOnSharedPreferenceChangeListener(settingsChangeListener)
+        observeData()
+        observeSettings()
+    }
 
-        // Bind to BleService to get data
-        Intent(this, BleService::class.java).also { intent ->
-            bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
+    private fun observeData() {
+        serviceScope.launch {
+            container.heartRate.heartRate.collectLatest { rate ->
+                binding.floatingBpmNumber.text = if (rate > 0) "$rate" else "--"
+                heartbeatAnimator.update(
+                    rate,
+                    container.settings.settings.value.general.heartbeatAnimationEnabled &&
+                        container.heartRate.isDeviceConnected(),
+                )
+            }
+        }
+        serviceScope.launch {
+            container.heartRate.speed.collectLatest { speed ->
+                binding.floatingSpeedNumber.text = String.format(Locale.US, "%.1f", speed)
+            }
         }
     }
 
-    private fun observeBleData() {
+    private fun observeSettings() {
+        // 显隐由设置驱动。只在 true→false 跃迁时停止服务：
+        // 服务刚被启动而设置写入尚未落盘时，首个收集值可能仍是 false，
+        // 此时立即 stopSelf 会让悬浮窗永远出不来（写后读竞态）。
         serviceScope.launch {
-            bleService?.heartRate?.collectLatest { rate ->
-                updateHeartRateText(rate)
-                updateHeartbeatAnimation(rate)
+            var wasEnabled: Boolean? = null
+            container.settings.flowOf { it.floating.enabled }.collectLatest { enabled ->
+                if (enabled) {
+                    showWindow()
+                } else if (wasEnabled == true) {
+                    hideWindowAndStop()
+                }
+                wasEnabled = enabled
             }
         }
-        // 监听速度数据
+        // 外观（含速度显示开关）
         serviceScope.launch {
-            bleService?.speed?.collectLatest { speed ->
-                updateSpeedText(speed)
-            }
+            container.settings.flowOf { it.floating to it.general.speedDisplayEnabled }
+                .collectLatest { if (isWindowShown) updateWindowAppearance() }
         }
     }
 
-    fun showWindow() {
+    private fun showWindow() {
         if (isWindowShown) return
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) return
+        if (!Settings.canDrawOverlays(this)) return
         try {
             windowManager.addView(binding.root, layoutParams)
             isWindowShown = true
             updateWindowAppearance()
-            // 提升为 started 服务，使悬浮窗在 Activity 解绑（如开启"退出应用隐藏后台"后按 HOME 触发 finishAffinity）后仍能存活
+            // 提升为 started 服务，使悬浮窗在 Activity 全部销毁后仍能存活
             startService(Intent(this, FloatingWindowService::class.java))
         } catch (e: Exception) {
-            // Handle exception
+            Log.w(TAG, "添加悬浮窗失败", e)
         }
     }
 
-    fun hideWindow() {
+    private fun hideWindowAndStop() {
+        hideWindow()
+        stopSelf()
+    }
+
+    private fun hideWindow() {
         if (!isWindowShown) return
         // 重置触摸穿透状态并清理通知与 catcher（避免隐藏后残留）
         if (isTouchThroughEnabled) {
@@ -160,59 +185,36 @@ class FloatingWindowService : Service() {
             cancelTouchThroughNotification()
         }
         removeTouchThroughCatcher()
-        // 取消可能挂起的长按回调
         touchThroughRunnable?.let { touchThroughHandler.removeCallbacks(it) }
         touchThroughRunnable = null
         try {
             windowManager.removeView(binding.root)
             isWindowShown = false
-            // 释放 showWindow 时的 start 保活；若仍被绑定则服务继续存活
-            stopSelf()
         } catch (e: Exception) {
-            // Handle exception
+            Log.w(TAG, "移除悬浮窗失败", e)
         }
     }
 
-    private fun updateHeartRateText(rate: Int) {
-        binding.floatingBpmNumber.text = if (rate > 0) "$rate" else "--"
-    }
-
-    private fun updateSpeedText(speed: Float) {
-        binding.floatingSpeedNumber.text = String.format("%.1f", speed)
-    }
-
-    private fun updateHeartbeatAnimation(bpm: Int) {
-        val heartIcon = binding.floatingHeartIcon
-        val isAnimationEnabled = sharedPreferences.getBoolean("heartbeat_animation_enabled", true)
-        val isConnected = bleService?.isDeviceConnected() ?: false
-
-        if (isAnimationEnabled && bpm > 30 && isConnected) {
-            val targetDuration = (60000f / bpm).toLong()
-            if (heartRateAnimator == null || (currentDuration - targetDuration).absoluteValue > 50) {
-                currentDuration = targetDuration
-                heartRateAnimator?.cancel()
-                heartRateAnimator = ValueAnimator.ofFloat(1f, 1.2f, 1f).apply {
-                    duration = currentDuration
-                    interpolator = beatInterpolator
-                    repeatCount = ValueAnimator.INFINITE
-                    repeatMode = ValueAnimator.RESTART
-                    addUpdateListener { animation ->
-                        val scale = animation.animatedValue as Float
-                        heartIcon.scaleX = scale
-                        heartIcon.scaleY = scale
-                    }
-                    start()
-                }
-            }
+    private fun initLayoutParams() {
+        val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
         } else {
-            heartRateAnimator?.cancel()
-            heartRateAnimator = null
-            currentDuration = 0L
-            heartIcon.animate().scaleX(1f).scaleY(1f).setDuration(200).start()
+            @Suppress("DEPRECATION")
+            WindowManager.LayoutParams.TYPE_PHONE
+        }
+        layoutParams = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            type,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            PixelFormat.TRANSLUCENT,
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            x = 100
+            y = 100
         }
     }
 
-    private fun initLayoutParams() { val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY else WindowManager.LayoutParams.TYPE_PHONE; layoutParams = WindowManager.LayoutParams(WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT, type, WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, PixelFormat.TRANSLUCENT).apply { gravity = Gravity.TOP or Gravity.START; x = 100; y = 100 } }
     @SuppressLint("ClickableViewAccessibility")
     private fun setupTouchListener() {
         binding.root.setOnTouchListener { _, event ->
@@ -273,7 +275,7 @@ class FloatingWindowService : Service() {
         }
         addTouchThroughCatcher()
         showTouchThroughNotification()
-        Toast.makeText(this, "触摸穿透已开启，长按悬浮窗或点击通知关闭", Toast.LENGTH_LONG).show()
+        Toast.makeText(this, getString(R.string.floating_pass_through_on), Toast.LENGTH_LONG).show()
     }
 
     /**
@@ -289,12 +291,12 @@ class FloatingWindowService : Service() {
             try {
                 windowManager.updateViewLayout(binding.root, layoutParams)
             } catch (e: Exception) {
-                // 忽略
+                Log.w(TAG, "关闭触摸穿透时更新窗口失败", e)
             }
         }
         cancelTouchThroughNotification()
         if (wasEnabled) {
-            Toast.makeText(this, "触摸穿透已关闭，可拖动悬浮窗", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.floating_pass_through_off), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -321,7 +323,8 @@ class FloatingWindowService : Service() {
                     }
                     MotionEvent.ACTION_MOVE -> {
                         if ((event.rawX - initialTouchX).absoluteValue > TOUCH_SLOP ||
-                            (event.rawY - initialTouchY).absoluteValue > TOUCH_SLOP) {
+                            (event.rawY - initialTouchY).absoluteValue > TOUCH_SLOP
+                        ) {
                             touchThroughRunnable?.let { touchThroughHandler.removeCallbacks(it) }
                         }
                         true
@@ -336,10 +339,12 @@ class FloatingWindowService : Service() {
             }
         }
 
-        val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+        val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-        else
+        } else {
+            @Suppress("DEPRECATION")
             WindowManager.LayoutParams.TYPE_PHONE
+        }
 
         // 以悬浮窗实际位置和尺寸计算 catcher 居中坐标
         val windowWidth = binding.root.width.coerceAtLeast(catcherSize)
@@ -351,7 +356,7 @@ class FloatingWindowService : Service() {
             catcherSize, catcherSize,
             type,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
-            PixelFormat.TRANSLUCENT
+            PixelFormat.TRANSLUCENT,
         ).apply {
             gravity = Gravity.TOP or Gravity.START
             x = catcherX
@@ -372,25 +377,23 @@ class FloatingWindowService : Service() {
             try {
                 windowManager.removeView(catcher)
             } catch (e: Exception) {
-                // 忽略
+                Log.w(TAG, "移除 catcher 失败", e)
             }
         }
         touchThroughCatcherView = null
     }
 
     private fun createTouchThroughNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                TOUCH_THROUGH_CHANNEL_ID,
-                "悬浮窗触摸穿透",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "悬浮窗触摸穿透状态提醒"
-                setShowBadge(false)
-            }
-            val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-            notificationManager.createNotificationChannel(channel)
+        val channel = NotificationChannel(
+            TOUCH_THROUGH_CHANNEL_ID,
+            getString(R.string.notif_channel_touch_through),
+            NotificationManager.IMPORTANCE_LOW,
+        ).apply {
+            description = getString(R.string.notif_channel_touch_through_desc)
+            setShowBadge(false)
         }
+        val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.createNotificationChannel(channel)
     }
 
     private fun showTouchThroughNotification() {
@@ -399,14 +402,18 @@ class FloatingWindowService : Service() {
         }
         val disablePendingIntent = PendingIntent.getService(
             this, 0, disableIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
         val notification = NotificationCompat.Builder(this, TOUCH_THROUGH_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_heart)
-            .setContentTitle("触摸穿透已开启")
-            .setContentText("长按悬浮窗或点击下方按钮关闭")
-            .addAction(R.drawable.ic_floating_window_on, "关闭触摸穿透", disablePendingIntent)
+            .setContentTitle(getString(R.string.floating_notif_title))
+            .setContentText(getString(R.string.floating_notif_text))
+            .addAction(
+                R.drawable.ic_floating_window_on,
+                getString(R.string.floating_notif_action_disable),
+                disablePendingIntent,
+            )
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
@@ -421,77 +428,82 @@ class FloatingWindowService : Service() {
     }
 
     private fun updateWindowAppearance() {
-        val textColor = sharedPreferences.getInt("floating_text_color", Color.BLACK)
-        val bgColor = sharedPreferences.getInt("floating_bg_color", Color.BLACK)
-        val borderColor = sharedPreferences.getInt("floating_border_color", Color.GRAY)
-        val bgAlpha = sharedPreferences.getInt("floating_bg_alpha", 10) / 100f
-        val borderAlpha = sharedPreferences.getInt("floating_border_alpha", 100) / 100f
-        val cornerRadius = sharedPreferences.getInt("floating_corner_radius", 100).toFloat()
-        val sizePercent = sharedPreferences.getInt("floating_size", 100)
-        val iconSizePercent = sharedPreferences.getInt("floating_icon_size", 100)
-        val isBpmTextEnabled = sharedPreferences.getBoolean("bpm_text_enabled", true)
-        val isHeartIconEnabled = sharedPreferences.getBoolean("heart_icon_enabled", true)
-        val isSpeedEnabled = sharedPreferences.getBoolean("speed_display_enabled", false) // 检查是否开启时速显示
+        val settings = container.settings.settings.value
+        val floating = settings.floating
 
-        val finalBgColor = Color.argb((255 * bgAlpha).roundToInt(), Color.red(bgColor), Color.green(bgColor), Color.blue(bgColor))
-        val finalBorderColor = Color.argb((255 * borderAlpha).roundToInt(), Color.red(borderColor), Color.green(borderColor), Color.blue(borderColor))
-        val scaleFactor = sizePercent / 100f
-        val iconScaleFactor = iconSizePercent / 100f
-        val baseIconSizeSp = 18f
+        val bgAlpha = floating.backgroundAlphaPercent / 100f
+        val borderAlpha = floating.borderAlphaPercent / 100f
+        val finalBgColor = Color.argb(
+            (255 * bgAlpha).roundToInt(),
+            Color.red(floating.backgroundColor),
+            Color.green(floating.backgroundColor),
+            Color.blue(floating.backgroundColor),
+        )
+        val finalBorderColor = Color.argb(
+            (255 * borderAlpha).roundToInt(),
+            Color.red(floating.borderColor),
+            Color.green(floating.borderColor),
+            Color.blue(floating.borderColor),
+        )
+        val scaleFactor = floating.sizePercent / 100f
+        val iconScaleFactor = floating.iconSizePercent / 100f
+        val baseIconSizeDp = 18f
         val baseTextSizeSp = 16f
         val baseSmallTextSizeSp = 12f
         val basePaddingDp = 8f
         val baseMarginDp = 4f
 
-        // 控制时速显示部分的可见性
+        val isSpeedEnabled = settings.general.speedDisplayEnabled
         binding.floatingSpeedLayout.visibility = if (isSpeedEnabled) View.VISIBLE else View.GONE
         binding.floatingSpeedDivider.visibility = if (isSpeedEnabled) View.VISIBLE else View.GONE
 
-        binding.floatingBpmText.visibility = if (isBpmTextEnabled) View.VISIBLE else View.GONE
-        binding.floatingHeartIcon.visibility = if (isHeartIconEnabled) View.VISIBLE else View.GONE
+        binding.floatingBpmText.visibility = if (floating.bpmTextEnabled) View.VISIBLE else View.GONE
+        binding.floatingHeartIcon.visibility = if (floating.heartIconEnabled) View.VISIBLE else View.GONE
 
-        binding.floatingHeartIcon.setTextSize(TypedValue.COMPLEX_UNIT_SP, baseIconSizeSp * iconScaleFactor)
+        val iconSizePx = dpToPx(baseIconSizeDp * iconScaleFactor)
+        binding.floatingHeartIcon.layoutParams = binding.floatingHeartIcon.layoutParams.apply {
+            width = iconSizePx
+            height = iconSizePx
+        }
         binding.floatingBpmNumber.setTextSize(TypedValue.COMPLEX_UNIT_SP, baseTextSizeSp * scaleFactor)
         binding.floatingBpmText.setTextSize(TypedValue.COMPLEX_UNIT_SP, baseSmallTextSizeSp * scaleFactor)
 
-        // 设置速度文字大小和颜色
         binding.floatingSpeedNumber.setTextSize(TypedValue.COMPLEX_UNIT_SP, baseTextSizeSp * scaleFactor)
         binding.floatingSpeedUnit.setTextSize(TypedValue.COMPLEX_UNIT_SP, baseSmallTextSizeSp * scaleFactor)
-        binding.floatingSpeedNumber.setTextColor(textColor)
-        binding.floatingSpeedUnit.setTextColor(textColor)
-        binding.floatingSpeedDivider.setTextColor(textColor)
+        binding.floatingSpeedNumber.setTextColor(floating.textColor)
+        binding.floatingSpeedUnit.setTextColor(floating.textColor)
+        binding.floatingSpeedDivider.setTextColor(floating.textColor)
 
-        binding.floatingHeartIcon.setTextColor(textColor)
-        binding.floatingBpmNumber.setTextColor(textColor)
-        binding.floatingBpmText.setTextColor(textColor)
+        binding.floatingHeartIcon.setColorFilter(floating.textColor)
+        binding.floatingBpmNumber.setTextColor(floating.textColor)
+        binding.floatingBpmText.setTextColor(floating.textColor)
 
         val bpmNumberParams = binding.floatingBpmNumber.layoutParams as LinearLayout.LayoutParams
-        bpmNumberParams.marginStart = if (isHeartIconEnabled) dpToPx(baseMarginDp * scaleFactor) else 0
+        bpmNumberParams.marginStart =
+            if (floating.heartIconEnabled) dpToPx(baseMarginDp * scaleFactor) else 0
         binding.floatingBpmNumber.layoutParams = bpmNumberParams
 
-        val rootLayoutParams = binding.root.getChildAt(0) as LinearLayout
+        val rootLayout = binding.root.getChildAt(0) as LinearLayout
         val paddingPx = dpToPx(basePaddingDp * scaleFactor)
-        rootLayoutParams.setPadding(paddingPx, paddingPx, paddingPx, paddingPx)
+        rootLayout.setPadding(paddingPx, paddingPx, paddingPx, paddingPx)
 
         (binding.root as MaterialCardView).apply {
             setCardBackgroundColor(finalBgColor)
-            radius = cornerRadius
+            radius = floating.cornerRadius.toFloat()
             setStrokeColor(finalBorderColor)
             strokeWidth = dpToPx(1f)
         }
     }
-    private fun dpToPx(dp: Float): Int { return TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, resources.displayMetrics).toInt() }
+
+    private fun dpToPx(dp: Float): Int =
+        TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, resources.displayMetrics).toInt()
 
     override fun onDestroy() {
         super.onDestroy()
         hideWindow()
+        heartbeatAnimator.stop()
         touchThroughRunnable?.let { touchThroughHandler.removeCallbacks(it) }
         cancelTouchThroughNotification()
-        if (isServiceBound) {
-            unbindService(serviceConnection)
-            isServiceBound = false
-        }
         serviceScope.cancel()
-        sharedPreferences.unregisterOnSharedPreferenceChangeListener(settingsChangeListener)
     }
 }

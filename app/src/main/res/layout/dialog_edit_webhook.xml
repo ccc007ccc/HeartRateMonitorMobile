@@ -13,13 +13,13 @@
             android:id="@+id/webhookEnabledSwitch"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="启用此 Webhook"
+            android:text="@string/webhook_enable_this"
             android:layout_marginBottom="16dp"/>
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="触发器类型 (可多选)"
+            android:text="@string/webhook_trigger_types"
             android:textAppearance="?attr/textAppearanceLabelMedium"
             android:layout_marginBottom="8dp"/>
 
@@ -27,26 +27,26 @@
             android:id="@+id/checkHeartRateUpdated"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="心率刷新时" />
+            android:text="@string/webhook_trigger_hr_updated" />
 
         <CheckBox
             android:id="@+id/checkConnected"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="设备连接时" />
+            android:text="@string/webhook_trigger_connected" />
 
         <CheckBox
             android:id="@+id/checkDisconnected"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
-            android:text="设备断开时" />
+            android:text="@string/webhook_trigger_disconnected" />
 
 
         <com.google.android.material.textfield.TextInputLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="名称">
+            android:hint="@string/webhook_name_hint">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/webhookNameEditText"
@@ -102,12 +102,12 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:text="测试发送 (心率: 88)" />
+            android:text="@string/webhook_test_send" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="测试响应日志"
+            android:text="@string/webhook_test_response_log"
             android:layout_marginTop="16dp"
             android:textAppearance="?attr/textAppearanceLabelMedium"/>
 

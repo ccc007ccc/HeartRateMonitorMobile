@@ -7,11 +7,13 @@ import android.view.MenuItem
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import com.example.heart_rate_monitor_mobile.ui.BaseActivity
+import androidx.activity.viewModels
 import androidx.appcompat.view.ActionMode
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.heart_rate_monitor_mobile.R
-import com.example.heart_rate_monitor_mobile.data.db.AppDatabase
 import com.example.heart_rate_monitor_mobile.data.db.HeartRateSession
 import com.example.heart_rate_monitor_mobile.databinding.ActivityHistoryBinding
 import com.example.heart_rate_monitor_mobile.util.EdgeToEdgeUtils
@@ -22,7 +24,7 @@ class HistoryActivity : BaseActivity(), HistoryAdapterListener {
 
     private lateinit var binding: ActivityHistoryBinding
     private lateinit var adapter: HistoryAdapter
-    private lateinit var db: AppDatabase
+    private val viewModel: HistoryViewModel by viewModels()
     private var actionMode: ActionMode? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -31,8 +33,6 @@ class HistoryActivity : BaseActivity(), HistoryAdapterListener {
         setContentView(binding.root)
 
         EdgeToEdgeUtils.setup(this, binding.appBar)
-
-        db = AppDatabase.getDatabase(this)
 
         setupToolbar()
         setupRecyclerView()
@@ -52,14 +52,19 @@ class HistoryActivity : BaseActivity(), HistoryAdapterListener {
     }
 
     private fun observeHistory() {
-        db.heartRateDao().getAllSessions().observe(this) { sessions ->
-            if (sessions.isEmpty()) {
-                binding.emptyView.visibility = View.VISIBLE
-                binding.historyRecyclerView.visibility = View.GONE
-            } else {
-                binding.emptyView.visibility = View.GONE
-                binding.historyRecyclerView.visibility = View.VISIBLE
-                adapter.submitList(sessions)
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.sessions.collect { sessions ->
+                    if (sessions == null) return@collect
+                    if (sessions.isEmpty()) {
+                        binding.emptyView.visibility = View.VISIBLE
+                        binding.historyRecyclerView.visibility = View.GONE
+                    } else {
+                        binding.emptyView.visibility = View.GONE
+                        binding.historyRecyclerView.visibility = View.VISIBLE
+                        adapter.submitList(sessions)
+                    }
+                }
             }
         }
     }
@@ -88,7 +93,7 @@ class HistoryActivity : BaseActivity(), HistoryAdapterListener {
         if (selectedCount == 0) {
             actionMode?.finish()
         } else {
-            actionMode?.title = "已选择 $selectedCount 项"
+            actionMode?.title = getString(R.string.history_selected_count, selectedCount)
             actionMode?.invalidate()
         }
     }
@@ -112,7 +117,7 @@ class HistoryActivity : BaseActivity(), HistoryAdapterListener {
                 }
                 R.id.action_select_all -> {
                     adapter.selectAll()
-                    actionMode?.title = "已选择 ${adapter.itemCount} 项"
+                    actionMode?.title = getString(R.string.history_selected_count, adapter.itemCount)
                     true
                 }
                 else -> false
@@ -130,13 +135,11 @@ class HistoryActivity : BaseActivity(), HistoryAdapterListener {
         if (selectedIds.isEmpty()) return
 
         MaterialAlertDialogBuilder(this)
-            .setTitle("确认删除")
-            .setMessage("确定要删除选中的 ${selectedIds.size} 条历史记录吗？此操作无法撤销。")
-            .setNegativeButton("取消", null)
-            .setPositiveButton("确定") { _, _ ->
-                lifecycleScope.launch {
-                    db.heartRateDao().deleteSessionsByIds(selectedIds)
-                }
+            .setTitle(R.string.common_confirm_delete_title)
+            .setMessage(getString(R.string.history_delete_message, selectedIds.size))
+            .setNegativeButton(R.string.common_cancel, null)
+            .setPositiveButton(R.string.common_ok) { _, _ ->
+                viewModel.deleteSessions(selectedIds)
                 actionMode?.finish()
             }
             .show()

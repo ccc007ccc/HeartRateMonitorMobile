@@ -64,7 +64,8 @@ class HistoryAdapter(
         fun bind(session: HeartRateSession, isMultiSelectMode: Boolean, isSelected: Boolean) {
             binding.deviceNameText.text = session.deviceName
             val startTime = dateFormat.format(Date(session.startTime))
-            val endTime = session.endTime?.let { dateFormat.format(Date(it)).substring(11) } ?: "进行中"
+            val endTime = session.endTime?.let { dateFormat.format(Date(it)).substring(11) }
+                ?: itemView.context.getString(R.string.history_in_progress)
             binding.dateTimeText.text = "$startTime - $endTime"
 
             binding.checkbox.visibility = if (isMultiSelectMode) View.VISIBLE else View.GONE

@@ -65,6 +65,18 @@
                 android:value="Heart rate alarm monitoring" />
         </service>
 
+        <!-- 快速设置磁贴：点按启动心率服务+悬浮窗并自动连接，长按打开主界面 -->
+        <service
+            android:name=".service.HeartRateTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_heart"
+            android:label="@string/tile_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
         <activity
             android:name=".ui.favorite.FavoriteDevicesActivity"
             android:exported="false" />
@@ -100,6 +112,10 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- 磁贴长按 → 打开主界面 -->
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES" />
             </intent-filter>
         </activity>
 

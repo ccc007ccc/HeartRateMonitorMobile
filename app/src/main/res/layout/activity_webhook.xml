@@ -19,8 +19,8 @@
             style="@style/Widget.App.Toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
-            app:title="Webhook 设置"
-            app:navigationIcon="@drawable/ic_arrow_forward"
+            app:title="@string/webhook_settings"
+            app:navigationIcon="@drawable/ic_arrow_back"
             app:navigationIconTint="?attr/colorOnSurface" />
 
     </com.google.android.material.appbar.AppBarLayout>
@@ -45,7 +45,7 @@
                 android:layout_width="0dp"
                 android:layout_weight="1"
                 android:layout_height="wrap_content"
-                android:text="新增预设"
+                android:text="@string/webhook_add_preset"
                 app:icon="@drawable/ic_settings"
                 android:minHeight="56dp"/>
             <Button
@@ -55,7 +55,7 @@
                 android:layout_weight="1"
                 android:layout_marginStart="16dp"
                 android:layout_height="wrap_content"
-                android:text="同步官方预设"
+                android:text="@string/webhook_sync_presets"
                 android:minHeight="56dp"/>
 
         </LinearLayout>
@@ -63,9 +63,22 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="已配置的 Webhook"
+            android:text="@string/webhook_configured"
             style="@style/TextAppearance.App.SettingSection"
             android:layout_marginBottom="8dp"/>
+
+        <TextView
+            android:id="@+id/webhookEmptyView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="32dp"
+            android:drawablePadding="12dp"
+            android:gravity="center"
+            android:text="@string/webhook_empty"
+            android:textAppearance="?attr/textAppearanceBodyMedium"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:visibility="gone"
+            app:drawableTopCompat="@drawable/ic_webhook" />
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/webhooksRecyclerView"

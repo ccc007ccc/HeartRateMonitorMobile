@@ -85,7 +85,8 @@ data class PostureCalibration(
                     motionThreshold = obj.optDouble("motion_threshold", 1.5).toFloat(),
                     calibratedAt = obj.optLong("calibrated_at", 0L)
                 )
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                android.util.Log.w("PostureCalibration", "解析校准数据失败，视为未校准", e)
                 null
             }
         }

@@ -5,12 +5,13 @@ import android.graphics.Color
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
-import androidx.appcompat.app.AppCompatActivity
+import androidx.activity.viewModels
 import com.example.heart_rate_monitor_mobile.ui.BaseActivity
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.example.heart_rate_monitor_mobile.R
-import com.example.heart_rate_monitor_mobile.data.db.AppDatabase
 import com.example.heart_rate_monitor_mobile.databinding.ActivityChartBinding
 import com.example.heart_rate_monitor_mobile.util.EdgeToEdgeUtils
 import com.github.mikephil.charting.components.XAxis
@@ -18,6 +19,7 @@ import com.github.mikephil.charting.data.Entry
 import com.github.mikephil.charting.data.LineData
 import com.github.mikephil.charting.data.LineDataSet
 import com.github.mikephil.charting.formatter.ValueFormatter
+import com.google.android.material.color.MaterialColors
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
@@ -26,7 +28,7 @@ import java.util.concurrent.TimeUnit
 class ChartActivity : BaseActivity() {
 
     private lateinit var binding: ActivityChartBinding
-    private lateinit var db: AppDatabase
+    private val viewModel: HistoryViewModel by viewModels()
     private var sessionId: Long = -1
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -41,8 +43,6 @@ class ChartActivity : BaseActivity() {
             finish()
             return
         }
-
-        db = AppDatabase.getDatabase(this)
 
         setupToolbar()
         loadChartData()
@@ -81,7 +81,13 @@ class ChartActivity : BaseActivity() {
             setScaleEnabled(true)
             setDrawGridBackground(false)
             setPinchZoom(true)
-            setBackgroundColor(Color.WHITE)
+            // 跟随主题（旧版固定白底，深色模式刺眼）
+            setBackgroundColor(Color.TRANSPARENT)
+            val axisTextColor = MaterialColors.getColor(
+                binding.root, com.google.android.material.R.attr.colorOnSurfaceVariant
+            )
+            xAxis.textColor = axisTextColor
+            axisLeft.textColor = axisTextColor
 
             // 设置自定义的MarkerView
             marker = ChartMarkerView(this@ChartActivity, R.layout.layout_chart_marker, startTime)
@@ -102,9 +108,11 @@ class ChartActivity : BaseActivity() {
     }
 
     private fun loadChartData() {
+        viewModel.loadSessionRecords(sessionId)
         lifecycleScope.launch {
-            val records = db.heartRateDao().getRecordsForSession(sessionId)
-            if (records.isNotEmpty()) {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.sessionRecords.collect { records ->
+                    if (records.isNullOrEmpty()) return@collect
                 val startTime = records.first().timestamp
                 // 先设置好图表，确保MarkerView能拿到startTime
                 setupChart(startTime)
@@ -116,7 +124,9 @@ class ChartActivity : BaseActivity() {
                 }
 
                 val dataSet = LineDataSet(entries, "Heart Rate")
-                dataSet.color = ContextCompat.getColor(this@ChartActivity, R.color.primary_light)
+                dataSet.color = MaterialColors.getColor(
+                    binding.root, androidx.appcompat.R.attr.colorPrimary
+                )
                 dataSet.lineWidth = 1.5f
                 dataSet.setDrawCircles(false) // 不画数据点，让触摸更高精准
                 dataSet.setDrawValues(false)
@@ -125,6 +135,7 @@ class ChartActivity : BaseActivity() {
                 val lineData = LineData(dataSet)
                 binding.historyChart.data = lineData
                 binding.historyChart.invalidate()
+                }
             }
         }
     }

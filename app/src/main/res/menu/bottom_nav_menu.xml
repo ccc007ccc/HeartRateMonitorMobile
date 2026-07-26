@@ -3,9 +3,9 @@
     <item
         android:id="@+id/nav_home"
         android:icon="@drawable/ic_home"
-        android:title="首页" />
+        android:title="@string/main_nav_home" />
     <item
         android:id="@+id/nav_settings"
         android:icon="@drawable/ic_settings"
-        android:title="设置" />
+        android:title="@string/settings_title" />
 </menu>

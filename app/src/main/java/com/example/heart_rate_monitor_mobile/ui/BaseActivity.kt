@@ -2,7 +2,9 @@ package com.example.heart_rate_monitor_mobile.ui
 
 import android.app.ActivityManager
 import android.content.Context
+import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
+import com.example.heart_rate_monitor_mobile.core.AppContainer
 
 /**
  * 所有 Activity 的基类。
@@ -19,6 +21,8 @@ import androidx.appcompat.app.AppCompatActivity
  *   防止退出到外部页面时误触发。在 [onStart] 中自动复位。
  */
 open class BaseActivity : AppCompatActivity() {
+
+    protected val container: AppContainer by lazy { AppContainer.get(this) }
 
     companion object {
         /** 当前处于 started 状态的 Activity 数量（仅主线程访问） */
@@ -45,7 +49,7 @@ open class BaseActivity : AppCompatActivity() {
         startedCount--
         if (startedCount <= 0
             && !suppressHideForExternalLaunch
-            && isHideFromRecentsEnabled()
+            && container.settings.settings.value.general.hideFromRecentsEnabled
         ) {
             // 应用退到后台：从最近任务隐藏（不销毁 Activity，保留页面状态）
             setExcludeFromRecentsFlag(true)
@@ -57,16 +61,13 @@ open class BaseActivity : AppCompatActivity() {
             val am = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
             val myTaskId = taskId
             for (task in am.appTasks) {
-                if (task.taskInfo.id == myTaskId) {
+                if (task.taskInfo?.id == myTaskId) {
                     task.setExcludeFromRecents(exclude)
                     break
                 }
             }
-        } catch (_: Exception) { }
-    }
-
-    private fun isHideFromRecentsEnabled(): Boolean {
-        return getSharedPreferences("app_settings", Context.MODE_PRIVATE)
-            .getBoolean("hide_from_recents_enabled", false)
+        } catch (e: Exception) {
+            Log.w("BaseActivity", "设置最近任务可见性失败", e)
+        }
     }
 }

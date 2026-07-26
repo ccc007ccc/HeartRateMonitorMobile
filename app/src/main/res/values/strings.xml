@@ -1,8 +1,249 @@
 <resources>
-    <string name="app_name">心率监控器</string>
-    <string name="server_settings">服务器设置</string>
-    <string name="enable_server">启用服务器</string>
-    <string name="server_port">服务器端口</string>
-    <string name="server_status">服务器状态</string>
-    <string name="webhook_settings">Webhook 设置</string>
+    <!-- Legacy keys (do not rename) -->
+    <string name="app_name">Heart Rate Monitor</string>
+    <string name="server_settings">Server Settings</string>
+    <string name="enable_server">Enable Server</string>
+    <string name="server_port">Server Port</string>
+    <string name="server_status">Server Status</string>
+    <string name="webhook_settings">Webhook Settings</string>
+
+    <!-- Common -->
+    <string name="common_confirm">Confirm</string>
+    <string name="common_cancel">Cancel</string>
+    <string name="common_delete">Delete</string>
+    <string name="common_ok">OK</string>
+    <string name="common_got_it">Got it</string>
+    <string name="common_save">Save</string>
+    <string name="common_edit">Edit</string>
+    <string name="common_unknown">Unknown</string>
+    <string name="common_connected">Connected</string>
+    <string name="common_confirm_delete_title">Confirm Deletion</string>
+
+    <!-- Main screen -->
+    <string name="main_nav_home">Home</string>
+    <string name="main_toggle_floating_window">Toggle floating window</string>
+    <string name="main_view_history">View history</string>
+    <string name="main_scan_devices">Scan for Bluetooth devices</string>
+    <string name="main_status_disconnected">Not connected</string>
+    <string name="main_speed_label">Speed</string>
+    <string name="main_available_devices">Available Devices</string>
+    <string name="main_disconnect">Disconnect</string>
+    <string name="main_permission_denied">Some permissions were denied; features may be limited</string>
+    <string name="main_permission_title">Permissions Required</string>
+    <string name="main_permission_message">The app needs Bluetooth and location permissions to scan for heart rate devices and calculate speed, and notification permission to show connection status.</string>
+    <string name="main_permission_grant">Grant</string>
+    <string name="main_toast_reconnecting">Connection lost, attempting to reconnect…</string>
+    <string name="main_toast_scan_in_progress">A scan is already in progress</string>
+
+    <!-- BLE state texts -->
+    <string name="ble_state_idle">Tap the button in the top-right corner to scan for devices</string>
+    <string name="ble_state_scanning">Scanning for devices…</string>
+    <string name="ble_state_scan_finished">Scan finished</string>
+    <string name="ble_state_scan_no_devices">No devices found</string>
+    <string name="ble_state_connecting">Connecting…</string>
+    <string name="ble_state_auto_connecting">Connecting to favorite device…</string>
+    <string name="ble_state_auto_reconnecting">Auto-reconnecting (attempt %1$d)…</string>
+    <string name="ble_state_connected_to">Connected to %1$s</string>
+    <string name="ble_state_disconnected_manual">Disconnected manually</string>
+    <string name="ble_state_connection_lost">Device connection lost</string>
+    <string name="ble_state_connect_failed">Connection failed</string>
+    <string name="ble_state_reconnect_not_found">Auto-reconnect could not find the device</string>
+
+    <!-- History & chart -->
+    <string name="history_title">Heart Rate History</string>
+    <string name="history_empty">No history records yet</string>
+    <string name="history_select_all">Select All</string>
+    <string name="history_selected_count">%1$d selected</string>
+    <string name="history_delete_message">Delete the %1$d selected history record(s)? This cannot be undone.</string>
+    <string name="history_in_progress">In progress</string>
+    <string name="chart_title">Heart Rate Chart</string>
+    <string name="chart_toggle_orientation">Rotate Screen</string>
+    <string name="chart_marker_text">Heart rate: %1$d bpm\nTime: %2$s</string>
+
+    <!-- Favorite devices -->
+    <string name="favorite_title">Favorite Devices</string>
+    <string name="favorite_section">Favorited Bluetooth Devices</string>
+    <string name="favorite_hint">Tap the star in the device list on the main screen to favorite a device. Recently favorited devices appear first; up to 20 are kept.</string>
+    <string name="favorite_empty">No favorite devices yet</string>
+    <string name="favorite_delete_title">Remove Favorite Device</string>
+    <string name="favorite_delete_message">Remove \"%1$s\" from favorites?</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_section_general">General</string>
+    <string name="settings_record_history">Record history data</string>
+    <string name="settings_heartbeat_animation">Heartbeat animation</string>
+    <string name="settings_dynamic_color">Dynamic Color (Material You)</string>
+    <string name="settings_dynamic_color_hint">Extracts theme colors from your wallpaper (requires Android 12 or later). Enabled by default and cannot be turned off.</string>
+    <string name="settings_show_speed">Show speed (GPS)</string>
+    <string name="settings_show_speed_hint">Speed display uses GPS positioning and may increase battery usage.</string>
+    <string name="settings_hide_recents">Hide from recents on exit</string>
+    <string name="settings_hide_recents_hint">When enabled, the app will not appear in the recent tasks list</string>
+    <string name="settings_section_bluetooth">Bluetooth</string>
+    <string name="settings_auto_connect">Auto-connect to favorite device on launch</string>
+    <string name="settings_auto_reconnect">Auto-reconnect after disconnect</string>
+    <string name="settings_section_integrations">Integrations &amp; External Access</string>
+    <string name="settings_http_ws_server">HTTP &amp; WebSocket Server</string>
+    <string name="settings_section_statusbar">Status Bar</string>
+    <string name="settings_section_floating">Floating Window Style</string>
+    <string name="settings_section_about">About</string>
+    <string name="settings_version">Version</string>
+    <string name="settings_visit_github">Visit GitHub Repository</string>
+    <string name="settings_perf_warning_title">Performance Warning</string>
+    <string name="settings_perf_warning_message">Recording history continuously writes data to storage and may increase battery usage. Enable it?</string>
+    <string name="settings_speed_warning_title">Enable Speed Display</string>
+    <string name="settings_speed_warning_message">This feature uses GPS to calculate speed, which may increase battery usage and requires location permission. Enable it?</string>
+    <string name="settings_notice_title">Notice</string>
+    <string name="settings_statusbar_enable_first">Please turn on \"Persistent Status Bar Heart Rate\" before using auto-detect.</string>
+
+    <!-- Status bar resident -->
+    <string name="statusbar_resident">Persistent Status Bar Heart Rate</string>
+    <string name="statusbar_resident_hint">Shows live heart rate in the status bar (requires overlay permission)</string>
+    <string name="statusbar_show_bpm_unit">Show \'bpm\' unit</string>
+    <string name="statusbar_horizontal_position">Horizontal position</string>
+    <string name="statusbar_vertical_offset">Vertical offset</string>
+    <string name="statusbar_overall_size">Overall size</string>
+    <string name="statusbar_text_weight">Text weight</string>
+    <string name="statusbar_text_color">Text color</string>
+    <string name="statusbar_auto_color">Auto-detect screen color</string>
+    <string name="statusbar_auto_color_hint">Samples the brightness of the status bar area via screen capture and switches between black and white text automatically. Requires a one-time screen recording authorization and slightly increases battery usage; if the service is killed by the system, re-authorization is needed after restart.</string>
+    <string name="statusbar_white_text">Use white text</string>
+    <string name="statusbar_white_text_hint">Takes effect when \"auto-detect\" is off. Off means pure black text.</string>
+    <string name="statusbar_heart_icon_desc">Heart rate</string>
+    <string name="statusbar_notif_title">Heart Rate Status Bar</string>
+    <string name="statusbar_notif_running">Status bar heart rate display is running</string>
+    <string name="statusbar_notif_detecting">Auto-detecting screen color</string>
+
+    <!-- Notification channels -->
+    <string name="notif_channel_ble">BLE Connection Status</string>
+    <string name="notif_channel_statusbar_resident">Status Bar Heart Rate Keep-alive</string>
+    <string name="notif_channel_statusbar_resident_desc">Keeps the status bar heart rate display alive</string>
+    <string name="notif_channel_color_sampling">Status Bar Color Sampling</string>
+    <string name="notif_channel_color_sampling_desc">Used to auto-detect screen color and switch the status bar heart rate text color</string>
+    <string name="notif_channel_alarm_desc">Sends an alert notification when heart rate goes outside the configured range</string>
+    <string name="notif_channel_alarm_resident">Heart Rate Alert Keep-alive</string>
+    <string name="notif_channel_alarm_resident_desc">Keeps the heart rate alert service alive</string>
+    <string name="notif_channel_touch_through">Floating Window Touch Pass-through</string>
+    <string name="notif_channel_touch_through_desc">Floating window touch pass-through status</string>
+
+    <!-- Floating window -->
+    <string name="floating_pass_through_hint">Long-press the floating window to enable touch pass-through. When enabled, touches go straight to the app beneath without affecting other operations. Long-press the floating window again or tap the notification button to disable.</string>
+    <string name="floating_show_bpm_text">Show \'bpm\' text</string>
+    <string name="floating_show_heart_icon">Show heart icon</string>
+    <string name="floating_overall_size">Overall size</string>
+    <string name="floating_icon_size">Icon size</string>
+    <string name="floating_corner_radius">Corner radius</string>
+    <string name="floating_bg_opacity">Background opacity</string>
+    <string name="floating_border_opacity">Border opacity</string>
+    <string name="floating_label_text">Text</string>
+    <string name="floating_label_bg">Background</string>
+    <string name="floating_label_border">Border</string>
+    <string name="floating_text_color_title">Text Color</string>
+    <string name="floating_bg_color_title">Background Color</string>
+    <string name="floating_border_color_title">Border Color</string>
+    <string name="floating_pass_through_on">Touch pass-through enabled. Long-press the floating window or tap the notification to disable.</string>
+    <string name="floating_pass_through_off">Touch pass-through disabled. You can drag the floating window again.</string>
+    <string name="floating_notif_title">Touch Pass-through Enabled</string>
+    <string name="floating_notif_text">Long-press the floating window or tap the button below to disable</string>
+    <string name="floating_notif_action_disable">Disable touch pass-through</string>
+
+    <!-- Heart rate alert & posture -->
+    <string name="alarm_title">Heart Rate Alert</string>
+    <string name="posture_unknown">Not detected</string>
+    <string name="posture_sitting">Sitting</string>
+    <string name="posture_standing">Standing</string>
+    <string name="posture_exercise">Exercise</string>
+    <string name="alarm_section_calibration">Posture Calibration</string>
+    <string name="alarm_calibration_status_default">Sitting: Not calibrated\nStanding: Not calibrated</string>
+    <string name="alarm_calibrate_sitting">Calibrate Sitting</string>
+    <string name="alarm_calibrate_standing">Calibrate Standing</string>
+    <string name="alarm_clear_calibration">Clear Calibration</string>
+    <string name="alarm_calibration_hint">Hold the corresponding posture for 10 seconds during calibration. Each posture can be sampled multiple times to cover different positions (e.g. phone in a pocket, in hand, or on a desk); detection automatically matches the closest sample. Only sitting/standing postures trigger heart rate alerts; heavy shaking lasting more than 3 seconds is recognized as exercise, and uncalibrated postures (such as lying down) do not trigger alerts.</string>
+    <string name="alarm_section_settings">Alert Settings</string>
+    <string name="alarm_enable">Enable heart rate alert</string>
+    <string name="alarm_enable_hint">When enabled, heart rate is monitored while sitting or standing; if it stays outside the thresholds for the set duration, an alarm fires (notification + vibration).</string>
+    <string name="alarm_above_range">Upper limit</string>
+    <string name="alarm_below_range">Lower limit</string>
+    <string name="alarm_duration">Duration</string>
+    <string name="alarm_duration_default">10 sec</string>
+    <string name="alarm_duration_seconds">%1$d sec</string>
+    <string name="alarm_repeat">Repeat alarm</string>
+    <string name="alarm_repeat_hint">When on, the alarm repeats at the set interval; when off, it fires once when the threshold condition is met.</string>
+    <string name="alarm_repeat_interval">Alarm interval</string>
+    <string name="alarm_interval_default">5 min</string>
+    <string name="alarm_interval_minutes">%1$d min</string>
+    <string name="alarm_no_calibration_data">No calibration data</string>
+    <string name="alarm_clear_calibration_message">This will clear all sitting/standing calibration samples; you will need to recalibrate. Clear now?</string>
+    <string name="alarm_clear">Clear</string>
+    <string name="alarm_calibration_cleared">Calibration cleared</string>
+    <string name="alarm_keep_posture">Hold the %1$s posture… %2$d seconds left</string>
+    <string name="alarm_calibrate_title">Calibrate %1$s</string>
+    <string name="alarm_calibration_failed">Calibration failed: no data collected</string>
+    <string name="alarm_posture_collected">%1$s posture sampled (%2$d samples in total)</string>
+    <string name="alarm_calibrated_samples">Calibrated ✓ (%1$d samples)</string>
+    <string name="alarm_not_calibrated">Not calibrated</string>
+    <string name="alarm_calibration_status">Sitting: %1$s\nStanding: %2$s</string>
+    <string name="alarm_direction_high">exceeds the upper limit</string>
+    <string name="alarm_direction_low">is below the lower limit</string>
+    <string name="alarm_body">Heart rate %1$d BPM %2$s %3$d (while %4$s) — please check</string>
+    <string name="alarm_service_running">Heart rate alert service is running</string>
+
+    <!-- Server -->
+    <string name="server_section_http">HTTP Server (Pull)</string>
+    <string name="server_section_ws">WebSocket Server (Push)</string>
+    <string name="server_enable_ws">Enable WebSocket Server</string>
+    <string name="server_ws_port">WebSocket Port</string>
+    <string name="server_section_security">Access Security</string>
+    <string name="server_allow_lan">Allow LAN access</string>
+    <string name="server_allow_lan_hint">When off, the server is reachable only from this device (127.0.0.1). When on, devices on the same network can read heart rate data using the token below; be cautious on public Wi-Fi.</string>
+    <string name="server_copy">Copy</string>
+    <string name="server_reset">Reset</string>
+    <string name="server_token_copied">Token copied</string>
+    <string name="server_token_reset">Token reset; connected clients need to update</string>
+    <string name="server_token_generating">(Generating…)</string>
+    <string name="server_http_enabled">HTTP server enabled</string>
+    <string name="server_http_disabled">HTTP server disabled</string>
+    <string name="server_ws_enabled">WebSocket server enabled</string>
+    <string name="server_ws_disabled">WebSocket server disabled</string>
+    <string name="server_address">Address: %1$s</string>
+
+    <!-- Webhook -->
+    <string name="webhook_add_preset">Add Preset</string>
+    <string name="webhook_sync_presets">Sync Official Presets</string>
+    <string name="webhook_configured">Configured Webhooks</string>
+    <string name="webhook_empty">No webhooks yet\nTap \"Add Preset\" to create one, or sync the official presets</string>
+    <string name="webhook_enable_this">Enable this webhook</string>
+    <string name="webhook_trigger_types">Trigger types (multi-select)</string>
+    <string name="webhook_trigger_hr_updated">On heart rate update</string>
+    <string name="webhook_trigger_connected">On device connect</string>
+    <string name="webhook_trigger_disconnected">On device disconnect</string>
+    <string name="webhook_name_hint">Name</string>
+    <string name="webhook_test_send">Test Send (HR: 88)</string>
+    <string name="webhook_test_response_log">Test Response Log</string>
+    <string name="webhook_sync_failed_title">Sync Failed</string>
+    <string name="webhook_sync_failed_message">An error occurred while fetching official presets: %1$s</string>
+    <string name="webhook_presets_empty">Official presets are empty</string>
+    <string name="webhook_sync_preview_header">Fetched %1$d official preset(s), of which %2$d are new locally:</string>
+    <string name="webhook_preset_exists">(already exists, skipped)</string>
+    <string name="webhook_merge_note">Merging will not overwrite or delete your existing webhooks; synced entries are disabled by default and must be enabled manually.</string>
+    <string name="webhook_merge_confirm_title">Merge Official Presets?</string>
+    <string name="webhook_merge">Merge</string>
+    <string name="webhook_merged_toast">Merged %1$d new preset(s)</string>
+    <string name="webhook_new_default_name">New Webhook</string>
+    <string name="webhook_dialog_add">Add Webhook</string>
+    <string name="webhook_dialog_edit">Edit Webhook</string>
+    <string name="webhook_https_only">Only https:// URLs are allowed</string>
+    <string name="webhook_testing">Testing…</string>
+    <string name="webhook_delete_message">Delete \'%1$s\'? This cannot be undone.</string>
+    <string name="webhook_send_failed_https">Send failed: only https:// URLs are allowed (got: %1$s…)</string>
+    <string name="webhook_send_failed_headers">Send failed: Headers is not valid JSON: %1$s</string>
+    <string name="webhook_response_test_title">Webhook Test Response</string>
+    <string name="webhook_response_sent_title">Webhook Sent</string>
+    <string name="webhook_response_template">--- %1$s ---\nName: %2$s\nTrigger: %3$s\nStatus: %4$d %5$s\nResponse body:\n%6$s\n----------------------</string>
+    <string name="webhook_send_unknown_error">Unknown error while sending: %1$s</string>
+
+    <!-- Quick settings tile -->
+    <string name="tile_label">Heart Rate</string>
+    <string name="tile_connecting">Connecting…</string>
+    <string name="tile_tap_to_connect">Tap to connect</string>
 </resources>

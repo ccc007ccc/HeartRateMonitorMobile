@@ -1,10 +1,9 @@
 package com.example.heart_rate_monitor_mobile.data.db
 
-import androidx.lifecycle.LiveData
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
-import androidx.room.Transaction
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface HeartRateDao {
@@ -17,8 +16,12 @@ interface HeartRateDao {
     @Insert
     suspend fun insertRecord(record: HeartRateRecord)
 
+    /** 批量写入（单事务）：SessionRecorder 缓冲落盘用，避免 1Hz 逐条提交的写放大 */
+    @Insert
+    suspend fun insertRecords(records: List<HeartRateRecord>)
+
     @Query("SELECT * FROM heart_rate_sessions ORDER BY startTime DESC")
-    fun getAllSessions(): LiveData<List<HeartRateSession>>
+    fun getAllSessions(): Flow<List<HeartRateSession>>
 
     @Query("SELECT * FROM heart_rate_records WHERE sessionId = :sessionId ORDER BY timestamp ASC")
     suspend fun getRecordsForSession(sessionId: Long): List<HeartRateRecord>

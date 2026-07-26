@@ -2,10 +2,10 @@ package com.example.heart_rate_monitor_mobile.init
 
 import android.content.ContentProvider
 import android.content.ContentValues
-import android.content.Context
 import android.content.Intent
 import android.database.Cursor
 import android.net.Uri
+import com.example.heart_rate_monitor_mobile.core.AppContainer
 import com.example.heart_rate_monitor_mobile.service.HeartRateAlarmService
 
 /**
@@ -26,12 +26,12 @@ class HeartRateAlarmInitializer : ContentProvider() {
 
     override fun onCreate(): Boolean {
         val ctx = context ?: return false
-        val prefs = ctx.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
-        if (!prefs.getBoolean("heart_rate_alarm_enabled", false)) return true
+        if (!AppContainer.get(ctx).settings.settings.value.alarm.enabled) return true
         try {
             ctx.startService(Intent(ctx, HeartRateAlarmService::class.java))
-        } catch (_: Exception) {
-            // 后台启动被拒时忽略，用户进入设置页时 recoverHeartRateAlarmIfNeeded 兜底
+        } catch (e: Exception) {
+            // 后台启动被拒时降级，用户进入设置页时 recoverHeartRateAlarmIfNeeded 兜底
+            android.util.Log.w("AlarmInit", "冷启动恢复心率预警失败", e)
         }
         return true
     }

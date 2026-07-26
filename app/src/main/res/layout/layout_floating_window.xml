@@ -14,13 +14,13 @@
     android:paddingEnd="12dp"
     android:paddingBottom="8dp">
 
-    <TextView
+    <ImageView
         android:id="@+id/floating_heart_icon"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="❤️"
+        android:layout_width="18dp"
+        android:layout_height="18dp"
         android:layout_marginStart="1dp"
-        android:textSize="18sp" />
+        android:contentDescription="@null"
+        android:src="@drawable/ic_heart" />
 
     <TextView
         android:id="@+id/floating_bpm_number"

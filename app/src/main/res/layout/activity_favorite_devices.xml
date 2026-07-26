@@ -19,9 +19,9 @@
             style="@style/Widget.App.Toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
-            app:navigationIcon="@drawable/ic_arrow_forward"
+            app:navigationIcon="@drawable/ic_arrow_back"
             app:navigationIconTint="?attr/colorOnSurface"
-            app:title="收藏设备" />
+            app:title="@string/favorite_title" />
 
     </com.google.android.material.appbar.AppBarLayout>
 
@@ -40,14 +40,14 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="8dp"
-                android:text="已收藏的蓝牙设备"
+                android:text="@string/favorite_section"
                 style="@style/TextAppearance.App.SettingSection" />
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="12dp"
-                android:text="在主界面设备列表中点击星标可收藏设备。最近收藏的设备排在最前，最多保留 20 条。"
+                android:text="@string/favorite_hint"
                 android:textAppearance="?attr/textAppearanceBodySmall"
                 android:textColor="?attr/colorOnSurfaceVariant" />
 
@@ -74,7 +74,7 @@
                         android:layout_height="wrap_content"
                         android:gravity="center"
                         android:paddingVertical="24dp"
-                        android:text="暂无收藏设备"
+                        android:text="@string/favorite_empty"
                         android:textAppearance="?attr/textAppearanceBodyMedium"
                         android:textColor="?attr/colorOnSurfaceVariant" />
                 </LinearLayout>

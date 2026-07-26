@@ -13,12 +13,12 @@
         <item name="colorSurfaceVariant">@color/surface_variant_dark</item>
         <item name="colorOnSurfaceVariant">@color/on_surface_variant_dark</item>
 
-        <item name="colorSurfaceContainerLow">@color/surface_dark</item>
-        <item name="colorSurfaceContainer">@color/surface_dark</item>
-        <item name="colorSurfaceContainerHigh">@color/surface_variant_dark</item>
-        <item name="colorSurfaceContainerHighest">@color/surface_variant_dark</item>
+        <item name="colorSurfaceContainerLow">@color/surface_container_low_dark</item>
+        <item name="colorSurfaceContainer">@color/surface_container_dark</item>
+        <item name="colorSurfaceContainerHigh">@color/surface_container_high_dark</item>
+        <item name="colorSurfaceContainerHighest">@color/surface_container_highest_dark</item>
 
-        <item name="colorOutline">@color/surface_variant_dark</item>
+        <item name="colorOutline">@color/outline_dark</item>
         <item name="colorOutlineVariant">@color/surface_variant_dark</item>
 
         <item name="android:statusBarColor">@android:color/transparent</item>

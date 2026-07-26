@@ -1,200 +1,228 @@
 package com.example.heart_rate_monitor_mobile.ui.main
 
 import android.app.Application
-import androidx.core.content.edit
-import androidx.lifecycle.*
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.heart_rate_monitor_mobile.R
 import com.example.heart_rate_monitor_mobile.ble.BleState
-import com.example.heart_rate_monitor_mobile.service.BleService
+import com.example.heart_rate_monitor_mobile.ble.BleStateTexts
+import com.example.heart_rate_monitor_mobile.core.AppContainer
+import com.example.heart_rate_monitor_mobile.data.settings.SettingsKeys
 import com.github.mikephil.charting.data.Entry
 import com.juul.kable.Advertisement
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
-import java.lang.ref.WeakReference
 
 enum class AppStatus {
     DISCONNECTED,
     SCANNING,
     CONNECTING,
-    CONNECTED
+    CONNECTED,
 }
 
+/** 一次性 UI 事件（Toast 等），替代旧的 LiveData 误用 */
+sealed interface MainUiEvent {
+    data class ShowToast(val message: String) : MainUiEvent
+}
+
+/**
+ * 主界面 ViewModel。
+ *
+ * 重构后不再持有任何 Service 引用（旧实现经 WeakReference<BleService> 委托，
+ * Service 未绑定时所有操作静默失效）——数据与操作一律走进程级
+ * [com.example.heart_rate_monitor_mobile.domain.HeartRateRepository]。
+ */
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val sharedPrefs = application.getSharedPreferences("app_settings", Application.MODE_PRIVATE)
+    private val container = AppContainer.get(application)
+    private val repository = container.heartRate
+    private val settings = container.settings
 
-    private var bleServiceRef: WeakReference<BleService>? = null
+    // ---------- UI 状态 ----------
 
-    private var serviceDataJob: Job? = null
+    val heartRate: StateFlow<Int> = repository.heartRate
+    val speed: StateFlow<Float> = repository.speed
 
-    // --- LiveData for UI ---
-    private val _statusMessage = MutableLiveData("Click button below to scan")
-    val statusMessage: LiveData<String> get() = _statusMessage
+    val statusMessage: StateFlow<String> = repository.bleState
+        .map { BleStateTexts.displayText(getApplication<Application>(), it) }
+        .stateIn(
+            viewModelScope, SharingStarted.Eagerly,
+            BleStateTexts.displayText(application, repository.bleState.value),
+        )
 
-    private val _appStatus = MutableLiveData(AppStatus.DISCONNECTED)
-    val appStatus: LiveData<AppStatus> get() = _appStatus
+    val appStatus: StateFlow<AppStatus> = repository.bleState
+        .map { it.toAppStatus() }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, repository.bleState.value.toAppStatus())
 
-    // --- Chart State Management ---
+    /** 扫描结果：收藏设备置顶，其余按信号强度排序 */
+    val scanResults: StateFlow<List<Advertisement>> = combine(
+        repository.scanResults,
+        settings.flowOf { it.connection.favoriteDeviceId },
+    ) { results, favoriteId ->
+        results.sortedWith(
+            compareByDescending<Advertisement> { it.identifier == favoriteId }
+                .thenByDescending { it.rssi }
+        )
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    private val _uiEvents = MutableSharedFlow<MainUiEvent>(
+        extraBufferCapacity = 8, onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    )
+    val uiEvents: SharedFlow<MainUiEvent> = _uiEvents.asSharedFlow()
+
+    // ---------- 实时图表 ----------
+
     private var chartStartTime = 0L
-    private val chartDataPoints = mutableListOf<Entry>()
-    private val _newChartEntry = MutableLiveData<Entry>()
-    val newChartEntry: LiveData<Entry> get() = _newChartEntry
+    // ArrayDeque：满员后头删 O(1)（mutableList.removeAt(0) 在 10000 点时是 O(n) 搬移）
+    private val chartDataPoints = ArrayDeque<Entry>()
 
-    private val MAX_CHART_POINTS = 10000
+    /** 只读快照，避免把可变缓冲的引用暴露给 UI 层 */
+    val chartHistory: List<Entry> get() = chartDataPoints.toList()
 
-    val chartHistory: List<Entry> get() = chartDataPoints
+    private val _newChartEntry = MutableSharedFlow<Entry>(
+        extraBufferCapacity = 64, onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    )
+    val newChartEntry: SharedFlow<Entry> = _newChartEntry.asSharedFlow()
 
-    // --- Service Data Flows ---
-    private val _heartRate = MutableLiveData<Int>()
-    val heartRate: LiveData<Int> get() = _heartRate
-
-    private val _speed = MutableLiveData<Float>()
-    val speed: LiveData<Float> get() = _speed
-
-    private val _scanResults = MutableLiveData<List<Advertisement>>()
-    val scanResults: LiveData<List<Advertisement>> get() = _scanResults
-
-    fun setBleService(service: BleService) {
-        if (bleServiceRef?.get() === service && serviceDataJob?.isActive == true) return
-
-        this.bleServiceRef = WeakReference(service)
-        initializeDataStreams(service)
-    }
-
-    private fun initializeDataStreams(service: BleService) {
-        serviceDataJob?.cancel()
-
-        serviceDataJob = viewModelScope.launch {
-            launch {
-                service.heartRate.collect { rate ->
-                    _heartRate.postValue(rate)
-                    if (rate > 0 && _appStatus.value == AppStatus.CONNECTED) {
-                        addChartDataPoint(rate)
-                    }
-                }
-            }
-
-            launch {
-                service.speed.collect { _speed.postValue(it) }
-            }
-
-            launch {
-                service.scanResults.collect { _scanResults.postValue(it) }
-            }
-
-            launch {
-                service.bleState.collectLatest { state ->
-                    _statusMessage.postValue(state.message)
-                    val newStatus = when (state) {
-                        is BleState.Scanning -> AppStatus.SCANNING
-                        is BleState.AutoConnecting, is BleState.Connecting, is BleState.AutoReconnecting -> AppStatus.CONNECTING
-                        is BleState.Connected -> AppStatus.CONNECTED
-                        else -> AppStatus.DISCONNECTED
-                    }
-
-                    if (_appStatus.value != AppStatus.CONNECTED && newStatus == AppStatus.CONNECTED) {
-                        initializeChart()
-                    }
-
-                    _appStatus.postValue(newStatus)
+    init {
+        // 图表数据采集：收逐样本流（StateFlow 按值去重会让相同 BPM 不出点，时间密度失真）
+        viewModelScope.launch {
+            repository.heartRateSamples.collect { sample ->
+                if (sample.bpm > 0 && appStatus.value == AppStatus.CONNECTED) {
+                    addChartDataPoint(sample.bpm)
                 }
             }
         }
-    }
-
-    private fun initializeChart() {
-        chartStartTime = System.currentTimeMillis()
-        chartDataPoints.clear()
+        // 连接建立时重置图表；状态跃迁产生一次性提示
+        viewModelScope.launch {
+            var previous: BleState? = null
+            repository.bleState.collect { state ->
+                if (previous !is BleState.Connected && state is BleState.Connected) {
+                    chartStartTime = System.currentTimeMillis()
+                    chartDataPoints.clear()
+                }
+                when {
+                    state is BleState.Connected ->
+                        _uiEvents.tryEmit(
+                            MainUiEvent.ShowToast(
+                                getApplication<Application>().getString(R.string.common_connected)
+                            )
+                        )
+                    state is BleState.AutoReconnecting && state.attempt == 1 ->
+                        _uiEvents.tryEmit(
+                            MainUiEvent.ShowToast(
+                                getApplication<Application>().getString(R.string.main_toast_reconnecting)
+                            )
+                        )
+                    else -> Unit
+                }
+                previous = state
+            }
+        }
     }
 
     private fun addChartDataPoint(rate: Int) {
-        if (appStatus.value != AppStatus.CONNECTED) return
-
         val timeDiffSeconds = (System.currentTimeMillis() - chartStartTime) / 1000f
         val newEntry = Entry(timeDiffSeconds, rate.toFloat())
-
         if (chartDataPoints.size >= MAX_CHART_POINTS) {
-            chartDataPoints.removeAt(0)
+            chartDataPoints.removeFirst()
         }
         chartDataPoints.add(newEntry)
-        _newChartEntry.postValue(newEntry)
+        _newChartEntry.tryEmit(newEntry)
     }
 
-    // --- Actions delegated to the service ---
+    // ---------- 操作 ----------
+
     fun startScan() {
-        bleServiceRef?.get()?.startScan()
+        if (!repository.startScan()) {
+            _uiEvents.tryEmit(
+                MainUiEvent.ShowToast(
+                    getApplication<Application>().getString(R.string.main_toast_scan_in_progress)
+                )
+            )
+        }
     }
 
-    fun startAutoConnectScan(identifier: String) {
-        bleServiceRef?.get()?.startAutoConnectScan(identifier)
+    fun connectToDevice(identifier: String) = repository.connectToDevice(identifier)
+
+    fun disconnectDevice() = repository.disconnectDevice()
+
+    /** 应用启动时按设置自动连接收藏设备 */
+    fun autoConnectIfEnabled() {
+        val connection = settings.settings.value.connection
+        if (connection.autoConnectEnabled && connection.favoriteDeviceId != null) {
+            repository.autoConnect()
+        }
     }
 
-    fun connectToDevice(identifier: String) {
-        bleServiceRef?.get()?.connectToDevice(identifier)
-    }
+    fun onLocationPermissionGranted() = repository.refreshSpeedMonitor()
 
-    fun disconnectDevice() {
-        bleServiceRef?.get()?.disconnectDevice()
-    }
+    // ---------- 收藏设备 ----------
 
-    // --- Favorite device logic ---
-    fun isDeviceFavorite(identifier: String): Boolean {
-        return sharedPrefs.getString("favorite_device_id", null) == identifier
-    }
+    fun isDeviceFavorite(identifier: String): Boolean =
+        settings.settings.value.connection.favoriteDeviceId == identifier
 
     fun toggleFavoriteDevice(ad: Advertisement) {
         val id = ad.identifier
-        val currentFavorite = sharedPrefs.getString("favorite_device_id", null)
+        val currentFavorite = settings.settings.value.connection.favoriteDeviceId
         val newFavorite = if (currentFavorite == id) null else id
-        // 修复：使用 KTX edit 扩展函数替代 edit()...apply()
-        sharedPrefs.edit {
-            putString("favorite_device_id", newFavorite)
-        }
-        // 收藏时同步记录到历史列表（去重，最近收藏的排最前）
-        if (newFavorite != null) {
-            addToFavoriteHistory(id, ad.name ?: "未知设备")
+        viewModelScope.launch {
+            if (newFavorite != null) {
+                settings.set(SettingsKeys.FAVORITE_DEVICE_ID, newFavorite)
+                addToFavoriteHistory(id, ad.name ?: "未知设备")
+            } else {
+                settings.remove(SettingsKeys.FAVORITE_DEVICE_ID)
+            }
         }
     }
 
     /**
-     * 将设备添加到收藏历史列表（JSON 数组存储于 SharedPreferences）。
-     * - 去重：同 ID 的旧记录先移除
-     * - 新记录插入到数组头部（最近收藏排最前）
-     * - 最多保留 20 条
+     * 将设备添加到收藏历史列表（JSON 数组）。
+     * 去重（同 ID 旧记录移除）、新记录插入头部、最多保留 20 条。
      */
-    private fun addToFavoriteHistory(id: String, name: String) {
-        val json = sharedPrefs.getString("favorite_device_history", null) ?: "[]"
+    private suspend fun addToFavoriteHistory(id: String, name: String) {
+        val json = settings.settings.value.connection.favoriteDeviceHistoryJson
         try {
             val oldArr = JSONArray(json)
-            val filtered = JSONArray()
+            val newArr = JSONArray().put(
+                JSONObject().apply {
+                    put("id", id)
+                    put("name", name)
+                    put("timestamp", System.currentTimeMillis())
+                }
+            )
             for (i in 0 until oldArr.length()) {
                 val obj = oldArr.getJSONObject(i)
-                if (obj.getString("id") != id) {
-                    filtered.put(obj)
+                if (obj.getString("id") != id && newArr.length() < MAX_FAVORITE_HISTORY) {
+                    newArr.put(obj)
                 }
             }
-            val newArr = JSONArray()
-            newArr.put(JSONObject().apply {
-                put("id", id)
-                put("name", name)
-                put("timestamp", System.currentTimeMillis())
-            })
-            for (i in 0 until filtered.length()) {
-                newArr.put(filtered.getJSONObject(i))
-            }
-            while (newArr.length() > 20) {
-                newArr.remove(newArr.length() - 1)
-            }
-            sharedPrefs.edit { putString("favorite_device_history", newArr.toString()) }
-        } catch (_: Exception) {
+            settings.set(SettingsKeys.FAVORITE_DEVICE_HISTORY, newArr.toString())
+        } catch (e: Exception) {
+            android.util.Log.w("MainViewModel", "更新收藏历史失败", e)
         }
     }
 
-    override fun onCleared() {
-        super.onCleared()
-        serviceDataJob?.cancel()
-        bleServiceRef = null
+    private companion object {
+        const val MAX_CHART_POINTS = 10000
+        const val MAX_FAVORITE_HISTORY = 20
+
+        fun BleState.toAppStatus(): AppStatus = when (this) {
+            is BleState.Scanning -> AppStatus.SCANNING
+            is BleState.AutoConnecting, is BleState.Connecting, is BleState.AutoReconnecting ->
+                AppStatus.CONNECTING
+            is BleState.Connected -> AppStatus.CONNECTED
+            else -> AppStatus.DISCONNECTED
+        }
     }
 }

@@ -18,7 +18,7 @@
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
-            app:title="心率图表" />
+            app:title="@string/chart_title" />
     </com.google.android.material.appbar.AppBarLayout>
 
     <com.github.mikephil.charting.charts.LineChart

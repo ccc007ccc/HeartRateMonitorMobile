@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <item
         android:id="@+id/action_toggle_orientation"
-        android:title="切换方向"
+        android:title="@string/chart_toggle_orientation"
         android:icon="@drawable/ic_screen_rotation"
         app:showAsAction="ifRoom" />
 </menu>

@@ -2,7 +2,6 @@ package com.example.heart_rate_monitor_mobile.ui.alarm
 
 import android.animation.ValueAnimator
 import android.content.Intent
-import android.content.SharedPreferences
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.hardware.Sensor
@@ -16,14 +15,17 @@ import android.view.View
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.LinearLayout
 import android.widget.ProgressBar
-import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.example.heart_rate_monitor_mobile.ui.BaseActivity
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.ColorUtils
 import com.example.heart_rate_monitor_mobile.R
+import com.example.heart_rate_monitor_mobile.data.settings.SettingsKeys
 import com.example.heart_rate_monitor_mobile.databinding.ActivityHeartRateAlarmBinding
 import com.example.heart_rate_monitor_mobile.service.HeartRateAlarmService
 import com.example.heart_rate_monitor_mobile.service.posture.PostureCalibration
@@ -33,6 +35,8 @@ import com.example.heart_rate_monitor_mobile.service.posture.PostureType
 import com.example.heart_rate_monitor_mobile.util.EdgeToEdgeUtils
 import com.google.android.material.color.MaterialColors
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.slider.Slider
+import kotlinx.coroutines.launch
 import kotlin.math.sqrt
 
 /**
@@ -51,7 +55,8 @@ import kotlin.math.sqrt
 class HeartRateAlarmActivity : BaseActivity() {
 
     private lateinit var binding: ActivityHeartRateAlarmBinding
-    private lateinit var sharedPreferences: SharedPreferences
+    private val settings get() = container.settings
+    private val current get() = settings.settings.value
     private lateinit var sensorManager: SensorManager
     private lateinit var postureDetector: PostureDetector
 
@@ -98,16 +103,16 @@ class HeartRateAlarmActivity : BaseActivity() {
 
         EdgeToEdgeUtils.setup(this, binding.appBar)
 
-        sharedPreferences = getSharedPreferences("app_settings", MODE_PRIVATE)
         sensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
         postureDetector = PostureDetector()
         postureDetector.setCalibration(
-            PostureCalibration.fromJson(sharedPreferences.getString("posture_calibration_data", null))
+            PostureCalibration.fromJson(current.alarm.postureCalibrationJson)
         )
 
         setupToolbar()
         setupSwitchTint()
         setupAlarmSettings()
+        observeAlarmOptionsVisibility()
         setupCalibrationButtons()
         refreshCalibrationStatus()
     }
@@ -134,10 +139,22 @@ class HeartRateAlarmActivity : BaseActivity() {
 
     // ========== Toolbar ==========
 
+    /** 预警开关关闭时隐藏阈值/时长/重复等调节项（设置流驱动） */
+    private fun observeAlarmOptionsVisibility() {
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                settings.flowOf { it.alarm.enabled }.collect { enabled ->
+                    binding.alarmOptionsContainer.visibility =
+                        if (enabled) View.VISIBLE else View.GONE
+                }
+            }
+        }
+    }
+
     private fun setupToolbar() {
         setSupportActionBar(binding.toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
-        supportActionBar?.title = "心率预警"
+        supportActionBar?.title = getString(R.string.alarm_title)
         binding.toolbar.setNavigationOnClickListener { onBackPressedDispatcher.onBackPressed() }
     }
 
@@ -194,7 +211,7 @@ class HeartRateAlarmActivity : BaseActivity() {
         binding.postureEmoji.translationY = 0f
 
         binding.postureEmoji.text = posture.emoji
-        binding.postureLabel.text = posture.label
+        binding.postureLabel.text = getString(posture.labelRes)
 
         // 更新姿态指示器高亮
         binding.indicatorSitting.alpha = if (posture == PostureType.SITTING) 1f else 0.3f
@@ -236,28 +253,27 @@ class HeartRateAlarmActivity : BaseActivity() {
 
     /** 清除校准数据（需二次确认，避免误触丢失多样本） */
     private fun confirmClearCalibration() {
-        val cal = PostureCalibration.fromJson(
-            sharedPreferences.getString("posture_calibration_data", null)
-        )
+        val cal = PostureCalibration.fromJson(current.alarm.postureCalibrationJson)
         if (cal == null || !cal.isComplete()) {
-            Toast.makeText(this, "当前无校准数据", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, R.string.alarm_no_calibration_data, Toast.LENGTH_SHORT).show()
             return
         }
         MaterialAlertDialogBuilder(this)
-            .setTitle("清除校准")
-            .setMessage("将清除全部静坐/站立校准样本，需重新采集。确认清除吗？")
-            .setNegativeButton("取消", null)
-            .setPositiveButton("清除") { _, _ ->
-                sharedPreferences.edit().remove("posture_calibration_data").apply()
+            .setTitle(R.string.alarm_clear_calibration)
+            .setMessage(R.string.alarm_clear_calibration_message)
+            .setNegativeButton(R.string.common_cancel, null)
+            .setPositiveButton(R.string.alarm_clear) { _, _ ->
+                settings.removeAsync(SettingsKeys.POSTURE_CALIBRATION_DATA)
                 postureDetector.setCalibration(null)
                 refreshCalibrationStatus()
-                Toast.makeText(this, "校准已清除", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, R.string.alarm_calibration_cleared, Toast.LENGTH_SHORT).show()
             }
             .show()
     }
 
     private fun startCalibration(isSitting: Boolean) {
-        val postureName = if (isSitting) "静坐" else "站立"
+        val postureName =
+            getString(if (isSitting) R.string.posture_sitting else R.string.posture_standing)
         calibrationBuffer.clear()
         isCalibrating = true
 
@@ -271,14 +287,14 @@ class HeartRateAlarmActivity : BaseActivity() {
             progress = 0
         }
         val messageView = TextView(this).apply {
-            text = "请保持${postureName}姿势… 剩余 ${CALIBRATION_DURATION_SECONDS} 秒"
+            text = getString(R.string.alarm_keep_posture, postureName, CALIBRATION_DURATION_SECONDS)
             setPadding(0, 16, 0, 0)
         }
         container.addView(progressBar)
         container.addView(messageView)
 
         val dialog = MaterialAlertDialogBuilder(this)
-            .setTitle("校准${postureName}")
+            .setTitle(getString(R.string.alarm_calibrate_title, postureName))
             .setView(container)
             .setCancelable(false)
             .create()
@@ -293,7 +309,7 @@ class HeartRateAlarmActivity : BaseActivity() {
                 progressBar.progress = elapsed
                 val remaining = CALIBRATION_DURATION_SECONDS - elapsed
                 if (remaining > 0) {
-                    messageView.text = "请保持${postureName}姿势… 剩余 ${remaining} 秒"
+                    messageView.text = getString(R.string.alarm_keep_posture, postureName, remaining)
                     calibrationHandler.postDelayed(this, 1000L)
                 } else {
                     isCalibrating = false
@@ -319,7 +335,7 @@ class HeartRateAlarmActivity : BaseActivity() {
 
     private fun computeAndSaveCalibration(isSitting: Boolean, samples: List<FloatArray>) {
         if (samples.isEmpty()) {
-            Toast.makeText(this, "校准失败：未采集到数据", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, R.string.alarm_calibration_failed, Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -334,9 +350,7 @@ class HeartRateAlarmActivity : BaseActivity() {
         val features = PostureFeatures(meanX, meanY, meanZ, stdMag, n)
 
         // 追加到现有样本列表（保留另一姿态与已有样本），支持不同体位多次采集
-        val existing = PostureCalibration.fromJson(
-            sharedPreferences.getString("posture_calibration_data", null)
-        )
+        val existing = PostureCalibration.fromJson(current.alarm.postureCalibrationJson)
         val sitSamples = existing?.sittingSamples ?: emptyList()
         val standSamples = existing?.standingSamples ?: emptyList()
         val updated = if (isSitting) {
@@ -355,44 +369,44 @@ class HeartRateAlarmActivity : BaseActivity() {
             )
         }
 
-        sharedPreferences.edit().putString("posture_calibration_data", updated.toJson()).apply()
+        settings.setAsync(SettingsKeys.POSTURE_CALIBRATION_DATA, updated.toJson())
         postureDetector.setCalibration(updated)
         refreshCalibrationStatus()
 
-        val postureName = if (isSitting) "静坐" else "站立"
+        val postureName =
+            getString(if (isSitting) R.string.posture_sitting else R.string.posture_standing)
         val total = if (isSitting) updated.sittingSamples.size else updated.standingSamples.size
         Toast.makeText(
             this,
-            "${postureName}姿态已采集（共 ${total} 个样本）",
+            getString(R.string.alarm_posture_collected, postureName, total),
             Toast.LENGTH_SHORT
         ).show()
     }
 
     private fun refreshCalibrationStatus() {
-        val cal = PostureCalibration.fromJson(
-            sharedPreferences.getString("posture_calibration_data", null)
-        )
+        val cal = PostureCalibration.fromJson(current.alarm.postureCalibrationJson)
         val sitStatus = if (cal?.sittingSamples?.isNotEmpty() == true) {
-            "已校准 ✓（${cal.sittingSamples.size} 个样本）"
+            getString(R.string.alarm_calibrated_samples, cal.sittingSamples.size)
         } else {
-            "未校准"
+            getString(R.string.alarm_not_calibrated)
         }
         val standStatus = if (cal?.standingSamples?.isNotEmpty() == true) {
-            "已校准 ✓（${cal.standingSamples.size} 个样本）"
+            getString(R.string.alarm_calibrated_samples, cal.standingSamples.size)
         } else {
-            "未校准"
+            getString(R.string.alarm_not_calibrated)
         }
-        binding.calibrationStatus.text = "静坐：$sitStatus\n站立：$standStatus"
+        binding.calibrationStatus.text =
+            getString(R.string.alarm_calibration_status, sitStatus, standStatus)
     }
 
     // ========== 预警设置 ==========
 
     private fun setupAlarmSettings() {
         // 启用开关
-        val isEnabled = sharedPreferences.getBoolean("heart_rate_alarm_enabled", false)
+        val isEnabled = current.alarm.enabled
         binding.alarmEnabledSwitch.isChecked = isEnabled
         binding.alarmEnabledSwitch.setOnCheckedChangeListener { _, isChecked ->
-            sharedPreferences.edit().putBoolean("heart_rate_alarm_enabled", isChecked).apply()
+            settings.setAsync(SettingsKeys.ALARM_ENABLED, isChecked)
             if (isChecked) {
                 startService(Intent(this, HeartRateAlarmService::class.java))
             } else {
@@ -400,79 +414,56 @@ class HeartRateAlarmActivity : BaseActivity() {
             }
         }
 
-        // 超过范围：progress 0-100 → 80-180 BPM
-        val highValue = sharedPreferences.getInt("heart_rate_alarm_high_threshold", 100)
-        binding.highThresholdSeekBar.progress = highValue - HIGH_THRESHOLD_MIN
-        binding.highThresholdValue.text = "$highValue BPM"
-        binding.highThresholdSeekBar.setOnSeekBarChangeListener(
-            simpleSeekBarListener { progress ->
-                val value = HIGH_THRESHOLD_MIN + progress
-                binding.highThresholdValue.text = "$value BPM"
-                sharedPreferences.edit().putInt("heart_rate_alarm_high_threshold", value).apply()
-            }
-        )
+        // 超过范围：80-180 BPM（Slider 直接使用真实值域）
+        setupSlider(binding.highThresholdSeekBar, current.alarm.highThreshold) { value ->
+            binding.highThresholdValue.text = "$value BPM"
+            settings.setAsync(SettingsKeys.ALARM_HIGH_THRESHOLD, value)
+        }
+        binding.highThresholdValue.text = "${current.alarm.highThreshold} BPM"
 
-        // 低于范围：progress 0-50 → 30-80 BPM
-        val lowValue = sharedPreferences.getInt("heart_rate_alarm_low_threshold", 50)
-        binding.lowThresholdSeekBar.progress = lowValue - LOW_THRESHOLD_MIN
-        binding.lowThresholdValue.text = "$lowValue BPM"
-        binding.lowThresholdSeekBar.setOnSeekBarChangeListener(
-            simpleSeekBarListener { progress ->
-                val value = LOW_THRESHOLD_MIN + progress
-                binding.lowThresholdValue.text = "$value BPM"
-                sharedPreferences.edit().putInt("heart_rate_alarm_low_threshold", value).apply()
-            }
-        )
+        // 低于范围：30-80 BPM
+        setupSlider(binding.lowThresholdSeekBar, current.alarm.lowThreshold) { value ->
+            binding.lowThresholdValue.text = "$value BPM"
+            settings.setAsync(SettingsKeys.ALARM_LOW_THRESHOLD, value)
+        }
+        binding.lowThresholdValue.text = "${current.alarm.lowThreshold} BPM"
 
-        // 持续时长：progress 0-55 → 5-60 秒
-        val durValue = sharedPreferences.getInt("heart_rate_alarm_duration_seconds", 10)
-        binding.durationSeekBar.progress = durValue - DURATION_MIN
-        binding.durationValue.text = "$durValue 秒"
-        binding.durationSeekBar.setOnSeekBarChangeListener(
-            simpleSeekBarListener { progress ->
-                val value = DURATION_MIN + progress
-                binding.durationValue.text = "$value 秒"
-                sharedPreferences.edit().putInt("heart_rate_alarm_duration_seconds", value).apply()
-            }
-        )
+        // 持续时长：5-60 秒
+        setupSlider(binding.durationSeekBar, current.alarm.durationSeconds) { value ->
+            binding.durationValue.text = getString(R.string.alarm_duration_seconds, value)
+            settings.setAsync(SettingsKeys.ALARM_DURATION_SECONDS, value)
+        }
+        binding.durationValue.text =
+            getString(R.string.alarm_duration_seconds, current.alarm.durationSeconds)
 
         // 重复报警开关
-        val isRepeatEnabled = sharedPreferences.getBoolean("heart_rate_alarm_repeat_enabled", false)
+        val isRepeatEnabled = current.alarm.repeatEnabled
         binding.repeatAlarmSwitch.isChecked = isRepeatEnabled
         binding.repeatIntervalContainer.visibility = if (isRepeatEnabled) View.VISIBLE else View.GONE
         binding.repeatAlarmSwitch.setOnCheckedChangeListener { _, isChecked ->
-            sharedPreferences.edit().putBoolean("heart_rate_alarm_repeat_enabled", isChecked).apply()
+            settings.setAsync(SettingsKeys.ALARM_REPEAT_ENABLED, isChecked)
             binding.repeatIntervalContainer.visibility = if (isChecked) View.VISIBLE else View.GONE
         }
 
-        // 报警间隔：progress 0-29 → 1-30 分钟
-        val intervalValue = sharedPreferences.getInt("heart_rate_alarm_repeat_interval_minutes", 5)
-        binding.repeatIntervalSeekBar.progress = intervalValue - REPEAT_INTERVAL_MIN
-        binding.repeatIntervalValue.text = "$intervalValue 分钟"
-        binding.repeatIntervalSeekBar.setOnSeekBarChangeListener(
-            simpleSeekBarListener { progress ->
-                val value = REPEAT_INTERVAL_MIN + progress
-                binding.repeatIntervalValue.text = "$value 分钟"
-                sharedPreferences.edit().putInt("heart_rate_alarm_repeat_interval_minutes", value).apply()
-            }
-        )
+        // 报警间隔：1-30 分钟
+        setupSlider(binding.repeatIntervalSeekBar, current.alarm.repeatIntervalMinutes) { value ->
+            binding.repeatIntervalValue.text = getString(R.string.alarm_interval_minutes, value)
+            settings.setAsync(SettingsKeys.ALARM_REPEAT_INTERVAL_MINUTES, value)
+        }
+        binding.repeatIntervalValue.text =
+            getString(R.string.alarm_interval_minutes, current.alarm.repeatIntervalMinutes)
     }
 
-    private fun simpleSeekBarListener(onProgress: (Int) -> Unit) =
-        object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                if (fromUser) onProgress(progress)
-            }
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+    /** Slider 使用真实值域（valueFrom/valueTo 定义在布局），存储与显示无需偏移换算 */
+    private fun setupSlider(slider: Slider, initialValue: Int, onValue: (Int) -> Unit) {
+        slider.value = initialValue.toFloat().coerceIn(slider.valueFrom, slider.valueTo)
+        slider.addOnChangeListener { _, value, fromUser ->
+            if (fromUser) onValue(value.toInt())
         }
+    }
 
     companion object {
         private const val CLASSIFY_INTERVAL_MS = 200L
         private const val CALIBRATION_DURATION_SECONDS = 10
-        private const val HIGH_THRESHOLD_MIN = 80
-        private const val LOW_THRESHOLD_MIN = 30
-        private const val DURATION_MIN = 5
-        private const val REPEAT_INTERVAL_MIN = 1
     }
 }

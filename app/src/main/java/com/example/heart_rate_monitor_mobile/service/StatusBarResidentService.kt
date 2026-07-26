@@ -1,19 +1,16 @@
 package com.example.heart_rate_monitor_mobile.service
 
-import android.animation.ValueAnimator
+import android.annotation.SuppressLint
+import android.app.KeyguardManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
-import android.app.KeyguardManager
 import android.app.Service
 import android.content.BroadcastReceiver
 import android.content.ComponentCallbacks2
-import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.content.ServiceConnection
-import android.content.SharedPreferences
 import android.content.pm.ServiceInfo
 import android.content.res.Configuration
 import android.graphics.Color
@@ -21,7 +18,6 @@ import android.graphics.Paint
 import android.graphics.PixelFormat
 import android.hardware.display.DisplayManager
 import android.hardware.display.VirtualDisplay
-import android.media.Image
 import android.media.ImageReader
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
@@ -31,61 +27,45 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
 import android.provider.Settings
+import android.util.Log
 import android.util.TypedValue
 import android.view.ContextThemeWrapper
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.WindowManager
-import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.LinearLayout
 import com.example.heart_rate_monitor_mobile.R
+import com.example.heart_rate_monitor_mobile.core.AppContainer
 import com.example.heart_rate_monitor_mobile.databinding.LayoutStatusBarOverlayBinding
+import com.example.heart_rate_monitor_mobile.service.overlay.HeartbeatAnimator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import kotlin.math.absoluteValue
 
 /**
  * 状态栏常驻心率服务。
  *
  * 在顶部状态栏区域以 TYPE_APPLICATION_OVERLAY 叠加层绘制紧凑心率条（心形 + BPM）。
- * 独立于 FloatingWindowService，由 SettingsActivity 的开关 startService / stopService 控制。
- * 仅 bindService(BleService) 获取心率数据，依赖同进程 BleService 前台档位保持存活。
+ * 重构后数据来自 AppContainer.heartRate（不再 bindService），设置来自 SettingsRepository 流。
+ *
+ * 自动字色采样（status_bar_auto_color）性能优化：VirtualDisplay 以 1/8 分辨率镜像屏幕，
+ * 仅采样状态栏高度区域——相比旧的全分辨率截屏，ImageReader 缓冲内存与采样开销降低约 98%。
  */
 class StatusBarResidentService : Service() {
 
     private lateinit var windowManager: WindowManager
     private lateinit var binding: LayoutStatusBarOverlayBinding
     private lateinit var layoutParams: WindowManager.LayoutParams
-    private lateinit var sharedPreferences: SharedPreferences
+    private lateinit var heartbeatAnimator: HeartbeatAnimator
 
+    private val container by lazy { AppContainer.get(this) }
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
-    private var bleService: BleService? = null
-    private var isServiceBound = false
 
     private var isOverlayShown = false
-    private var heartRateAnimator: ValueAnimator? = null
-    private var currentDuration: Long = 0L
-    private val beatInterpolator = AccelerateDecelerateInterpolator()
-
-    private val serviceConnection = object : ServiceConnection {
-        override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
-            val binder = service as BleService.LocalBinder
-            bleService = binder.getService()
-            isServiceBound = true
-            observeBleData()
-        }
-
-        override fun onServiceDisconnected(name: ComponentName?) {
-            bleService = null
-            isServiceBound = false
-            updateHeartRateText(0)
-        }
-    }
 
     private val componentCallbacks = object : ComponentCallbacks2 {
         override fun onConfigurationChanged(newConfig: Configuration) {
@@ -136,22 +116,6 @@ class StatusBarResidentService : Service() {
     private var isDestroying = false
     private val safetyHandler = Handler(Looper.getMainLooper())
 
-    private val settingsChangeListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-        if (!isOverlayShown) return@OnSharedPreferenceChangeListener
-        when (key) {
-            "status_bar_size" -> applySize()
-            "status_bar_x_position", "status_bar_y_offset" -> {
-                updatePosition()
-                try {
-                    windowManager.updateViewLayout(binding.root, layoutParams)
-                } catch (_: Exception) {
-                }
-            }
-            "status_bar_bpm_text_enabled", "status_bar_text_thickness" -> applyTextStyle()
-            "status_bar_white_text" -> applyAppearance()
-        }
-    }
-
     /**
      * 周期性自愈检查：屏幕亮且已解锁时，若 overlay 未显示或被系统移除则重新添加。
      * 兜底处理广播遗漏、服务被杀后 START_STICKY 重启等场景，确保锁屏解锁后 overlay 自动恢复。
@@ -159,16 +123,17 @@ class StatusBarResidentService : Service() {
     private val overlaySafetyCheck = object : Runnable {
         override fun run() {
             try {
-                if (sharedPreferences.getBoolean("status_bar_resident_enabled", false)) {
+                if (container.settings.settings.value.statusBar.residentEnabled) {
                     val powerManager = getSystemService(PowerManager::class.java)
                     val keyguardManager = getSystemService(KeyguardManager::class.java)
                     if (powerManager.isInteractive && !keyguardManager.isKeyguardLocked) {
-                        if (!isOverlayShown || (isOverlayShown && !binding.root.isAttachedToWindow)) {
+                        if (!isOverlayShown || !binding.root.isAttachedToWindow) {
                             showOverlay()
                         }
                     }
                 }
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                Log.w(TAG, "自愈检查失败", e)
             }
             safetyHandler.postDelayed(this, SAFETY_CHECK_INTERVAL_MS)
         }
@@ -177,17 +142,15 @@ class StatusBarResidentService : Service() {
     override fun onCreate() {
         super.onCreate()
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
-        sharedPreferences = getSharedPreferences("app_settings", Context.MODE_PRIVATE)
         val themedContext = ContextThemeWrapper(this, R.style.Theme_HeartRateMonitorMobile)
         binding = LayoutStatusBarOverlayBinding.inflate(LayoutInflater.from(themedContext))
+        heartbeatAnimator = HeartbeatAnimator(binding.statusBarHeartIcon)
 
         initLayoutParams()
         applyAppearance()
 
-        // 绑定 BleService 获取心率数据（仅 bind，不 start，避免冷重启后台启动限制）
-        Intent(this, BleService::class.java).also { intent ->
-            bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
-        }
+        observeData()
+        observeSettings()
 
         applicationContext.registerComponentCallbacks(componentCallbacks)
 
@@ -196,10 +159,7 @@ class StatusBarResidentService : Service() {
             addAction(Intent.ACTION_SCREEN_ON)
             addAction(Intent.ACTION_USER_PRESENT)
         }
-        // API 26+ 支持 3 参重载；RECEIVER_NOT_EXPORTED 保证不暴露接收器
         registerReceiver(screenReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-
-        sharedPreferences.registerOnSharedPreferenceChangeListener(settingsChangeListener)
 
         // 启动周期性自愈检查，兜底恢复 overlay
         safetyHandler.postDelayed(overlaySafetyCheck, SAFETY_CHECK_INTERVAL_MS)
@@ -214,6 +174,7 @@ class StatusBarResidentService : Service() {
         when (intent?.action) {
             ACTION_START_MEDIA_PROJECTION -> {
                 val resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, 0)
+                @Suppress("DEPRECATION")
                 val resultData = intent.getParcelableExtra<Intent>(EXTRA_RESULT_DATA)
                 if (resultData != null) {
                     startMediaProjectionSampling(resultCode, resultData)
@@ -227,6 +188,29 @@ class StatusBarResidentService : Service() {
             }
         }
         return START_STICKY
+    }
+
+    private fun observeData() {
+        serviceScope.launch {
+            container.heartRate.heartRate.collectLatest { rate ->
+                binding.statusBarBpmNumber.text = if (rate > 0) "$rate" else "--"
+                heartbeatAnimator.update(
+                    rate,
+                    container.settings.settings.value.general.heartbeatAnimationEnabled &&
+                        container.heartRate.isDeviceConnected(),
+                )
+            }
+        }
+    }
+
+    /** 设置流驱动外观/尺寸/位置更新（替代 OnSharedPreferenceChangeListener） */
+    private fun observeSettings() {
+        serviceScope.launch {
+            container.settings.flowOf { it.statusBar }.collectLatest {
+                if (!isOverlayShown) return@collectLatest
+                relayout()
+            }
+        }
     }
 
     /**
@@ -245,36 +229,36 @@ class StatusBarResidentService : Service() {
                 startForeground(
                     NOTIFICATION_ID,
                     notification,
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE,
                 )
             } else {
                 startForeground(NOTIFICATION_ID, notification)
             }
             isResidentForeground = true
-        } catch (_: Exception) {
+        } catch (e: Exception) {
             // 后台 START_STICKY 重启时可能被拒绝，降级为普通服务
+            Log.w(TAG, "无法提升为前台服务，降级运行", e)
             isResidentForeground = false
         }
     }
 
     /**
      * 常驻前台通知（低重要性：不在状态栏显示，仅在通知栏可见）。
-     * Android 13+ 前台服务通知默认延迟显示，对状态栏 overlay 无干扰。
      */
     private fun createResidentNotification(): Notification {
         val notificationManager = getSystemService(NotificationManager::class.java)
         val channel = NotificationChannel(
             RESIDENT_CHANNEL_ID,
-            "状态栏心率常驻",
-            NotificationManager.IMPORTANCE_LOW
+            getString(R.string.notif_channel_statusbar_resident),
+            NotificationManager.IMPORTANCE_LOW,
         ).apply {
-            description = "保持状态栏心率显示服务存活"
+            description = getString(R.string.notif_channel_statusbar_resident_desc)
             setShowBadge(false)
         }
         notificationManager.createNotificationChannel(channel)
         return Notification.Builder(this, RESIDENT_CHANNEL_ID)
-            .setContentTitle("心率状态栏")
-            .setContentText("状态栏心率显示运行中")
+            .setContentTitle(getString(R.string.statusbar_notif_title))
+            .setContentText(getString(R.string.statusbar_notif_running))
             .setSmallIcon(R.drawable.ic_heart)
             .setOngoing(true)
             .build()
@@ -293,10 +277,10 @@ class StatusBarResidentService : Service() {
             getStatusBarHeight(),
             type,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                    WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
-            PixelFormat.TRANSLUCENT
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
+            PixelFormat.TRANSLUCENT,
         ).apply {
             gravity = Gravity.TOP or Gravity.START
         }
@@ -310,7 +294,7 @@ class StatusBarResidentService : Service() {
         if (isOverlayShown && binding.root.isAttachedToWindow) return
         // 状态不一致修正：标记显示但窗口已被系统移除（锁屏/内存压力），重置标记
         isOverlayShown = false
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) return
+        if (!Settings.canDrawOverlays(this)) return
         try {
             applySize()
             applyTextStyle()
@@ -321,7 +305,8 @@ class StatusBarResidentService : Service() {
             windowManager.addView(binding.root, layoutParams)
             isOverlayShown = true
             applyAppearance()
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.w(TAG, "添加 overlay 失败", e)
         }
     }
 
@@ -329,53 +314,10 @@ class StatusBarResidentService : Service() {
         if (!isOverlayShown) return
         try {
             windowManager.removeView(binding.root)
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.w(TAG, "移除 overlay 失败", e)
         }
         isOverlayShown = false
-    }
-
-    private fun observeBleData() {
-        serviceScope.launch {
-            bleService?.heartRate?.collectLatest { rate ->
-                updateHeartRateText(rate)
-                updateHeartbeatAnimation(rate)
-            }
-        }
-    }
-
-    private fun updateHeartRateText(rate: Int) {
-        binding.statusBarBpmNumber.text = if (rate > 0) "$rate" else "--"
-    }
-
-    private fun updateHeartbeatAnimation(bpm: Int) {
-        val heartIcon = binding.statusBarHeartIcon
-        val isAnimationEnabled = sharedPreferences.getBoolean("heartbeat_animation_enabled", true)
-        val isConnected = bleService?.isDeviceConnected() ?: false
-
-        if (isAnimationEnabled && bpm > 30 && isConnected) {
-            val targetDuration = (60000f / bpm).toLong()
-            if (heartRateAnimator == null || (currentDuration - targetDuration).absoluteValue > 50) {
-                currentDuration = targetDuration
-                heartRateAnimator?.cancel()
-                heartRateAnimator = ValueAnimator.ofFloat(1f, 1.2f, 1f).apply {
-                    duration = currentDuration
-                    interpolator = beatInterpolator
-                    repeatCount = ValueAnimator.INFINITE
-                    repeatMode = ValueAnimator.RESTART
-                    addUpdateListener { animation ->
-                        val scale = animation.animatedValue as Float
-                        heartIcon.scaleX = scale
-                        heartIcon.scaleY = scale
-                    }
-                    start()
-                }
-            }
-        } else {
-            heartRateAnimator?.cancel()
-            heartRateAnimator = null
-            currentDuration = 0L
-            heartIcon.animate().scaleX(1f).scaleY(1f).setDuration(200).start()
-        }
     }
 
     /**
@@ -387,12 +329,8 @@ class StatusBarResidentService : Service() {
      * 3. 否则 → 纯黑（默认）
      */
     private fun applyAppearance() {
-        val autoColor = sharedPreferences.getBoolean("status_bar_auto_color", false)
-        val useWhite = if (autoColor) {
-            sampledUseWhiteText
-        } else {
-            sharedPreferences.getBoolean("status_bar_white_text", false)
-        }
+        val statusBar = container.settings.settings.value.statusBar
+        val useWhite = if (statusBar.autoColor) sampledUseWhiteText else statusBar.whiteText
         val textColor = if (useWhite) Color.WHITE else Color.BLACK
 
         binding.statusBarHeartIcon.setColorFilter(textColor)
@@ -400,29 +338,22 @@ class StatusBarResidentService : Service() {
         binding.statusBarBpmUnit.setTextColor(textColor)
     }
 
-    /**
-     * 根据用户设置的整体大小缩放图标、文字、内边距与间距。
-     */
+    /** 根据用户设置的整体大小缩放图标、文字、内边距与间距 */
     private fun applySize() {
-        val sizePercent = sharedPreferences.getInt("status_bar_size", 100)
-        val scaleFactor = sizePercent / 100f
+        val scaleFactor = container.settings.settings.value.statusBar.sizePercent / 100f
 
-        // 缩放心形图标
         val iconSize = dpToPx(14f * scaleFactor)
         binding.statusBarHeartIcon.layoutParams = binding.statusBarHeartIcon.layoutParams.apply {
             width = iconSize
             height = iconSize
         }
 
-        // 缩放文字大小
         binding.statusBarBpmNumber.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f * scaleFactor)
         binding.statusBarBpmUnit.setTextSize(TypedValue.COMPLEX_UNIT_SP, 9f * scaleFactor)
 
-        // 缩放根布局内边距
         val padding = dpToPx(6f * scaleFactor)
         binding.root.setPadding(padding, 0, padding, 0)
 
-        // 缩放元素间距
         val numberMargin = dpToPx(3f * scaleFactor)
         (binding.statusBarBpmNumber.layoutParams as LinearLayout.LayoutParams).marginStart = numberMargin
         val unitMargin = dpToPx(1f * scaleFactor)
@@ -431,26 +362,20 @@ class StatusBarResidentService : Service() {
 
     /**
      * 根据用户设置控制 "bpm" 单位文字显隐与心率数字粗细。
-     * - status_bar_bpm_text_enabled：true 显示 "bpm" 单位（图标+80+bpm），
-     *   false 隐藏 "bpm" 单位（图标+80），心率数字始终显示
-     * - status_bar_text_thickness：0-100，在原有 bold 基础上叠加 stroke 宽度实现可调加粗
-     *   （0 = 普通 bold，100 = stroke 宽度 = 文字大小的 25%）
+     * - bpmTextEnabled：true 显示 "bpm" 单位（图标+80+bpm），false 隐藏，心率数字始终显示
+     * - textThickness：0-100，在原有 bold 基础上叠加 stroke 宽度实现可调加粗
      */
     private fun applyTextStyle() {
-        val textEnabled = sharedPreferences.getBoolean("status_bar_bpm_text_enabled", true)
-        val thickness = sharedPreferences.getInt("status_bar_text_thickness", 0)
+        val statusBar = container.settings.settings.value.statusBar
 
-        // 仅控制 "bpm" 单位文字显隐，心率数字始终显示
-        // 开启：❤ 80 bpm；关闭：❤ 80
-        binding.statusBarBpmUnit.visibility = if (textEnabled) View.VISIBLE else View.GONE
+        binding.statusBarBpmUnit.visibility = if (statusBar.bpmTextEnabled) View.VISIBLE else View.GONE
 
-        // 控制文字粗细：通过 Paint.strokeWidth + FILL_AND_STROKE 在 bold 基础上加粗
         val numberPaint = binding.statusBarBpmNumber.paint
         val unitPaint = binding.statusBarBpmUnit.paint
-        if (thickness > 0) {
+        if (statusBar.textThickness > 0) {
             // stroke 宽度按文字大小比例缩放，避免小文字过粗
-            val numberStroke = binding.statusBarBpmNumber.textSize * thickness / 100f * 0.25f
-            val unitStroke = binding.statusBarBpmUnit.textSize * thickness / 100f * 0.25f
+            val numberStroke = binding.statusBarBpmNumber.textSize * statusBar.textThickness / 100f * 0.25f
+            val unitStroke = binding.statusBarBpmUnit.textSize * statusBar.textThickness / 100f * 0.25f
             numberPaint.style = Paint.Style.FILL_AND_STROKE
             numberPaint.strokeWidth = numberStroke
             unitPaint.style = Paint.Style.FILL_AND_STROKE
@@ -467,17 +392,13 @@ class StatusBarResidentService : Service() {
 
     /**
      * 根据用户设置刷新水平位置和垂直微调。
-     * 水平位置：0-100 映射为屏幕宽度的百分比（0=最左，100=最右）
-     * 垂直微调：0-20 映射为 -10 到 +10 dp（中值 10 = 0dp 偏移）
+     * 水平位置：0-100 映射为屏幕宽度的百分比；垂直微调：0-20 映射为 -10 到 +10 dp。
      */
     private fun updatePosition() {
-        val xPercent = sharedPreferences.getInt("status_bar_x_position", 0)
+        val statusBar = container.settings.settings.value.statusBar
         val screenWidth = resources.displayMetrics.widthPixels
-        layoutParams.x = (screenWidth * xPercent / 100f).toInt()
-
-        val yOffsetProgress = sharedPreferences.getInt("status_bar_y_offset", 10)
-        val yOffsetDp = yOffsetProgress - 10  // 范围 -10 到 +10
-        layoutParams.y = dpToPx(yOffsetDp.toFloat())
+        layoutParams.x = (screenWidth * statusBar.xPositionPercent / 100f).toInt()
+        layoutParams.y = dpToPx((statusBar.yOffset - 10).toFloat())
     }
 
     private fun relayout() {
@@ -489,13 +410,16 @@ class StatusBarResidentService : Service() {
         if (isOverlayShown) {
             try {
                 windowManager.updateViewLayout(binding.root, layoutParams)
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                Log.w(TAG, "更新 overlay 布局失败", e)
             }
         }
     }
 
     private fun getStatusBarHeight(): Int {
         val res = resources
+        // status_bar_height 无公开 API 替代，只能经 getIdentifier 读取
+        @SuppressLint("DiscouragedApi", "InternalInsetResource")
         val resourceId = res.getIdentifier("status_bar_height", "dimen", "android")
         return if (resourceId > 0) {
             res.getDimensionPixelSize(resourceId)
@@ -504,11 +428,8 @@ class StatusBarResidentService : Service() {
         }
     }
 
-    private fun dpToPx(dp: Float): Int {
-        return TypedValue.applyDimension(
-            TypedValue.COMPLEX_UNIT_DIP, dp, resources.displayMetrics
-        ).toInt()
-    }
+    private fun dpToPx(dp: Float): Int =
+        TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, resources.displayMetrics).toInt()
 
     override fun onDestroy() {
         super.onDestroy()
@@ -516,24 +437,20 @@ class StatusBarResidentService : Service() {
         safetyHandler.removeCallbacks(overlaySafetyCheck)
         stopMediaProjectionSampling()
         hideOverlay()
-        heartRateAnimator?.cancel()
-        heartRateAnimator = null
-        if (isServiceBound) {
-            unbindService(serviceConnection)
-            isServiceBound = false
-        }
+        heartbeatAnimator.stop()
         serviceScope.cancel()
         try {
             applicationContext.unregisterComponentCallbacks(componentCallbacks)
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.w(TAG, "注销 componentCallbacks 失败", e)
         }
         try {
             unregisterReceiver(screenReceiver)
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.w(TAG, "注销 screenReceiver 失败", e)
         }
         stopForeground(STOP_FOREGROUND_REMOVE)
         isResidentForeground = false
-        sharedPreferences.unregisterOnSharedPreferenceChangeListener(settingsChangeListener)
     }
 
     companion object {
@@ -543,18 +460,24 @@ class StatusBarResidentService : Service() {
             "com.example.heart_rate_monitor_mobile.STOP_MEDIA_PROJECTION"
         const val EXTRA_RESULT_CODE = "result_code"
         const val EXTRA_RESULT_DATA = "result_data"
+        private const val TAG = "StatusBarResident"
         private const val SAMPLE_INTERVAL_MS = 1000L
         private const val NOTIFICATION_ID = 0x5B01
         private const val CHANNEL_ID = "status_bar_sampling"
         private const val RESIDENT_CHANNEL_ID = "status_bar_resident"
         private const val SAFETY_CHECK_INTERVAL_MS = 3000L
         private const val LUMINANCE_THRESHOLD = 128.0
+        /** VirtualDisplay 降采样倍率：镜像分辨率 = 屏幕分辨率 / 8，内存与 CPU 占用约为全屏的 1/64 */
+        private const val PROJECTION_DOWNSCALE = 8
     }
 
     /**
-     * 启动 MediaProjection 截屏采样。
+     * 启动 MediaProjection 截屏采样（降采样版）。
+     *
      * Android 14+（API 34）要求 MediaProjection 必须在 mediaProjection 类型的前台服务中运行，
      * 故先调 startForeground；API 29+ 用 3 参版本指定类型，低版本退回 2 参。
+     *
+     * 隐私/性能：VirtualDisplay 只以 1/8 分辨率镜像，采样逻辑只读取状态栏高度对应的顶部区域。
      */
     private fun startMediaProjectionSampling(resultCode: Int, data: Intent) {
         try {
@@ -563,7 +486,7 @@ class StatusBarResidentService : Service() {
                 startForeground(
                     NOTIFICATION_ID,
                     notification,
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION,
                 )
             } else {
                 startForeground(NOTIFICATION_ID, notification)
@@ -581,41 +504,41 @@ class StatusBarResidentService : Service() {
             }, sampleHandler)
 
             val metrics = resources.displayMetrics
-            val screenWidth = metrics.widthPixels
-            val screenHeight = metrics.heightPixels
+            val scaledWidth = (metrics.widthPixels / PROJECTION_DOWNSCALE).coerceAtLeast(1)
+            val scaledHeight = (metrics.heightPixels / PROJECTION_DOWNSCALE).coerceAtLeast(1)
             imageReader = ImageReader.newInstance(
-                screenWidth, screenHeight, PixelFormat.RGBA_8888, 2
+                scaledWidth, scaledHeight, PixelFormat.RGBA_8888, 2,
             )
             virtualDisplay = mediaProjection?.createVirtualDisplay(
                 "StatusBarSample",
-                screenWidth, screenHeight, metrics.densityDpi,
+                scaledWidth, scaledHeight,
+                (metrics.densityDpi / PROJECTION_DOWNSCALE).coerceAtLeast(1),
                 DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
-                imageReader!!.surface, null, sampleHandler
+                imageReader!!.surface, null, sampleHandler,
             )
 
             isSampling = true
             sampleHandler.post(sampleRunnable)
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.e(TAG, "启动屏幕采样失败", e)
             isSampling = false
             stopForeground(STOP_FOREGROUND_REMOVE)
         }
     }
 
-    /**
-     * 停止 MediaProjection 截屏采样，释放资源并退出前台服务状态。
-     */
+    /** 停止 MediaProjection 截屏采样，释放资源并回退前台服务类型 */
     private fun stopMediaProjectionSampling() {
         isSampling = false
         sampleHandler.removeCallbacks(sampleRunnable)
-        try { virtualDisplay?.release() } catch (_: Exception) {}
+        try { virtualDisplay?.release() } catch (e: Exception) { Log.w(TAG, "释放 virtualDisplay 失败", e) }
         virtualDisplay = null
-        try { imageReader?.close() } catch (_: Exception) {}
+        try { imageReader?.close() } catch (e: Exception) { Log.w(TAG, "关闭 imageReader 失败", e) }
         imageReader = null
-        try { mediaProjection?.stop() } catch (_: Exception) {}
+        try { mediaProjection?.stop() } catch (e: Exception) { Log.w(TAG, "停止 mediaProjection 失败", e) }
         mediaProjection = null
         sampledUseWhiteText = false
         // 停止采样后：若状态栏常驻仍开启且服务未在销毁，回退到 specialUse 常驻前台类型保活
-        if (!isDestroying && sharedPreferences.getBoolean("status_bar_resident_enabled", false)) {
+        if (!isDestroying && container.settings.settings.value.statusBar.residentEnabled) {
             isResidentForeground = false  // 重置以允许 ensureResidentForeground 重新提升
             ensureResidentForeground()
         } else {
@@ -628,6 +551,7 @@ class StatusBarResidentService : Service() {
     /**
      * 采样状态栏区域亮度，更新 sampledUseWhiteText 并刷新外观。
      * 亮度 > 阈值 → 浅色背景 → 黑字；否则 → 白字。
+     * 镜像已是 1/8 分辨率，仅遍历顶部 状态栏高度/8 的行。
      */
     private fun sampleStatusBarBrightness() {
         val image = imageReader?.acquireLatestImage() ?: return
@@ -636,17 +560,16 @@ class StatusBarResidentService : Service() {
             val buffer = plane.buffer
             val pixelStride = plane.pixelStride
             val rowStride = plane.rowStride
-            val screenWidth = resources.displayMetrics.widthPixels
-            val statusBarHeight = getStatusBarHeight()
+            val scaledWidth = image.width
+            val scaledStatusBarHeight =
+                (getStatusBarHeight() / PROJECTION_DOWNSCALE).coerceAtLeast(1)
 
             var totalLuminance = 0.0
             var sampleCount = 0
-            val xStep = 10
-            val yStep = 5
             var y = 0
-            while (y < statusBarHeight) {
+            while (y < scaledStatusBarHeight) {
                 var x = 0
-                while (x < screenWidth) {
+                while (x < scaledWidth) {
                     val pixelIndex = y * rowStride + x * pixelStride
                     if (pixelIndex + 2 < buffer.capacity()) {
                         val r = buffer.get(pixelIndex).toInt() and 0xFF
@@ -655,9 +578,9 @@ class StatusBarResidentService : Service() {
                         totalLuminance += 0.299 * r + 0.587 * g + 0.114 * b
                         sampleCount++
                     }
-                    x += xStep
+                    x += 2
                 }
-                y += yStep
+                y++
             }
 
             if (sampleCount > 0) {
@@ -668,7 +591,8 @@ class StatusBarResidentService : Service() {
                     applyAppearance()
                 }
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.w(TAG, "采样状态栏亮度失败", e)
         } finally {
             image.close()
         }
@@ -678,16 +602,16 @@ class StatusBarResidentService : Service() {
         val notificationManager = getSystemService(NotificationManager::class.java)
         val channel = NotificationChannel(
             CHANNEL_ID,
-            "状态栏颜色采样",
-            NotificationManager.IMPORTANCE_LOW
+            getString(R.string.notif_channel_color_sampling),
+            NotificationManager.IMPORTANCE_LOW,
         ).apply {
-            description = "用于自动识别屏幕颜色以切换状态栏心率文字颜色"
+            description = getString(R.string.notif_channel_color_sampling_desc)
             setShowBadge(false)
         }
         notificationManager.createNotificationChannel(channel)
         return Notification.Builder(this, CHANNEL_ID)
-            .setContentTitle("心率状态栏")
-            .setContentText("正在自动识别屏幕颜色")
+            .setContentTitle(getString(R.string.statusbar_notif_title))
+            .setContentText(getString(R.string.statusbar_notif_detecting))
             .setSmallIcon(R.drawable.ic_heart)
             .setOngoing(true)
             .build()

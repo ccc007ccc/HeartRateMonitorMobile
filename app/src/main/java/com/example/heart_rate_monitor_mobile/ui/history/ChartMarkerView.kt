@@ -21,7 +21,7 @@ class ChartMarkerView(context: Context, layoutResource: Int, private val startTi
         val timeInMillis = startTime + TimeUnit.SECONDS.toMillis(e.x.toLong())
         val timeString = format.format(Date(timeInMillis))
         val heartRate = e.y.toInt()
-        textView.text = "心率: $heartRate bpm\n时间: $timeString"
+        textView.text = context.getString(R.string.chart_marker_text, heartRate, timeString)
         super.refreshContent(e, highlight)
     }
 

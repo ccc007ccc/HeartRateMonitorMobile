@@ -40,10 +40,10 @@
 
     <ImageButton
         android:id="@+id/favoriteDeviceDeleteButton"
-        android:layout_width="36dp"
-        android:layout_height="36dp"
+        android:layout_width="@dimen/touch_target_min"
+        android:layout_height="@dimen/touch_target_min"
         android:layout_marginStart="8dp"
         android:background="?attr/selectableItemBackgroundBorderless"
-        android:contentDescription="删除"
+        android:contentDescription="@string/common_delete"
         android:src="@drawable/ic_delete" />
 </LinearLayout>

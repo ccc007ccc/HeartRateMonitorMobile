@@ -19,9 +19,9 @@
             style="@style/Widget.App.Toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
-            app:navigationIcon="@drawable/ic_arrow_forward"
+            app:navigationIcon="@drawable/ic_arrow_back"
             app:navigationIconTint="?attr/colorOnSurface"
-            app:title="心率预警" />
+            app:title="@string/alarm_title" />
 
     </com.google.android.material.appbar.AppBarLayout>
 
@@ -41,8 +41,8 @@
                 android:id="@+id/postureCard"
                 android:layout_width="match_parent"
                 android:layout_height="280dp"
-                android:background="@drawable/background_posture_card"
-                app:cardCornerRadius="16dp"
+                app:cardBackgroundColor="?attr/colorSurfaceContainerHigh"
+                app:cardCornerRadius="@dimen/radius_md"
                 app:cardElevation="0dp">
 
                 <LinearLayout
@@ -63,8 +63,8 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:text="未检测"
-                        android:textColor="@android:color/white"
+                        android:text="@string/posture_unknown"
+                        android:textColor="?attr/colorOnSurface"
                         android:textSize="24sp"
                         android:textStyle="bold" />
 
@@ -93,8 +93,8 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="2dp"
-                                android:text="静坐"
-                                android:textColor="#B3FFFFFF"
+                                android:text="@string/posture_sitting"
+                                android:textColor="?attr/colorOnSurfaceVariant"
                                 android:textSize="12sp" />
                         </LinearLayout>
 
@@ -117,8 +117,8 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="2dp"
-                                android:text="站立"
-                                android:textColor="#B3FFFFFF"
+                                android:text="@string/posture_standing"
+                                android:textColor="?attr/colorOnSurfaceVariant"
                                 android:textSize="12sp" />
                         </LinearLayout>
 
@@ -141,8 +141,8 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="2dp"
-                                android:text="运动"
-                                android:textColor="#B3FFFFFF"
+                                android:text="@string/posture_exercise"
+                                android:textColor="?attr/colorOnSurfaceVariant"
                                 android:textSize="12sp" />
                         </LinearLayout>
                     </LinearLayout>
@@ -156,7 +156,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="24dp"
                 android:layout_marginBottom="8dp"
-                android:text="姿态校准" />
+                android:text="@string/alarm_section_calibration" />
 
             <com.google.android.material.card.MaterialCardView
                 style="@style/Widget.App.Card"
@@ -174,7 +174,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginBottom="12dp"
-                        android:text="静坐：未校准\n站立：未校准"
+                        android:text="@string/alarm_calibration_status_default"
                         android:textAppearance="?attr/textAppearanceBodyMedium"
                         android:textColor="?attr/colorOnSurfaceVariant" />
 
@@ -190,7 +190,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginEnd="8dp"
                             android:layout_weight="1"
-                            android:text="校准静坐" />
+                            android:text="@string/alarm_calibrate_sitting" />
 
                         <Button
                             android:id="@+id/calibrateStandingButton"
@@ -198,7 +198,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="校准站立" />
+                            android:text="@string/alarm_calibrate_standing" />
                     </LinearLayout>
 
                     <Button
@@ -207,13 +207,13 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:text="清除校准" />
+                        android:text="@string/alarm_clear_calibration" />
 
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="12dp"
-                        android:text="校准时请保持对应姿势 10 秒。每种姿态可多次采集以应对不同体位（如手机放口袋、手持、置于桌面等），检测时自动匹配最接近的样本。仅静坐/站立姿态会触发心率预警，大幅晃动持续 3 秒以上识别为运动，非校准姿态（如躺下）不触发。"
+                        android:text="@string/alarm_calibration_hint"
                         android:textAppearance="?attr/textAppearanceBodySmall"
                         android:textColor="?attr/colorOnSurfaceVariant" />
                 </LinearLayout>
@@ -226,7 +226,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="24dp"
                 android:layout_marginBottom="8dp"
-                android:text="预警设置" />
+                android:text="@string/alarm_section_settings" />
 
             <com.google.android.material.card.MaterialCardView
                 style="@style/Widget.App.Card"
@@ -244,27 +244,35 @@
                         style="@style/SettingsRow"
                         android:layout_marginBottom="4dp"
                         android:padding="0dp"
-                        android:text="启用心率预警" />
+                        android:text="@string/alarm_enable" />
 
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:paddingTop="4dp"
-                        android:text="开启后将在静坐/站立状态下监测心率，超出阈值持续设定时间即报警（通知+震动）。"
+                        android:text="@string/alarm_enable_hint"
                         android:textAppearance="?attr/textAppearanceBodySmall"
                         android:textColor="?attr/colorOnSurfaceVariant" />
+
+                    <!-- 预警开关关闭时整块隐藏（由 HeartRateAlarmActivity 按设置流控制） -->
+                    <LinearLayout
+                        android:id="@+id/alarmOptionsContainer"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical">
 
                     <TextView
                         style="@style/SettingsSubLabel"
                         android:layout_marginTop="16dp"
                         android:layout_marginBottom="4dp"
-                        android:text="超过范围" />
+                        android:text="@string/alarm_above_range" />
 
-                    <SeekBar
+                    <com.google.android.material.slider.Slider
                         android:id="@+id/highThresholdSeekBar"
                         style="@style/SettingsSeekBar"
-                        android:max="100"
-                        android:progress="20" />
+                        android:valueFrom="80"
+                        android:valueTo="180"
+                        android:stepSize="1" />
 
                     <TextView
                         android:id="@+id/highThresholdValue"
@@ -277,13 +285,14 @@
                     <TextView
                         style="@style/SettingsSubLabel"
                         android:layout_marginBottom="4dp"
-                        android:text="低于范围" />
+                        android:text="@string/alarm_below_range" />
 
-                    <SeekBar
+                    <com.google.android.material.slider.Slider
                         android:id="@+id/lowThresholdSeekBar"
                         style="@style/SettingsSeekBar"
-                        android:max="50"
-                        android:progress="20" />
+                        android:valueFrom="30"
+                        android:valueTo="80"
+                        android:stepSize="1" />
 
                     <TextView
                         android:id="@+id/lowThresholdValue"
@@ -296,19 +305,20 @@
                     <TextView
                         style="@style/SettingsSubLabel"
                         android:layout_marginBottom="4dp"
-                        android:text="持续时长" />
+                        android:text="@string/alarm_duration" />
 
-                    <SeekBar
+                    <com.google.android.material.slider.Slider
                         android:id="@+id/durationSeekBar"
                         style="@style/SettingsSeekBar"
-                        android:max="55"
-                        android:progress="5" />
+                        android:valueFrom="5"
+                        android:valueTo="60"
+                        android:stepSize="1" />
 
                     <TextView
                         android:id="@+id/durationValue"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="10 秒"
+                        android:text="@string/alarm_duration_default"
                         android:textAppearance="?attr/textAppearanceBodySmall"
                         android:textColor="?attr/colorOnSurfaceVariant" />
 
@@ -318,13 +328,13 @@
                         android:layout_marginTop="16dp"
                         android:layout_marginBottom="4dp"
                         android:padding="0dp"
-                        android:text="重复报警" />
+                        android:text="@string/alarm_repeat" />
 
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:paddingTop="4dp"
-                        android:text="开启后按设定间隔重复报警；关闭后达到阈值条件即报警一次。"
+                        android:text="@string/alarm_repeat_hint"
                         android:textAppearance="?attr/textAppearanceBodySmall"
                         android:textColor="?attr/colorOnSurfaceVariant" />
 
@@ -339,21 +349,23 @@
                             style="@style/SettingsSubLabel"
                             android:layout_marginTop="12dp"
                             android:layout_marginBottom="4dp"
-                            android:text="报警间隔" />
+                            android:text="@string/alarm_repeat_interval" />
 
-                        <SeekBar
+                        <com.google.android.material.slider.Slider
                             android:id="@+id/repeatIntervalSeekBar"
                             style="@style/SettingsSeekBar"
-                            android:max="29"
-                            android:progress="4" />
+                        android:valueFrom="1"
+                        android:valueTo="30"
+                        android:stepSize="1" />
 
                         <TextView
                             android:id="@+id/repeatIntervalValue"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="5 分钟"
+                            android:text="@string/alarm_interval_default"
                             android:textAppearance="?attr/textAppearanceBodySmall"
                             android:textColor="?attr/colorOnSurfaceVariant" />
+                    </LinearLayout>
                     </LinearLayout>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>

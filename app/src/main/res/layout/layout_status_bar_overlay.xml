@@ -11,7 +11,7 @@
         android:id="@+id/status_bar_heart_icon"
         android:layout_width="14dp"
         android:layout_height="14dp"
-        android:contentDescription="心率"
+        android:contentDescription="@string/statusbar_heart_icon_desc"
         android:src="@drawable/ic_heart" />
 
     <TextView

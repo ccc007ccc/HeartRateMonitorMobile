@@ -20,7 +20,7 @@
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
             app:title="@string/server_settings"
-            app:navigationIcon="@drawable/ic_arrow_forward"/>
+            app:navigationIcon="@drawable/ic_arrow_back"/>
 
     </com.google.android.material.appbar.AppBarLayout>
 
@@ -38,7 +38,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="HTTP 服务器 (被动拉取)"
+                android:text="@string/server_section_http"
                 style="@style/TextAppearance.App.SettingSection"
                 android:layout_marginBottom="8dp" />
 
@@ -82,7 +82,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="24dp"
                 android:layout_marginBottom="8dp"
-                android:text="WebSocket 服务器 (主动推送)"
+                android:text="@string/server_section_ws"
                 style="@style/TextAppearance.App.SettingSection" />
 
             <com.google.android.material.card.MaterialCardView
@@ -99,14 +99,14 @@
                     <com.google.android.material.materialswitch.MaterialSwitch
                         android:id="@+id/websocketSwitch"
                         style="@style/SettingsRow"
-                        android:text="启用 WebSocket 服务器"
+                        android:text="@string/server_enable_ws"
                         android:padding="0dp"/>
 
                     <com.google.android.material.textfield.TextInputLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="12dp"
-                        android:hint="WebSocket 端口"
+                        android:hint="@string/server_ws_port"
                         style="@style/Widget.Material3.TextInputLayout.OutlinedBox.Dense">
 
                         <com.google.android.material.textfield.TextInputEditText
@@ -116,6 +116,77 @@
                             android:inputType="number"
                             android:maxLength="5" />
                     </com.google.android.material.textfield.TextInputLayout>
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="8dp"
+                android:text="@string/server_section_security"
+                style="@style/TextAppearance.App.SettingSection" />
+
+            <com.google.android.material.card.MaterialCardView
+                style="@style/Widget.App.Card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/allowLanSwitch"
+                        style="@style/SettingsRow"
+                        android:text="@string/server_allow_lan"
+                        android:padding="0dp"/>
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="@string/server_allow_lan_hint"
+                        android:textAppearance="?attr/textAppearanceBodySmall"
+                        android:textColor="?attr/colorOnSurfaceVariant" />
+
+                    <LinearLayout
+                        android:id="@+id/tokenContainer"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:id="@+id/tokenText"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:fontFamily="monospace"
+                            android:textAppearance="?attr/textAppearanceBodyMedium"
+                            android:textIsSelectable="true"
+                            tools:text="abcd1234efgh5678" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/copyTokenButton"
+                            style="@style/Widget.Material3.Button.TextButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:minWidth="48dp"
+                            android:text="@string/server_copy" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/resetTokenButton"
+                            style="@style/Widget.Material3.Button.TextButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:minWidth="48dp"
+                            android:text="@string/server_reset" />
+                    </LinearLayout>
 
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>

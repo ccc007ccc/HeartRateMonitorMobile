@@ -1,0 +1,249 @@
+<resources>
+    <!-- 旧 key（不改名） -->
+    <string name="app_name">心率监控器</string>
+    <string name="server_settings">服务器设置</string>
+    <string name="enable_server">启用服务器</string>
+    <string name="server_port">服务器端口</string>
+    <string name="server_status">服务器状态</string>
+    <string name="webhook_settings">Webhook 设置</string>
+
+    <!-- 通用 -->
+    <string name="common_confirm">确认</string>
+    <string name="common_cancel">取消</string>
+    <string name="common_delete">删除</string>
+    <string name="common_ok">确定</string>
+    <string name="common_got_it">知道了</string>
+    <string name="common_save">保存</string>
+    <string name="common_edit">编辑</string>
+    <string name="common_unknown">未知</string>
+    <string name="common_connected">已连接</string>
+    <string name="common_confirm_delete_title">确认删除</string>
+
+    <!-- 主界面 -->
+    <string name="main_nav_home">首页</string>
+    <string name="main_toggle_floating_window">切换悬浮窗</string>
+    <string name="main_view_history">查看历史记录</string>
+    <string name="main_scan_devices">搜索蓝牙设备</string>
+    <string name="main_status_disconnected">未连接</string>
+    <string name="main_speed_label">速度</string>
+    <string name="main_available_devices">可用设备</string>
+    <string name="main_disconnect">断开连接</string>
+    <string name="main_permission_denied">部分权限被拒绝，功能可能受限</string>
+    <string name="main_permission_title">需要权限</string>
+    <string name="main_permission_message">应用需要蓝牙与定位权限来扫描心率设备和计算速度，需要通知权限来展示连接状态。</string>
+    <string name="main_permission_grant">授权</string>
+    <string name="main_toast_reconnecting">连接已断开，正在尝试自动重连...</string>
+    <string name="main_toast_scan_in_progress">已有扫描进行中</string>
+
+    <!-- BLE 状态文案 -->
+    <string name="ble_state_idle">点击右上角按钮扫描设备</string>
+    <string name="ble_state_scanning">正在扫描设备...</string>
+    <string name="ble_state_scan_finished">扫描结束</string>
+    <string name="ble_state_scan_no_devices">未找到任何设备</string>
+    <string name="ble_state_connecting">正在连接...</string>
+    <string name="ble_state_auto_connecting">正在尝试连接收藏的设备...</string>
+    <string name="ble_state_auto_reconnecting">正在自动重连（第 %1$d 次）...</string>
+    <string name="ble_state_connected_to">已连接到 %1$s</string>
+    <string name="ble_state_disconnected_manual">已手动断开</string>
+    <string name="ble_state_connection_lost">设备连接已断开</string>
+    <string name="ble_state_connect_failed">连接失败</string>
+    <string name="ble_state_reconnect_not_found">自动重连未找到设备</string>
+
+    <!-- 历史记录与图表 -->
+    <string name="history_title">心率历史记录</string>
+    <string name="history_empty">还没有任何历史记录</string>
+    <string name="history_select_all">全选</string>
+    <string name="history_selected_count">已选择 %1$d 项</string>
+    <string name="history_delete_message">确定要删除选中的 %1$d 条历史记录吗？此操作无法撤销。</string>
+    <string name="history_in_progress">进行中</string>
+    <string name="chart_title">心率图表</string>
+    <string name="chart_toggle_orientation">切换方向</string>
+    <string name="chart_marker_text">心率: %1$d bpm\n时间: %2$s</string>
+
+    <!-- 收藏设备 -->
+    <string name="favorite_title">收藏设备</string>
+    <string name="favorite_section">已收藏的蓝牙设备</string>
+    <string name="favorite_hint">在主界面设备列表中点击星标可收藏设备。最近收藏的设备排在最前，最多保留 20 条。</string>
+    <string name="favorite_empty">暂无收藏设备</string>
+    <string name="favorite_delete_title">删除收藏设备</string>
+    <string name="favorite_delete_message">确定要删除「%1$s」的收藏记录吗？</string>
+
+    <!-- 设置 -->
+    <string name="settings_title">设置</string>
+    <string name="settings_section_general">常规</string>
+    <string name="settings_record_history">记录历史数据</string>
+    <string name="settings_heartbeat_animation">心跳动画效果</string>
+    <string name="settings_dynamic_color">莫奈取色</string>
+    <string name="settings_dynamic_color_hint">根据壁纸动态提取主题色（需 Android 12 及以上）。已默认开启且不可关闭。</string>
+    <string name="settings_show_speed">显示时速 (GPS)</string>
+    <string name="settings_show_speed_hint">开启时速显示将使用GPS定位，可能会增加耗电。</string>
+    <string name="settings_hide_recents">退出应用隐藏后台</string>
+    <string name="settings_hide_recents_hint">开启后应用不会出现在最近任务列表中</string>
+    <string name="settings_section_bluetooth">蓝牙</string>
+    <string name="settings_auto_connect">启动时自动连接收藏设备</string>
+    <string name="settings_auto_reconnect">断开后自动重连</string>
+    <string name="settings_section_integrations">集成 &amp; 外部访问</string>
+    <string name="settings_http_ws_server">HTTP &amp; WebSocket 服务器</string>
+    <string name="settings_section_statusbar">状态栏常驻</string>
+    <string name="settings_section_floating">悬浮窗样式</string>
+    <string name="settings_section_about">关于</string>
+    <string name="settings_version">版本</string>
+    <string name="settings_visit_github">访问 GitHub 仓库</string>
+    <string name="settings_perf_warning_title">性能警告</string>
+    <string name="settings_perf_warning_message">开启历史记录将持续写入数据到存储，可能会增加耗电量。确认开启吗？</string>
+    <string name="settings_speed_warning_title">开启速度显示</string>
+    <string name="settings_speed_warning_message">该功能使用 GPS 计算速度，可能会增加耗电量并需要定位权限。确认开启吗？</string>
+    <string name="settings_notice_title">提示</string>
+    <string name="settings_statusbar_enable_first">请先开启“状态栏常驻心率”开关后再使用自动识别。</string>
+
+    <!-- 状态栏常驻 -->
+    <string name="statusbar_resident">状态栏常驻心率</string>
+    <string name="statusbar_resident_hint">在顶部状态栏显示实时心率（需悬浮窗权限）</string>
+    <string name="statusbar_show_bpm_unit">显示 \'bpm\' 单位</string>
+    <string name="statusbar_horizontal_position">水平位置</string>
+    <string name="statusbar_vertical_offset">垂直微调</string>
+    <string name="statusbar_overall_size">整体大小</string>
+    <string name="statusbar_text_weight">文字粗细</string>
+    <string name="statusbar_text_color">文字颜色</string>
+    <string name="statusbar_auto_color">自动识别屏幕颜色</string>
+    <string name="statusbar_auto_color_hint">通过截屏采样状态栏区域亮度，自动切换黑/白文字。需要一次录屏授权，会增加少量耗电；服务被系统杀死后重启需重新授权。</string>
+    <string name="statusbar_white_text">使用白色文字</string>
+    <string name="statusbar_white_text_hint">关闭“自动识别”时生效。默认关闭即为纯黑文字。</string>
+    <string name="statusbar_heart_icon_desc">心率</string>
+    <string name="statusbar_notif_title">心率状态栏</string>
+    <string name="statusbar_notif_running">状态栏心率显示运行中</string>
+    <string name="statusbar_notif_detecting">正在自动识别屏幕颜色</string>
+
+    <!-- 通知渠道 -->
+    <string name="notif_channel_ble">BLE 连接状态</string>
+    <string name="notif_channel_statusbar_resident">状态栏心率常驻</string>
+    <string name="notif_channel_statusbar_resident_desc">保持状态栏心率显示服务存活</string>
+    <string name="notif_channel_color_sampling">状态栏颜色采样</string>
+    <string name="notif_channel_color_sampling_desc">用于自动识别屏幕颜色以切换状态栏心率文字颜色</string>
+    <string name="notif_channel_alarm_desc">心率超出设定区间时发出预警通知</string>
+    <string name="notif_channel_alarm_resident">心率预警常驻</string>
+    <string name="notif_channel_alarm_resident_desc">保持心率预警服务存活</string>
+    <string name="notif_channel_touch_through">悬浮窗触摸穿透</string>
+    <string name="notif_channel_touch_through_desc">悬浮窗触摸穿透状态提醒</string>
+
+    <!-- 悬浮窗 -->
+    <string name="floating_pass_through_hint">长按悬浮窗开启触摸穿透，开启后触摸直接传递给下方应用，不影响手机其他操作。再次长按悬浮窗或点击通知栏按钮关闭。</string>
+    <string name="floating_show_bpm_text">显示 \'bpm\' 文字</string>
+    <string name="floating_show_heart_icon">显示心形图标</string>
+    <string name="floating_overall_size">整体大小</string>
+    <string name="floating_icon_size">图标大小</string>
+    <string name="floating_corner_radius">圆角半径</string>
+    <string name="floating_bg_opacity">背景不透明度</string>
+    <string name="floating_border_opacity">边框不透明度</string>
+    <string name="floating_label_text">文本</string>
+    <string name="floating_label_bg">背景</string>
+    <string name="floating_label_border">边框</string>
+    <string name="floating_text_color_title">文本颜色</string>
+    <string name="floating_bg_color_title">背景颜色</string>
+    <string name="floating_border_color_title">边框颜色</string>
+    <string name="floating_pass_through_on">触摸穿透已开启，长按悬浮窗或点击通知关闭</string>
+    <string name="floating_pass_through_off">触摸穿透已关闭，可拖动悬浮窗</string>
+    <string name="floating_notif_title">触摸穿透已开启</string>
+    <string name="floating_notif_text">长按悬浮窗或点击下方按钮关闭</string>
+    <string name="floating_notif_action_disable">关闭触摸穿透</string>
+
+    <!-- 心率预警与姿态 -->
+    <string name="alarm_title">心率预警</string>
+    <string name="posture_unknown">未检测</string>
+    <string name="posture_sitting">静坐</string>
+    <string name="posture_standing">站立</string>
+    <string name="posture_exercise">运动</string>
+    <string name="alarm_section_calibration">姿态校准</string>
+    <string name="alarm_calibration_status_default">静坐：未校准\n站立：未校准</string>
+    <string name="alarm_calibrate_sitting">校准静坐</string>
+    <string name="alarm_calibrate_standing">校准站立</string>
+    <string name="alarm_clear_calibration">清除校准</string>
+    <string name="alarm_calibration_hint">校准时请保持对应姿势 10 秒。每种姿态可多次采集以应对不同体位（如手机放口袋、手持、置于桌面等），检测时自动匹配最接近的样本。仅静坐/站立姿态会触发心率预警，大幅晃动持续 3 秒以上识别为运动，非校准姿态（如躺下）不触发。</string>
+    <string name="alarm_section_settings">预警设置</string>
+    <string name="alarm_enable">启用心率预警</string>
+    <string name="alarm_enable_hint">开启后将在静坐/站立状态下监测心率，超出阈值持续设定时间即报警（通知+震动）。</string>
+    <string name="alarm_above_range">超过范围</string>
+    <string name="alarm_below_range">低于范围</string>
+    <string name="alarm_duration">持续时长</string>
+    <string name="alarm_duration_default">10 秒</string>
+    <string name="alarm_duration_seconds">%1$d 秒</string>
+    <string name="alarm_repeat">重复报警</string>
+    <string name="alarm_repeat_hint">开启后按设定间隔重复报警；关闭后达到阈值条件即报警一次。</string>
+    <string name="alarm_repeat_interval">报警间隔</string>
+    <string name="alarm_interval_default">5 分钟</string>
+    <string name="alarm_interval_minutes">%1$d 分钟</string>
+    <string name="alarm_no_calibration_data">当前无校准数据</string>
+    <string name="alarm_clear_calibration_message">将清除全部静坐/站立校准样本，需重新采集。确认清除吗？</string>
+    <string name="alarm_clear">清除</string>
+    <string name="alarm_calibration_cleared">校准已清除</string>
+    <string name="alarm_keep_posture">请保持%1$s姿势… 剩余 %2$d 秒</string>
+    <string name="alarm_calibrate_title">校准%1$s</string>
+    <string name="alarm_calibration_failed">校准失败：未采集到数据</string>
+    <string name="alarm_posture_collected">%1$s姿态已采集（共 %2$d 个样本）</string>
+    <string name="alarm_calibrated_samples">已校准 ✓（%1$d 个样本）</string>
+    <string name="alarm_not_calibrated">未校准</string>
+    <string name="alarm_calibration_status">静坐：%1$s\n站立：%2$s</string>
+    <string name="alarm_direction_high">超过高限</string>
+    <string name="alarm_direction_low">低于低限</string>
+    <string name="alarm_body">心率 %1$d BPM %2$s %3$d（%4$s状态），请关注</string>
+    <string name="alarm_service_running">心率预警服务运行中</string>
+
+    <!-- 服务器 -->
+    <string name="server_section_http">HTTP 服务器 (被动拉取)</string>
+    <string name="server_section_ws">WebSocket 服务器 (主动推送)</string>
+    <string name="server_enable_ws">启用 WebSocket 服务器</string>
+    <string name="server_ws_port">WebSocket 端口</string>
+    <string name="server_section_security">访问安全</string>
+    <string name="server_allow_lan">允许局域网访问</string>
+    <string name="server_allow_lan_hint">关闭时服务器仅本机（127.0.0.1）可访问；开启后同一网络的设备可凭下方 Token 读取心率数据，公共 Wi-Fi 下请谨慎开启。</string>
+    <string name="server_copy">复制</string>
+    <string name="server_reset">重置</string>
+    <string name="server_token_copied">Token 已复制</string>
+    <string name="server_token_reset">Token 已重置，已连接的客户端需要更新</string>
+    <string name="server_token_generating">（自动生成中…）</string>
+    <string name="server_http_enabled">HTTP 服务器已启用</string>
+    <string name="server_http_disabled">HTTP 服务器已禁用</string>
+    <string name="server_ws_enabled">WebSocket 服务器已启用</string>
+    <string name="server_ws_disabled">WebSocket 服务器已禁用</string>
+    <string name="server_address">访问地址: %1$s</string>
+
+    <!-- Webhook -->
+    <string name="webhook_add_preset">新增预设</string>
+    <string name="webhook_sync_presets">同步官方预设</string>
+    <string name="webhook_configured">已配置的 Webhook</string>
+    <string name="webhook_empty">还没有 Webhook\n点击「新增预设」创建，或同步官方预设</string>
+    <string name="webhook_enable_this">启用此 Webhook</string>
+    <string name="webhook_trigger_types">触发器类型 (可多选)</string>
+    <string name="webhook_trigger_hr_updated">心率刷新时</string>
+    <string name="webhook_trigger_connected">设备连接时</string>
+    <string name="webhook_trigger_disconnected">设备断开时</string>
+    <string name="webhook_name_hint">名称</string>
+    <string name="webhook_test_send">测试发送 (心率: 88)</string>
+    <string name="webhook_test_response_log">测试响应日志</string>
+    <string name="webhook_sync_failed_title">同步失败</string>
+    <string name="webhook_sync_failed_message">拉取官方预设时发生错误：%1$s</string>
+    <string name="webhook_presets_empty">官方预设为空</string>
+    <string name="webhook_sync_preview_header">共获取 %1$d 条官方预设，其中 %2$d 条为本地没有的新条目：</string>
+    <string name="webhook_preset_exists">（已存在，跳过）</string>
+    <string name="webhook_merge_note">合并不会覆盖或删除你已有的 Webhook；同步进来的条目默认处于禁用状态，需手动启用。</string>
+    <string name="webhook_merge_confirm_title">确认合并官方预设</string>
+    <string name="webhook_merge">合并</string>
+    <string name="webhook_merged_toast">已合并 %1$d 条新预设</string>
+    <string name="webhook_new_default_name">新的Webhook</string>
+    <string name="webhook_dialog_add">新增 Webhook</string>
+    <string name="webhook_dialog_edit">编辑 Webhook</string>
+    <string name="webhook_https_only">仅允许 https:// 开头的 URL</string>
+    <string name="webhook_testing">正在测试...</string>
+    <string name="webhook_delete_message">确定要删除 \'%1$s\' 吗？此操作无法撤销。</string>
+    <string name="webhook_send_failed_https">发送失败: 仅允许 https:// 开头的 URL（当前：%1$s…）</string>
+    <string name="webhook_send_failed_headers">发送失败: Headers不是有效的JSON格式: %1$s</string>
+    <string name="webhook_response_test_title">Webhook 测试响应</string>
+    <string name="webhook_response_sent_title">Webhook 已发送</string>
+    <string name="webhook_response_template">--- %1$s ---\n名称: %2$s\n触发于: %3$s\n状态码: %4$d %5$s\n响应体:\n%6$s\n----------------------</string>
+    <string name="webhook_send_unknown_error">发送时发生未知错误: %1$s</string>
+
+    <!-- 快速设置磁贴 -->
+    <string name="tile_label">心率监控</string>
+    <string name="tile_connecting">连接中…</string>
+    <string name="tile_tap_to_connect">点按连接</string>
+</resources>

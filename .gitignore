@@ -13,3 +13,10 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Signing — never commit keys or credentials
+/.key/
+/keystore.properties
+
+# Kotlin
+.kotlin/

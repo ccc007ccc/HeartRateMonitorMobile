@@ -2,12 +2,18 @@ package com.example.heart_rate_monitor_mobile.ui.favorite
 
 import android.os.Bundle
 import android.view.View
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.appcompat.app.AppCompatActivity
+import com.example.heart_rate_monitor_mobile.R
 import com.example.heart_rate_monitor_mobile.ui.BaseActivity
+import com.example.heart_rate_monitor_mobile.data.settings.SettingsKeys
 import com.example.heart_rate_monitor_mobile.databinding.ActivityFavoriteDevicesBinding
 import com.example.heart_rate_monitor_mobile.databinding.ListItemFavoriteDeviceBinding
 import com.example.heart_rate_monitor_mobile.util.EdgeToEdgeUtils
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import kotlinx.coroutines.launch
 import org.json.JSONArray
 
 /**
@@ -23,9 +29,7 @@ import org.json.JSONArray
 class FavoriteDevicesActivity : BaseActivity() {
 
     private lateinit var binding: ActivityFavoriteDevicesBinding
-    private val sharedPreferences by lazy {
-        getSharedPreferences("app_settings", MODE_PRIVATE)
-    }
+    private val settings get() = container.settings
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -35,29 +39,31 @@ class FavoriteDevicesActivity : BaseActivity() {
         EdgeToEdgeUtils.setup(this, binding.appBar)
 
         setupToolbar()
-    }
 
-    override fun onResume() {
-        super.onResume()
-        // 从设置页返回或删除后刷新
-        refreshFavoriteDevices()
+        // 设置流驱动列表刷新：删除（异步写 DataStore）落盘后自动重建列表，
+        // 修复"setAsync 写后同步读导致删除后列表不刷新"的回归
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                settings.flowOf { it.connection.favoriteDeviceHistoryJson }
+                    .collect { refreshFavoriteDevices(it) }
+            }
+        }
     }
 
     private fun setupToolbar() {
         setSupportActionBar(binding.toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
-        supportActionBar?.title = "收藏设备"
+        supportActionBar?.title = getString(R.string.favorite_title)
         binding.toolbar.setNavigationOnClickListener { onBackPressedDispatcher.onBackPressed() }
     }
 
     /**
      * 加载收藏历史并渲染列表。
      */
-    private fun refreshFavoriteDevices() {
+    private fun refreshFavoriteDevices(json: String) {
         val container = binding.favoriteDevicesContainer
         container.removeAllViews()
 
-        val json = sharedPreferences.getString("favorite_device_history", null) ?: "[]"
         val deviceList = mutableListOf<Pair<String, String>>() // (id, name)
         try {
             val arr = JSONArray(json)
@@ -65,7 +71,8 @@ class FavoriteDevicesActivity : BaseActivity() {
                 val obj = arr.getJSONObject(i)
                 deviceList.add(obj.getString("id") to obj.getString("name"))
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            android.util.Log.w("FavoriteDevices", "解析收藏历史失败", e)
         }
 
         if (deviceList.isEmpty()) {
@@ -80,10 +87,10 @@ class FavoriteDevicesActivity : BaseActivity() {
             itemBinding.favoriteDeviceAddress.text = id
             itemBinding.favoriteDeviceDeleteButton.setOnClickListener {
                 MaterialAlertDialogBuilder(this)
-                    .setTitle("删除收藏设备")
-                    .setMessage("确定要删除「$name」的收藏记录吗？")
-                    .setNegativeButton("取消", null)
-                    .setPositiveButton("删除") { _, _ ->
+                    .setTitle(R.string.favorite_delete_title)
+                    .setMessage(getString(R.string.favorite_delete_message, name))
+                    .setNegativeButton(R.string.common_cancel, null)
+                    .setPositiveButton(R.string.common_delete) { _, _ ->
                         removeFavoriteDevice(id)
                     }
                     .show()
@@ -97,22 +104,25 @@ class FavoriteDevicesActivity : BaseActivity() {
      * 若删除的恰好是当前收藏设备（favorite_device_id），同时清除当前收藏。
      */
     private fun removeFavoriteDevice(id: String) {
-        val json = sharedPreferences.getString("favorite_device_history", null) ?: "[]"
-        try {
-            val arr = JSONArray(json)
-            val filtered = JSONArray()
-            for (i in 0 until arr.length()) {
-                val obj = arr.getJSONObject(i)
-                if (obj.getString("id") != id) {
-                    filtered.put(obj)
+        lifecycleScope.launch {
+            val json = settings.settings.value.connection.favoriteDeviceHistoryJson
+            try {
+                val arr = JSONArray(json)
+                val filtered = JSONArray()
+                for (i in 0 until arr.length()) {
+                    val obj = arr.getJSONObject(i)
+                    if (obj.getString("id") != id) {
+                        filtered.put(obj)
+                    }
                 }
+                settings.set(SettingsKeys.FAVORITE_DEVICE_HISTORY, filtered.toString())
+            } catch (e: Exception) {
+                android.util.Log.w("FavoriteDevices", "删除收藏记录失败", e)
             }
-            sharedPreferences.edit().putString("favorite_device_history", filtered.toString()).apply()
-        } catch (_: Exception) {
+            if (settings.settings.value.connection.favoriteDeviceId == id) {
+                settings.remove(SettingsKeys.FAVORITE_DEVICE_ID)
+            }
+            // 列表刷新由设置流驱动，无需手动调用
         }
-        if (sharedPreferences.getString("favorite_device_id", null) == id) {
-            sharedPreferences.edit().putString("favorite_device_id", null).apply()
-        }
-        refreshFavoriteDevices()
     }
 }
