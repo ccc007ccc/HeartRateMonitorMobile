@@ -12,10 +12,12 @@ import com.github.mikephil.charting.data.Entry
 import com.juul.kable.Advertisement
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -75,6 +77,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
+    // ---------- 采样率统计（最近 10 秒滑动窗口，评估设备每秒上报的包数） ----------
+
+    private val sampleTimestamps = ArrayDeque<Long>()
+    private val _sampleRate = MutableStateFlow(0f)
+
+    /** 设备实际上报频率（包/秒）；无数据或断开时为 0 */
+    val sampleRate: StateFlow<Float> = _sampleRate.asStateFlow()
+
+    private fun trimAndPublishSampleRate(now: Long) {
+        while (sampleTimestamps.isNotEmpty() && now - sampleTimestamps.first() > SAMPLE_RATE_WINDOW_MS) {
+            sampleTimestamps.removeFirst()
+        }
+        _sampleRate.value = if (sampleTimestamps.size < 2) {
+            0f
+        } else {
+            val spanMs = (sampleTimestamps.last() - sampleTimestamps.first()).coerceAtLeast(1L)
+            (sampleTimestamps.size - 1) * 1000f / spanMs
+        }
+    }
+
     private val _uiEvents = MutableSharedFlow<MainUiEvent>(
         extraBufferCapacity = 8, onBufferOverflow = BufferOverflow.DROP_OLDEST,
     )
@@ -98,9 +120,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         // 图表数据采集：收逐样本流（StateFlow 按值去重会让相同 BPM 不出点，时间密度失真）
         viewModelScope.launch {
             repository.heartRateSamples.collect { sample ->
+                sampleTimestamps.addLast(sample.timestampMillis)
+                trimAndPublishSampleRate(sample.timestampMillis)
                 if (sample.bpm > 0 && appStatus.value == AppStatus.CONNECTED) {
                     addChartDataPoint(sample.bpm)
                 }
+            }
+        }
+        // 采样率衰减：数据停止上报时窗口逐渐清空归零
+        viewModelScope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(1000)
+                trimAndPublishSampleRate(System.currentTimeMillis())
             }
         }
         // 连接建立时重置图表；状态跃迁产生一次性提示
@@ -215,6 +246,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private companion object {
         const val MAX_CHART_POINTS = 10000
+        const val SAMPLE_RATE_WINDOW_MS = 10_000L
         const val MAX_FAVORITE_HISTORY = 20
 
         fun BleState.toAppStatus(): AppStatus = when (this) {

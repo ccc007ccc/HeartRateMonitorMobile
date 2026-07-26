@@ -21,6 +21,7 @@
 
     <!-- Main screen -->
     <string name="main_nav_home">Home</string>
+    <string name="main_sample_rate">%1$s pkt/s</string>
     <string name="main_toggle_floating_window">Toggle floating window</string>
     <string name="main_view_history">View history</string>
     <string name="main_scan_devices">Scan for Bluetooth devices</string>

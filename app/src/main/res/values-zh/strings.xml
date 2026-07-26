@@ -21,6 +21,7 @@
 
     <!-- 主界面 -->
     <string name="main_nav_home">首页</string>
+    <string name="main_sample_rate">%1$s 包/秒</string>
     <string name="main_toggle_floating_window">切换悬浮窗</string>
     <string name="main_view_history">查看历史记录</string>
     <string name="main_scan_devices">搜索蓝牙设备</string>

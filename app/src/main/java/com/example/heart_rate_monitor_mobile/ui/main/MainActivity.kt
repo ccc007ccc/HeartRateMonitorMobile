@@ -237,6 +237,17 @@ class MainActivity : BaseActivity() {
                     viewModel.appStatus.collect { updateUiByStatus(it) }
                 }
                 launch {
+                    viewModel.sampleRate.collect { rate ->
+                        if (rate > 0f && viewModel.appStatus.value == AppStatus.CONNECTED) {
+                            binding.sampleRateText.visibility = View.VISIBLE
+                            binding.sampleRateText.text =
+                                getString(R.string.main_sample_rate, String.format(Locale.US, "%.1f", rate))
+                        } else {
+                            binding.sampleRateText.visibility = View.GONE
+                        }
+                    }
+                }
+                launch {
                     viewModel.uiEvents.collect { event ->
                         when (event) {
                             is MainUiEvent.ShowToast ->
