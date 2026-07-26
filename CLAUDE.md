@@ -21,11 +21,17 @@ Android BLE 心率监测应用（纯中文 UI）。2026-07 完成大规模重构
 - BleState 是纯状态（无 UI 文案）；文案映射唯一入口 `ble/BleStateTexts`（UI 与 HTTP/WS 接口共用）。
 - UI 层：StateFlow + `repeatOnLifecycle(STARTED)` 收集；一次性事件用 SharedFlow/Channel；**禁止** LiveData。
 
-## 安全约定（不得回退）
+## 生态与安全定位（维护者明确决策，不要"好心"改回安全默认）
 
-- 签名密码/keystore 永不入库（历史上曾泄漏，`.key/` 已 gitignore；密钥轮换待用户决策）
-- 内置 HTTP/WS 服务器默认只绑 127.0.0.1；开局域网必须走 token 认证（ServerController）
-- Webhook URL 仅允许 https（WebhookRepository.isUrlAllowed）；GitHub 预设同步必须走预览+确认+强制 enabled=false
+本项目定位**家庭局域网游戏生态**，与桌面版 HeartRateMonitor、HeartRateWidget 互通，兼容优先于安全：
+
+- **签名密钥内置于仓库 `.key/key`**（维护者决策）：任何人克隆编译出的 APK 与官方签名一致，
+  社区构建可覆盖安装官方版本。keystore.properties/环境变量可覆盖。
+- 内置 HTTP/WS 服务器**绑定所有网卡**（HeartRateWidget/桌面版无认证能力，需免配置直连）；
+  Token 认证为可选项（server_auth_required，默认 false）。
+- Webhook 允许 **http 与 https**（官方预设、VRChat OSC、sleepy-project 全是 http）；
+  manifest 已开 usesCleartextTraffic。
+- 仍然保留的防线：GitHub 预设同步走预览+确认+强制 enabled=false；云备份排除健康数据与凭据。
 
 ## UI 约定
 

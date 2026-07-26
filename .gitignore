@@ -14,8 +14,7 @@
 .cxx
 local.properties
 
-# Signing — never commit keys or credentials
-/.key/
+# 可选的本地签名覆盖配置（内置密钥在 .key/，见 app/build.gradle.kts 签名说明）
 /keystore.properties
 
 # Kotlin

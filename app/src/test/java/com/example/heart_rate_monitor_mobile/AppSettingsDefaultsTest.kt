@@ -45,8 +45,8 @@ class AppSettingsDefaultsTest {
     fun `server defaults are safe`() {
         assertFalse(defaults.server.httpEnabled)
         assertFalse(defaults.server.webSocketEnabled)
-        // 安全默认：不对局域网开放
-        assertFalse(defaults.server.allowLan)
+        // 生态兼容默认：认证关闭（HeartRateWidget/桌面版免配置直连）
+        assertFalse(defaults.server.authRequired)
         assertEquals(8000, defaults.server.httpPort)
         assertEquals(8001, defaults.server.webSocketPort)
     }

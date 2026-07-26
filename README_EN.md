@@ -30,8 +30,8 @@
 - 📡 **Powerful Data Interfaces (Webhook & Server)**:
     - **HTTP server**: other apps and devices can pull real-time heart rate as JSON (`heart_rate`, `status`, `status_key`, `speed`, …).
     - **WebSocket server**: pushes heart rate and connection state to all connected clients in real time.
-    - **Access security**: servers bind to localhost (127.0.0.1) only by default; enabling LAN access auto-generates a token and enforces authentication (`Authorization: Bearer <token>` or `?token=`).
-    - **Webhook push**: fire configurable HTTP requests on "connected", "disconnected", and "heart rate updated" events, with `{bpm}` / `{speed}` placeholders. For health-data safety, only `https://` URLs are allowed.
+    - **Ecosystem interop**: servers are LAN-reachable out of the box, pairing seamlessly with the [desktop HeartRateMonitor](https://github.com/ccc007ccc/HeartRateMonitor) and [HeartRateWidget](https://github.com/ccc007ccc/HeartRateWidget); optional token authentication (off by default; when on, requests need `Authorization: Bearer <token>` or `?token=`).
+    - **Webhook push**: fire configurable HTTP requests on "connected", "disconnected", and "heart rate updated" events, with `{bpm}` / `{speed}` placeholders. Both http and https targets are supported — VRChat OSC, sleepy-project, and other local endpoints work out of the box.
     - **Preset management**: create, edit, test, and toggle multiple webhook presets; sync official presets from GitHub (with preview and confirmation — synced entries are disabled by default).
 
 -----
@@ -48,7 +48,7 @@
 
       - Open the folder in **Android Studio** (JDK 17+ required; this project is developed with JDK 25 + Android SDK Platform 37).
       - Wait for **Gradle** to sync dependencies.
-      - Release signing: put a `keystore.properties` file (keys: `storeFile` / `storePassword` / `keyAlias` / `keyPassword`) in the project root; without it, release builds fall back to the debug signature automatically.
+      - Release signing: the signing key ships in the repo (`.key/key`), so a fresh clone builds an APK with the **same signature** as official releases (installable over them). To use your own key, place a `keystore.properties` file (`storeFile` / `storePassword` / `keyAlias` / `keyPassword`) in the project root to override.
 
 3.  **Build and run**
 
@@ -85,7 +85,7 @@
 
 8.  **Data interfaces (advanced)**
     - Find **Server Settings** and **Webhook Settings** inside **Settings**.
-    - Servers are localhost-only by default; enable "Allow LAN access" to expose them with token authentication.
+    - Once enabled, [HeartRateWidget](https://github.com/ccc007ccc/HeartRateWidget) / the desktop app on the same network can connect to your phone's IP directly; optional token authentication is available on the server page.
 
 -----
 

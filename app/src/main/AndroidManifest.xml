@@ -36,6 +36,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.HeartRateMonitorMobile"
+        android:usesCleartextTraffic="true"
         tools:targetApi="35">
 
         <service

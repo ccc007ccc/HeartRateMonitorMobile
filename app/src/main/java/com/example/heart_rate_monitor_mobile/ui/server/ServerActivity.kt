@@ -82,14 +82,14 @@ class ServerActivity : BaseActivity() {
             }
         }
 
-        // 访问安全
-        binding.allowLanSwitch.isChecked = server.allowLan
-        binding.allowLanSwitch.setOnCheckedChangeListener { _, isChecked ->
+        // Token 认证（可选，默认关——保证 HeartRateWidget/桌面版免配置直连）
+        binding.authRequiredSwitch.isChecked = server.authRequired
+        binding.authRequiredSwitch.setOnCheckedChangeListener { _, isChecked ->
             lifecycleScope.launch {
                 if (isChecked && settings.settings.value.server.authToken.isEmpty()) {
                     settings.set(SettingsKeys.SERVER_AUTH_TOKEN, ServerController.generateToken())
                 }
-                settings.set(SettingsKeys.SERVER_ALLOW_LAN, isChecked)
+                settings.set(SettingsKeys.SERVER_AUTH_REQUIRED, isChecked)
             }
         }
         binding.copyTokenButton.setOnClickListener {
@@ -120,12 +120,13 @@ class ServerActivity : BaseActivity() {
         binding.portEditText.isEnabled = !server.httpEnabled
         binding.websocketPortEditText.isEnabled = !server.webSocketEnabled
 
-        // Token 区域仅在开启局域网访问时展示
-        binding.tokenContainer.visibility = if (server.allowLan) View.VISIBLE else View.GONE
+        // Token 区域仅在开启认证时展示
+        binding.tokenContainer.visibility = if (server.authRequired) View.VISIBLE else View.GONE
         binding.tokenText.text = server.authToken.ifEmpty { getString(R.string.server_token_generating) }
 
-        val host = if (server.allowLan) lanIpAddress() else "127.0.0.1"
-        val tokenSuffix = if (server.allowLan && server.authToken.isNotEmpty()) {
+        // 服务器始终绑定所有网卡（v1.x 兼容），地址直接展示局域网 IP
+        val host = lanIpAddress()
+        val tokenSuffix = if (server.authRequired && server.authToken.isNotEmpty()) {
             "?token=${server.authToken}"
         } else {
             ""

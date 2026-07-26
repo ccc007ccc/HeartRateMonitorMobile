@@ -32,8 +32,8 @@
 - 📡 **强大的数据接口 (Webhook & Server)**：
     - **HTTP 服务器**：内置HTTP服务器，可供其他应用或设备被动拉取实时心率数据（JSON 含 `heart_rate`/`status`/`status_key`/`speed` 等字段）。
     - **WebSocket 服务器**: 内置WebSocket服务器，可向所有连接的客户端实时主动推送心率和连接状态。
-    - **访问安全**：服务器默认仅本机（127.0.0.1）可访问；可显式开启局域网访问，开启后自动生成 Token 并强制认证（`Authorization: Bearer <token>` 或 `?token=`）。
-    - **Webhook 推送**：完善的Webhook系统，可在“连接成功”、“连接断开”、“心率更新”等多种事件触发时，将数据主动推送到多个自定义URL，并支持`{bpm}`/`{speed}`占位符。出于健康数据安全考虑，仅允许 `https://` 地址。
+    - **生态互联**：服务器面向局域网开放（与 [桌面版 HeartRateMonitor](https://github.com/ccc007ccc/HeartRateMonitor)、[HeartRateWidget](https://github.com/ccc007ccc/HeartRateWidget) 无缝互通）；可选的 Token 认证（默认关闭，开启后请求需携带 `Authorization: Bearer <token>` 或 `?token=`）。
+    - **Webhook 推送**：完善的Webhook系统，可在“连接成功”、“连接断开”、“心率更新”等多种事件触发时，将数据主动推送到多个自定义URL（http/https 均可，VRChat OSC、sleepy-project 等本地目标开箱即用），支持`{bpm}`/`{speed}`占位符。
     - **预设管理**：可以自由新增、编辑、删除、测试和启用/禁用多个Webhook预设，并支持从GitHub同步官方预设（预览确认后合并，同步条目默认禁用）。
 
 -----
@@ -50,7 +50,7 @@
 
       - 使用 **Android Studio** 打开项目文件夹（需 JDK 17+，本项目开发环境为 JDK 25 + Android SDK Platform 37）。
       - 等待 **Gradle** 自动同步依赖。
-      - Release 签名：复制 `keystore.properties` 模板（`storeFile`/`storePassword`/`keyAlias`/`keyPassword` 四项）到项目根目录；没有该文件时 release 构建自动回退 debug 签名。
+      - Release 签名：仓库已内置签名密钥（`.key/key`），克隆后直接构建即可得到与官方发布版**相同签名**的 APK（可覆盖安装官方版本）。如需使用自己的密钥，在根目录放置 `keystore.properties`（`storeFile`/`storePassword`/`keyAlias`/`keyPassword`）即可覆盖。
 
 3.  **构建并运行**
 
@@ -93,7 +93,7 @@
 
 8.  **配置数据接口 (高级)**
     - 在 **设置** 中可以找到 **服务器设置** 和 **Webhook 设置** 的入口。
-    - 服务器默认仅本机（127.0.0.1）可访问；开启「允许局域网访问」后自动生成 Token，同网设备需凭 Token 读取。
+    - 开启服务器后，同一局域网内的 [HeartRateWidget](https://github.com/ccc007ccc/HeartRateWidget) / 桌面版可直接连接手机 IP 读取心率；如需防护可在服务器页开启可选的 Token 认证。
 
 -----
 

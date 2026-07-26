@@ -138,13 +138,7 @@ class WebhookRepository(
                     add(webhook.copy(enabled = false))
                 }
             }
-            // 基本 schema 校验：预设 URL 也必须是 https
-            val invalid = presets.filterNot { isUrlAllowed(it.url) }
-            if (invalid.isNotEmpty()) {
-                Result.failure(IllegalArgumentException("预设中包含非 https URL：${invalid.joinToString { it.name }}"))
-            } else {
-                Result.success(presets)
-            }
+            Result.success(presets)
         } catch (e: Exception) {
             Log.e(TAG, "拉取 GitHub 预设失败", e)
             Result.failure(e)
@@ -180,7 +174,7 @@ class WebhookRepository(
 
         if (!isUrlAllowed(urlString)) {
             return@withContext appContext.getString(
-                R.string.webhook_send_failed_https, urlString.take(32)
+                R.string.webhook_send_failed_scheme, urlString.take(32)
             )
         }
 
@@ -245,8 +239,11 @@ class WebhookRepository(
         private const val GITHUB_PRESET_URL =
             "https://raw.githubusercontent.com/ccc007ccc/HeartRateMonitor/main/config_webhook.json"
 
-        /** 仅允许 https，防止心率健康数据明文外发 */
+        /**
+         * 允许 http 与 https：本项目生态（VRChat OSC、sleepy-project、局域网 PC）
+         * 大量依赖明文 http 目标，官方预设亦为 http。仅拦截其他协议。
+         */
         fun isUrlAllowed(url: String): Boolean =
-            url.startsWith("https://", ignoreCase = true)
+            url.startsWith("http://", ignoreCase = true) || url.startsWith("https://", ignoreCase = true)
     }
 }

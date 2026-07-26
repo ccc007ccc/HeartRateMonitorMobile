@@ -187,9 +187,9 @@ class WebhookActivity : BaseActivity() {
             val saveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
             saveButton.setOnClickListener {
                 val url = urlEditText.text.toString().trim()
-                // 安全约束：心率数据外发仅允许 https
+                // 协议校验：允许 http/https（生态大量依赖明文 http 目标）
                 if (!WebhookRepository.isUrlAllowed(url)) {
-                    urlEditText.error = getString(R.string.webhook_https_only)
+                    urlEditText.error = getString(R.string.webhook_url_scheme_invalid)
                     return@setOnClickListener
                 }
 

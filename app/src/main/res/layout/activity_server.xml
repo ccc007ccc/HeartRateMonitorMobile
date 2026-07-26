@@ -140,16 +140,16 @@
                     android:padding="16dp">
 
                     <com.google.android.material.materialswitch.MaterialSwitch
-                        android:id="@+id/allowLanSwitch"
+                        android:id="@+id/authRequiredSwitch"
                         style="@style/SettingsRow"
-                        android:text="@string/server_allow_lan"
+                        android:text="@string/server_auth_required"
                         android:padding="0dp"/>
 
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="4dp"
-                        android:text="@string/server_allow_lan_hint"
+                        android:text="@string/server_auth_hint"
                         android:textAppearance="?attr/textAppearanceBodySmall"
                         android:textColor="?attr/colorOnSurfaceVariant" />
 

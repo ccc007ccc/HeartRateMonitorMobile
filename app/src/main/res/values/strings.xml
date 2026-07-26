@@ -194,8 +194,8 @@
     <string name="server_enable_ws">Enable WebSocket Server</string>
     <string name="server_ws_port">WebSocket Port</string>
     <string name="server_section_security">Access Security</string>
-    <string name="server_allow_lan">Allow LAN access</string>
-    <string name="server_allow_lan_hint">When off, the server is reachable only from this device (127.0.0.1). When on, devices on the same network can read heart rate data using the token below; be cautious on public Wi-Fi.</string>
+    <string name="server_auth_required">Require token authentication</string>
+    <string name="server_auth_hint">Off by default so companion apps on your network (HeartRateWidget, the desktop HeartRateMonitor) can connect directly. Turn on to require a token for every request (Authorization: Bearer or ?token=).</string>
     <string name="server_copy">Copy</string>
     <string name="server_reset">Reset</string>
     <string name="server_token_copied">Token copied</string>
@@ -232,10 +232,10 @@
     <string name="webhook_new_default_name">New Webhook</string>
     <string name="webhook_dialog_add">Add Webhook</string>
     <string name="webhook_dialog_edit">Edit Webhook</string>
-    <string name="webhook_https_only">Only https:// URLs are allowed</string>
+    <string name="webhook_url_scheme_invalid">URL must start with http:// or https://</string>
     <string name="webhook_testing">Testing…</string>
     <string name="webhook_delete_message">Delete \'%1$s\'? This cannot be undone.</string>
-    <string name="webhook_send_failed_https">Send failed: only https:// URLs are allowed (got: %1$s…)</string>
+    <string name="webhook_send_failed_scheme">Send failed: URL must start with http:// or https:// (got: %1$s…)</string>
     <string name="webhook_send_failed_headers">Send failed: Headers is not valid JSON: %1$s</string>
     <string name="webhook_response_test_title">Webhook Test Response</string>
     <string name="webhook_response_sent_title">Webhook Sent</string>

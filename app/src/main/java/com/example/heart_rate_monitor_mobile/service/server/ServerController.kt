@@ -18,9 +18,9 @@ import java.security.SecureRandom
  * HTTP/WebSocket 服务器生命周期控制器。
  *
  * - 由 BleService 的存活周期 start()/stop()（与旧行为一致：服务器只在心率服务运行时可用）；
- * - 观察设置流，端口 / 开关 / 局域网模式 / token 任一变化即重启对应服务器
- *   （token 纳入配置键修复了"重置 token 对运行中服务器不生效、旧 token 无法吊销"的缺陷）；
- * - 默认仅绑定 127.0.0.1；开启局域网访问时自动生成并强制 token 认证；
+ * - 观察设置流，端口 / 开关 / 认证 / token 任一变化即重启对应服务器
+ *   （token 纳入配置键保证"重置 token 立即生效、旧 token 立即吊销"）；
+ * - 绑定所有网卡（与 v1.x 一致，家庭局域网生态直连）；Token 认证为可选项，默认关闭；
  * - restart/stop 经 synchronized 串行化，杜绝 stop 与配置变更并发导致的服务器泄漏。
  */
 class ServerController(
@@ -42,7 +42,7 @@ class ServerController(
     private data class ServerConfig(
         val enabled: Boolean,
         val port: Int,
-        val allowLan: Boolean,
+        val authRequired: Boolean,
         val token: String,
     )
 
@@ -91,9 +91,9 @@ class ServerController(
             httpServer = null
             if (!stopped && config.enabled) {
                 httpServer = HttpServerManager(
-                    hostname = bindHost(config.allowLan),
+                    hostname = BIND_HOST,
                     port = config.port,
-                    allowLan = config.allowLan,
+                    authRequired = config.authRequired,
                     authToken = token,
                     snapshotProvider = ::snapshotJson,
                 ).also { it.start() }
@@ -108,9 +108,9 @@ class ServerController(
             webSocketServer = null
             if (!stopped && config.enabled) {
                 webSocketServer = WebSocketServerManager(
-                    hostname = bindHost(config.allowLan),
+                    hostname = BIND_HOST,
                     port = config.port,
-                    allowLan = config.allowLan,
+                    authRequired = config.authRequired,
                     authToken = token,
                     stateFlow = wsPayload,
                 ).also { it.start() }
@@ -130,14 +130,12 @@ class ServerController(
         }
     }
 
-    private fun bindHost(allowLan: Boolean): String = if (allowLan) "0.0.0.0" else "127.0.0.1"
-
     /**
-     * 兜底：局域网模式但 token 为空时补生成（正常路径由 ServerActivity 在开启开关前写入；
+     * 兜底：开启认证但 token 为空时补生成（正常路径由 ServerActivity 在开启开关前写入；
      * 写入会触发配置流重启服务器，最终一致）。
      */
     private suspend fun ensureToken(config: ServerConfig): String {
-        if (!config.allowLan || config.token.isNotEmpty()) return config.token
+        if (!config.authRequired || config.token.isNotEmpty()) return config.token
         val token = generateToken()
         settings.set(SettingsKeys.SERVER_AUTH_TOKEN, token)
         return token
@@ -155,7 +153,10 @@ class ServerController(
             }
         }
 
-        private fun ServerSettings.httpConfig() = ServerConfig(httpEnabled, httpPort, allowLan, authToken)
-        private fun ServerSettings.wsConfig() = ServerConfig(webSocketEnabled, webSocketPort, allowLan, authToken)
+        /** 与 v1.x 一致绑定所有网卡：同网的 HeartRateWidget / 桌面版可直连 */
+        private const val BIND_HOST = "0.0.0.0"
+
+        private fun ServerSettings.httpConfig() = ServerConfig(httpEnabled, httpPort, authRequired, authToken)
+        private fun ServerSettings.wsConfig() = ServerConfig(webSocketEnabled, webSocketPort, authRequired, authToken)
     }
 }

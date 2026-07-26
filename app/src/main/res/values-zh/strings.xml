@@ -194,8 +194,8 @@
     <string name="server_enable_ws">启用 WebSocket 服务器</string>
     <string name="server_ws_port">WebSocket 端口</string>
     <string name="server_section_security">访问安全</string>
-    <string name="server_allow_lan">允许局域网访问</string>
-    <string name="server_allow_lan_hint">关闭时服务器仅本机（127.0.0.1）可访问；开启后同一网络的设备可凭下方 Token 读取心率数据，公共 Wi-Fi 下请谨慎开启。</string>
+    <string name="server_auth_required">需要 Token 认证</string>
+    <string name="server_auth_hint">默认关闭，同网的配套应用（HeartRateWidget、桌面版 HeartRateMonitor）可直接连接。开启后每个请求需携带 Token（Authorization: Bearer 或 ?token=）。</string>
     <string name="server_copy">复制</string>
     <string name="server_reset">重置</string>
     <string name="server_token_copied">Token 已复制</string>
@@ -232,10 +232,10 @@
     <string name="webhook_new_default_name">新的Webhook</string>
     <string name="webhook_dialog_add">新增 Webhook</string>
     <string name="webhook_dialog_edit">编辑 Webhook</string>
-    <string name="webhook_https_only">仅允许 https:// 开头的 URL</string>
+    <string name="webhook_url_scheme_invalid">URL 必须以 http:// 或 https:// 开头</string>
     <string name="webhook_testing">正在测试...</string>
     <string name="webhook_delete_message">确定要删除 \'%1$s\' 吗？此操作无法撤销。</string>
-    <string name="webhook_send_failed_https">发送失败: 仅允许 https:// 开头的 URL（当前：%1$s…）</string>
+    <string name="webhook_send_failed_scheme">发送失败: URL 必须以 http:// 或 https:// 开头（当前：%1$s…）</string>
     <string name="webhook_send_failed_headers">发送失败: Headers不是有效的JSON格式: %1$s</string>
     <string name="webhook_response_test_title">Webhook 测试响应</string>
     <string name="webhook_response_sent_title">Webhook 已发送</string>

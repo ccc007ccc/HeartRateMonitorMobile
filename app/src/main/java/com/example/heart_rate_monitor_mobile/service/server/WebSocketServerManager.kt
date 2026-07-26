@@ -15,13 +15,13 @@ import kotlinx.coroutines.launch
 import java.io.IOException
 
 /**
- * 内置 WebSocket 服务器。安全模型与 [HttpServerManager] 一致：
- * 默认仅绑定 127.0.0.1；对局域网开放时在 HTTP 升级前强制校验 token。
+ * 内置 WebSocket 服务器（绑定所有网卡，与 v1.x 生态兼容）。
+ * 认证模型与 [HttpServerManager] 一致：可选 Token，默认关闭；开启时在 HTTP 升级前校验。
  */
 class WebSocketServerManager(
     private val hostname: String,
     private val port: Int,
-    private val allowLan: Boolean,
+    private val authRequired: Boolean,
     private val authToken: String,
     private val stateFlow: SharedFlow<String>,
 ) {
@@ -31,7 +31,7 @@ class WebSocketServerManager(
         if (server != null) return
         try {
             server = AppWebSocketServer().also { it.start(NanoHTTPD.SOCKET_READ_TIMEOUT, false) }
-            Log.i(TAG, "WebSocket Server started on $hostname:$port (LAN=${allowLan})")
+            Log.i(TAG, "WebSocket Server started on $hostname:$port (auth=${authRequired})")
         } catch (e: Exception) {
             Log.e(TAG, "WebSocket Server start failed on $hostname:$port", e)
             server = null
@@ -48,7 +48,7 @@ class WebSocketServerManager(
 
         /** 在升级为 WebSocket 之前完成认证，未授权连接直接 401 */
         override fun serve(session: IHTTPSession): Response {
-            if (!HttpServerManager.isAuthorized(session, allowLan, authToken)) {
+            if (!HttpServerManager.isAuthorized(session, authRequired, authToken)) {
                 return newFixedLengthResponse(
                     Response.Status.UNAUTHORIZED, MIME_PLAINTEXT, "Unauthorized"
                 )

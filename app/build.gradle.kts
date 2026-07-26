@@ -6,8 +6,9 @@ plugins {
     alias(libs.plugins.room)
 }
 
-// 签名信息一律来自版本控制之外：优先 keystore.properties（已 gitignore），其次环境变量（CI secrets）。
-// 两者都没有时 release 回退 debug 签名，保证任何环境都能出包。
+// 签名解析顺序：keystore.properties（可选覆盖，gitignore）→ 环境变量 → 仓库内置 .key/key。
+// 内置密钥为项目维护者决策：保证任何人克隆编译出的 APK 与官方签名一致（家庭局域网生态，
+// 社区自编译可直接覆盖安装官方版本）。密钥文件缺失时 release 回退 debug 签名。
 val keystoreProperties = Properties().apply {
     val file = rootProject.file("keystore.properties")
     if (file.exists()) file.inputStream().use(::load)
@@ -16,12 +17,11 @@ val keystoreProperties = Properties().apply {
 fun signingValue(propKey: String, envKey: String): String? =
     keystoreProperties.getProperty(propKey) ?: System.getenv(envKey)
 
-val releaseStoreFile = signingValue("storeFile", "KEYSTORE_FILE")
-val releaseStorePassword = signingValue("storePassword", "KEYSTORE_PASSWORD")
-val releaseKeyAlias = signingValue("keyAlias", "KEY_ALIAS")
-val releaseKeyPassword = signingValue("keyPassword", "KEY_PASSWORD")
-val hasReleaseSigning = releaseStoreFile != null && releaseStorePassword != null &&
-    releaseKeyAlias != null && releaseKeyPassword != null
+val releaseStoreFile = signingValue("storeFile", "KEYSTORE_FILE") ?: ".key/key"
+val releaseStorePassword = signingValue("storePassword", "KEYSTORE_PASSWORD") ?: "123456"
+val releaseKeyAlias = signingValue("keyAlias", "KEY_ALIAS") ?: "key0"
+val releaseKeyPassword = signingValue("keyPassword", "KEY_PASSWORD") ?: "123456"
+val hasReleaseSigning = rootProject.file(releaseStoreFile).exists()
 
 android {
     namespace = "com.example.heart_rate_monitor_mobile"
@@ -50,7 +50,7 @@ android {
     signingConfigs {
         if (hasReleaseSigning) {
             create("release") {
-                storeFile = rootProject.file(releaseStoreFile!!)
+                storeFile = rootProject.file(releaseStoreFile)
                 storePassword = releaseStorePassword
                 keyAlias = releaseKeyAlias
                 keyPassword = releaseKeyPassword

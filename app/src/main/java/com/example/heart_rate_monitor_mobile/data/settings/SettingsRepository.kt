@@ -76,7 +76,7 @@ object SettingsKeys {
     val HTTP_SERVER_PORT = intPreferencesKey("http_server_port")
     val WEBSOCKET_SERVER_ENABLED = booleanPreferencesKey("websocket_server_enabled")
     val WEBSOCKET_SERVER_PORT = intPreferencesKey("websocket_server_port")
-    val SERVER_ALLOW_LAN = booleanPreferencesKey("server_allow_lan")
+    val SERVER_AUTH_REQUIRED = booleanPreferencesKey("server_auth_required")
     val SERVER_AUTH_TOKEN = stringPreferencesKey("server_auth_token")
 }
 
@@ -187,7 +187,7 @@ class SettingsRepository(context: Context, private val scope: CoroutineScope) {
                 httpPort = this[SettingsKeys.HTTP_SERVER_PORT] ?: 8000,
                 webSocketEnabled = this[SettingsKeys.WEBSOCKET_SERVER_ENABLED] ?: false,
                 webSocketPort = this[SettingsKeys.WEBSOCKET_SERVER_PORT] ?: 8001,
-                allowLan = this[SettingsKeys.SERVER_ALLOW_LAN] ?: false,
+                authRequired = this[SettingsKeys.SERVER_AUTH_REQUIRED] ?: false,
                 authToken = this[SettingsKeys.SERVER_AUTH_TOKEN] ?: "",
             ),
         )

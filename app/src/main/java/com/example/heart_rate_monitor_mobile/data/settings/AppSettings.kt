@@ -78,10 +78,11 @@ data class ServerSettings(
     val webSocketEnabled: Boolean = false,
     val webSocketPort: Int = 8001,
     /**
-     * 是否允许局域网访问。false（默认）时服务器仅绑定 127.0.0.1，
-     * 心率数据不暴露给同一网络的其他设备；true 时绑定所有网卡并强制 token 认证。
+     * 是否要求 Token 认证（默认关闭）。本项目定位家庭局域网生态
+     * （HeartRateWidget / 桌面版直连，无认证能力），服务器始终绑定所有网卡；
+     * 需要防护时可手动开启本开关。
      */
-    val allowLan: Boolean = false,
-    /** 局域网访问认证 token，首次开启局域网访问时自动生成，可在服务器页重置 */
+    val authRequired: Boolean = false,
+    /** 认证 token，开启 Token 认证时自动生成，可在服务器页重置 */
     val authToken: String = "",
 )
