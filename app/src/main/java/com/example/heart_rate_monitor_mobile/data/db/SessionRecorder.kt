@@ -1,6 +1,5 @@
 package com.example.heart_rate_monitor_mobile.data.db
 
-import android.database.sqlite.SQLiteConstraintException
 import android.util.Log
 import com.example.heart_rate_monitor_mobile.data.settings.SettingsRepository
 import kotlinx.coroutines.CoroutineScope
@@ -9,19 +8,13 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 
 /**
- * 心率历史会话记录器（从 BleService 抽出的数据库写入职责）。
+ * 多轨会话记录器（v3）：主设备连接即开会话、断开即结束；
+ * 会话期间主设备与全部对比设备的样本都入库，按设备分轨归属。
  *
- * 事件经无界 Channel 由单一消费协程串行处理——保证 连接→采样→断开 的
- * 处理顺序与事件到达顺序一致（每事件独立 launch + mutex 无法保证顺序）。
- *
- * 写入策略：样本先进内存缓冲，攒满 [BATCH_SIZE] 条或距上次落盘超过
- * [FLUSH_INTERVAL_MS] 时才单事务批量写入——1Hz 采样下事务提交数降约 30 倍，
- * 这是"开启历史记录更耗电"的主要来源。断开/清理时强制 flush；
- * 进程被杀最多丢一批缓冲（≤30 秒），对历史曲线可接受。
- *
- * 与旧实现的行为差异（修复）：
- * - history_recording_enabled 在每个样本写入时实时读取，连接中途切换开关立即生效
- *   （旧实现只在订阅开始时读一次）。
+ * 事件经无界 Channel 由单一消费协程串行处理（顺序与到达一致）；
+ * 样本缓冲攒 [BATCH_SIZE] 条或 [FLUSH_INTERVAL_MS] 单事务批量落盘
+ * （1Hz 单设备下事务数降约 30 倍；多设备同录时批次更满、效率更高）。
+ * history_recording_enabled 每样本实时读取，中途切换立即生效。
  */
 class SessionRecorder(
     private val dao: HeartRateDao,
@@ -29,15 +22,26 @@ class SessionRecorder(
     scope: CoroutineScope,
 ) {
     private sealed interface Event {
-        data class Connected(val deviceName: String) : Event
-        data class Sample(val bpm: Int, val timestampMs: Long) : Event
-        data object Disconnected : Event
+        data class PrimaryConnected(val deviceId: String, val deviceName: String) : Event
+        data class Sample(
+            val deviceKey: String,
+            val deviceName: String,
+            val isPrimary: Boolean,
+            val bpm: Int,
+            val timestampMs: Long,
+            val rr: String?,
+        ) : Event
+
+        data object PrimaryDisconnected : Event
         data object CleanupOpenSessions : Event
     }
 
     private val events = Channel<Event>(Channel.UNLIMITED)
+
     private var currentSessionId: Long? = null
 
+    /** deviceKey → session_devices 行 id（懒创建：设备首个样本时挂入会话） */
+    private val deviceRowIds = mutableMapOf<String, Long>()
     private val pendingRecords = mutableListOf<HeartRateRecord>()
     private var lastFlushAt = 0L
 
@@ -53,18 +57,29 @@ class SessionRecorder(
         }
     }
 
-    fun onConnected(deviceName: String) {
-        events.trySend(Event.Connected(deviceName))
+    fun onPrimaryConnected(deviceId: String, deviceName: String) {
+        events.trySend(Event.PrimaryConnected(deviceId, deviceName))
     }
 
-    /** [timestampMs] 为样本产生时刻（BLE 发射点打点），落库时间戳与真实采样对齐 */
-    fun onSample(bpm: Int, timestampMs: Long = System.currentTimeMillis()) {
+    fun onSample(
+        deviceKey: String,
+        deviceName: String,
+        isPrimary: Boolean,
+        bpm: Int,
+        timestampMs: Long = System.currentTimeMillis(),
+        rrIntervalsMs: List<Int> = emptyList(),
+    ) {
         if (bpm <= 0) return
-        events.trySend(Event.Sample(bpm, timestampMs))
+        events.trySend(
+            Event.Sample(
+                deviceKey, deviceName, isPrimary, bpm, timestampMs,
+                rrIntervalsMs.takeIf { it.isNotEmpty() }?.joinToString(","),
+            )
+        )
     }
 
-    fun onDisconnected() {
-        events.trySend(Event.Disconnected)
+    fun onPrimaryDisconnected() {
+        events.trySend(Event.PrimaryDisconnected)
     }
 
     /** 进程冷启动时兜底关闭上次异常退出遗留的未结束会话 */
@@ -74,22 +89,40 @@ class SessionRecorder(
 
     private suspend fun handle(event: Event) {
         when (event) {
-            is Event.Connected -> {
+            is Event.PrimaryConnected -> {
                 if (!settings.settings.value.general.historyRecordingEnabled) return
                 if (currentSessionId != null) return
-                currentSessionId = dao.insertSession(
-                    HeartRateSession(deviceName = event.deviceName, startTime = System.currentTimeMillis())
+                val sessionId = dao.insertSession(RecordingSession(startTime = System.currentTimeMillis()))
+                currentSessionId = sessionId
+                deviceRowIds[event.deviceId] = dao.insertSessionDevice(
+                    SessionDevice(
+                        sessionId = sessionId,
+                        deviceId = event.deviceId,
+                        deviceName = event.deviceName,
+                        isPrimary = true,
+                    )
                 )
                 lastFlushAt = System.currentTimeMillis()
             }
             is Event.Sample -> {
                 if (!settings.settings.value.general.historyRecordingEnabled) return
                 val sessionId = currentSessionId ?: return
+                val rowId = deviceRowIds.getOrPut(event.deviceKey) {
+                    dao.insertSessionDevice(
+                        SessionDevice(
+                            sessionId = sessionId,
+                            deviceId = event.deviceKey,
+                            deviceName = event.deviceName,
+                            isPrimary = event.isPrimary,
+                        )
+                    )
+                }
                 pendingRecords.add(
                     HeartRateRecord(
-                        sessionId = sessionId,
+                        sessionDeviceId = rowId,
                         timestamp = event.timestampMs,
                         heartRate = event.bpm,
+                        rr = event.rr,
                     )
                 )
                 val now = System.currentTimeMillis()
@@ -97,12 +130,13 @@ class SessionRecorder(
                     flushPending()
                 }
             }
-            is Event.Disconnected -> {
+            is Event.PrimaryDisconnected -> {
                 flushPending()
                 currentSessionId?.let { id ->
                     dao.endSession(id, System.currentTimeMillis())
-                    currentSessionId = null
                 }
+                currentSessionId = null
+                deviceRowIds.clear()
             }
             is Event.CleanupOpenSessions -> {
                 flushPending()
@@ -119,9 +153,8 @@ class SessionRecorder(
         if (pendingRecords.isEmpty()) return
         try {
             dao.insertRecords(pendingRecords.toList())
-        } catch (e: SQLiteConstraintException) {
-            Log.w(TAG, "会话已失效，丢弃缓冲并停止写入", e)
-            currentSessionId = null
+        } catch (e: Exception) {
+            Log.w(TAG, "样本批量落盘失败，丢弃本批缓冲", e)
         }
         pendingRecords.clear()
         lastFlushAt = System.currentTimeMillis()

@@ -21,11 +21,29 @@
             app:title="@string/chart_title" />
     </com.google.android.material.appbar.AppBarLayout>
 
-    <com.github.mikephil.charting.charts.LineChart
-        android:id="@+id/historyChart"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        app:layout_behavior="@string/appbar_scrolling_view_behavior"
+        android:orientation="vertical"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+
+        <TextView
+            android:id="@+id/accuracySummary"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingHorizontal="16dp"
+            android:paddingTop="8dp"
+            android:textAppearance="?attr/textAppearanceBodySmall"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:visibility="gone"
+            tools:text="胸带: 平均差 1.2 · 最大差 5" />
+
+        <com.github.mikephil.charting.charts.LineChart
+            android:id="@+id/historyChart"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
         android:layout_margin="16dp"/>
+    </LinearLayout>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

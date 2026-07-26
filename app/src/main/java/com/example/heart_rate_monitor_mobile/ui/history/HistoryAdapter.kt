@@ -8,14 +8,14 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.example.heart_rate_monitor_mobile.R
-import com.example.heart_rate_monitor_mobile.data.db.HeartRateSession
+import com.example.heart_rate_monitor_mobile.data.db.SessionWithDevices
 import com.example.heart_rate_monitor_mobile.databinding.ListItemHistoryBinding
 import java.text.SimpleDateFormat
 import java.util.*
 
 class HistoryAdapter(
     private val listener: HistoryAdapterListener
-) : ListAdapter<HeartRateSession, HistoryAdapter.HistoryViewHolder>(HistoryDiffCallback) {
+) : ListAdapter<SessionWithDevices, HistoryAdapter.HistoryViewHolder>(HistoryDiffCallback) {
 
     private var isMultiSelectMode = false
     private val selectedItems = mutableSetOf<Long>()
@@ -36,12 +36,12 @@ class HistoryAdapter(
         } else {
             selectedItems.add(sessionId)
         }
-        notifyItemChanged(currentList.indexOfFirst { it.id == sessionId })
+        notifyItemChanged(currentList.indexOfFirst { it.session.id == sessionId })
     }
 
     fun selectAll() {
         selectedItems.clear()
-        selectedItems.addAll(currentList.map { it.id })
+        selectedItems.addAll(currentList.map { it.session.id })
         notifyDataSetChanged()
     }
 
@@ -51,7 +51,7 @@ class HistoryAdapter(
     }
 
     override fun onBindViewHolder(holder: HistoryViewHolder, position: Int) {
-        holder.bind(getItem(position), isMultiSelectMode, selectedItems.contains(getItem(position).id))
+        holder.bind(getItem(position), isMultiSelectMode, selectedItems.contains(getItem(position).session.id))
     }
 
     class HistoryViewHolder(
@@ -61,8 +61,15 @@ class HistoryAdapter(
 
         private val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
 
-        fun bind(session: HeartRateSession, isMultiSelectMode: Boolean, isSelected: Boolean) {
-            binding.deviceNameText.text = session.deviceName
+        fun bind(item: SessionWithDevices, isMultiSelectMode: Boolean, isSelected: Boolean) {
+            val session = item.session
+            val primaryName = item.primaryDevice?.deviceName
+                ?: itemView.context.getString(R.string.history_unknown_device)
+            binding.deviceNameText.text = if (item.comparisonCount > 0) {
+                itemView.context.getString(R.string.history_session_summary, primaryName, item.comparisonCount)
+            } else {
+                primaryName
+            }
             val startTime = dateFormat.format(Date(session.startTime))
             val endTime = session.endTime?.let { dateFormat.format(Date(it)).substring(11) }
                 ?: itemView.context.getString(R.string.history_in_progress)
@@ -77,23 +84,23 @@ class HistoryAdapter(
                 binding.container.setBackgroundColor(Color.TRANSPARENT)
             }
 
-            itemView.setOnClickListener { listener.onItemClick(session) }
-            itemView.setOnLongClickListener { listener.onItemLongClick(session); true }
+            itemView.setOnClickListener { listener.onItemClick(item) }
+            itemView.setOnLongClickListener { listener.onItemLongClick(item); true }
         }
     }
 }
 
 interface HistoryAdapterListener {
-    fun onItemClick(session: HeartRateSession)
-    fun onItemLongClick(session: HeartRateSession)
+    fun onItemClick(item: SessionWithDevices)
+    fun onItemLongClick(item: SessionWithDevices)
 }
 
-object HistoryDiffCallback : DiffUtil.ItemCallback<HeartRateSession>() {
-    override fun areItemsTheSame(oldItem: HeartRateSession, newItem: HeartRateSession): Boolean {
-        return oldItem.id == newItem.id
+object HistoryDiffCallback : DiffUtil.ItemCallback<SessionWithDevices>() {
+    override fun areItemsTheSame(oldItem: SessionWithDevices, newItem: SessionWithDevices): Boolean {
+        return oldItem.session.id == newItem.session.id
     }
 
-    override fun areContentsTheSame(oldItem: HeartRateSession, newItem: HeartRateSession): Boolean {
+    override fun areContentsTheSame(oldItem: SessionWithDevices, newItem: SessionWithDevices): Boolean {
         return oldItem == newItem
     }
 }

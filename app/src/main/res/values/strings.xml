@@ -247,4 +247,18 @@
     <string name="tile_label">Heart Rate</string>
     <string name="tile_connecting">Connecting…</string>
     <string name="tile_tap_to_connect">Tap to connect</string>
+    <!-- Multi-device comparison -->
+    <string name="settings_comparison_mode">Multi-device comparison</string>
+    <string name="settings_comparison_mode_hint">Adds a device panel and an always-on overlay chart on the home screen for benchmarking multiple heart rate monitors</string>
+    <string name="main_comparison_title">Devices</string>
+    <string name="main_comparison_add">Add</string>
+    <string name="comparison_scan_title">Add comparison device</string>
+    <string name="comparison_disconnected">Disconnected · tap to reconnect</string>
+    <string name="comparison_remove">Remove</string>
+    <string name="comparison_primary_tag">Primary</string>
+    <string name="comparison_metrics">%1$d BPM · %2$s pkt/s</string>
+    <string name="comparison_delta_mae">Δ%1$s · MAE %2$s</string>
+    <string name="history_session_summary">%1$s +%2$d comparison</string>
+    <string name="history_unknown_device">Unknown device</string>
+    <string name="chart_accuracy_line">%1$s: mean diff %2$s · max %3$s</string>
 </resources>

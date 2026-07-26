@@ -11,6 +11,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
+import org.json.JSONArray
 import org.json.JSONObject
 import java.security.SecureRandom
 
@@ -121,12 +122,32 @@ class ServerController(
     private fun snapshotJson(): JSONObject {
         val state = data.bleState.value
         return JSONObject().apply {
+            // 既有字段 = 主设备（HeartRateWidget/桌面版契约不变）
             put("heart_rate", data.heartRate.value)
             put("connected", data.isDeviceConnected())
             put("status", BleStateTexts.displayText(appContext, state))
             put("status_key", BleStateTexts.statusKey(state))
             put("timestamp", System.currentTimeMillis())
             put("speed", data.speed.value)
+            // 增量字段：全部设备（主 + 对比），供多设备消费方使用
+            put("devices", JSONArray().apply {
+                put(JSONObject().apply {
+                    put("id", "primary")
+                    put("name", (state as? com.example.heart_rate_monitor_mobile.ble.BleState.Connected)?.deviceName ?: "")
+                    put("connected", data.isDeviceConnected())
+                    put("heart_rate", data.heartRate.value)
+                })
+                val devices = data.comparison.devices.value
+                val readings = data.comparisonReadings.value
+                devices.values.forEach { device ->
+                    put(JSONObject().apply {
+                        put("id", device.id)
+                        put("name", device.name)
+                        put("connected", device.connected)
+                        put("heart_rate", readings[device.id]?.bpm ?: 0)
+                    })
+                }
+            })
         }
     }
 

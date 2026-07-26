@@ -2,6 +2,7 @@ package com.example.heart_rate_monitor_mobile.domain
 
 import com.example.heart_rate_monitor_mobile.ble.BleConnectionManager
 import com.example.heart_rate_monitor_mobile.ble.BleEvent
+import com.example.heart_rate_monitor_mobile.ble.ComparisonDeviceManager
 import com.example.heart_rate_monitor_mobile.ble.BleState
 import com.example.heart_rate_monitor_mobile.data.WebhookTrigger
 import com.example.heart_rate_monitor_mobile.data.db.SessionRecorder
@@ -14,7 +15,9 @@ import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
@@ -42,6 +45,8 @@ class HeartRateRepository(
     private val sessionRecorder: SessionRecorder,
     private val webhooks: WebhookRepository,
     private val settings: SettingsRepository,
+    /** 多设备对比评测的连接层（纯仪表语义：无 Webhook/历史副作用） */
+    val comparison: ComparisonDeviceManager,
 ) {
     val bleState: StateFlow<BleState> = ble.bleState
 
@@ -60,12 +65,24 @@ class HeartRateRepository(
     val scanResults: StateFlow<List<Advertisement>> = ble.scanResults
     val speed: StateFlow<Float> = speedMonitor.speed
 
+    /** 对比设备最近读数（供 HTTP/WS 接口的 devices 数组，纯增量字段） */
+    data class ComparisonReading(val name: String, val bpm: Int, val timestampMs: Long)
+
+    private val _comparisonReadings = MutableStateFlow<Map<String, ComparisonReading>>(emptyMap())
+    val comparisonReadings: StateFlow<Map<String, ComparisonReading>> = _comparisonReadings.asStateFlow()
+
+    private var primaryDeviceId: String = ""
+    private var primaryDeviceName: String = ""
+
     init {
+        observeComparisonSamples(scope)
         scope.launch {
             ble.events.collect { event ->
                 when (event) {
                     is BleEvent.Connected -> {
-                        sessionRecorder.onConnected(event.deviceName)
+                        primaryDeviceId = event.deviceId
+                        primaryDeviceName = event.deviceName
+                        sessionRecorder.onPrimaryConnected(event.deviceId, event.deviceName)
                         webhooks.triggerWebhooks(WebhookTrigger.CONNECTED, speed = speed.value)
                     }
                     is BleEvent.HeartRateSample -> {
@@ -73,11 +90,18 @@ class HeartRateRepository(
                         _heartRateSamples.tryEmit(
                             HrSample(event.bpm, event.timestampMs, event.rrIntervalsMs)
                         )
-                        sessionRecorder.onSample(event.bpm, event.timestampMs)
+                        sessionRecorder.onSample(
+                            deviceKey = primaryDeviceId,
+                            deviceName = primaryDeviceName,
+                            isPrimary = true,
+                            bpm = event.bpm,
+                            timestampMs = event.timestampMs,
+                            rrIntervalsMs = event.rrIntervalsMs,
+                        )
                         webhooks.triggerWebhooks(WebhookTrigger.HEART_RATE_UPDATED, event.bpm, speed.value)
                     }
                     is BleEvent.Disconnected -> {
-                        sessionRecorder.onDisconnected()
+                        sessionRecorder.onPrimaryDisconnected()
                         // lastBpm 来自事件载荷：断开时 heartRate StateFlow 可能已被清零
                         webhooks.triggerWebhooks(WebhookTrigger.DISCONNECTED, event.lastBpm, speed.value)
                     }
@@ -87,6 +111,30 @@ class HeartRateRepository(
     }
 
     fun isDeviceConnected(): Boolean = ble.isDeviceConnected()
+
+    private fun observeComparisonSamples(scope: CoroutineScope) {
+        scope.launch {
+            comparison.samples.collect { tagged ->
+                val name = comparison.devices.value[tagged.deviceId]?.name ?: tagged.deviceId
+                _comparisonReadings.value = _comparisonReadings.value +
+                    (tagged.deviceId to ComparisonReading(name, tagged.sample.bpm, tagged.sample.timestampMillis))
+                // 会话记录：对比设备样本同轨入库（会话由主设备生死决定）
+                sessionRecorder.onSample(
+                    deviceKey = tagged.deviceId,
+                    deviceName = name,
+                    isPrimary = false,
+                    bpm = tagged.sample.bpm,
+                    timestampMs = tagged.sample.timestampMillis,
+                    rrIntervalsMs = tagged.sample.rrIntervalsMs,
+                )
+            }
+        }
+        scope.launch {
+            comparison.devices.collect { devices ->
+                _comparisonReadings.value = _comparisonReadings.value.filterKeys { it in devices }
+            }
+        }
+    }
 
     /** @return false 表示扫描请求被忽略（已有扫描进行中） */
     fun startScan(): Boolean = ble.startScan()

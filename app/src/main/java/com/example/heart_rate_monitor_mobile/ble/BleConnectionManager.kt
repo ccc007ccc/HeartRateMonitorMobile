@@ -36,7 +36,7 @@ fun String.toUuid(): UUID = UUID.fromString(this)
 
 /** 连接生命周期事件，供 domain 层驱动会话记录 / Webhook 等副作用 */
 sealed interface BleEvent {
-    data class Connected(val deviceName: String) : BleEvent
+    data class Connected(val deviceId: String, val deviceName: String) : BleEvent
 
     /**
      * 逐通知的心率样本（不去重）。时序消费方（会话记录、预警状态机、图表）
@@ -297,7 +297,7 @@ class BleConnectionManager(
                 onConnected()
                 val deviceName = peripheral.name ?: "未知设备"
                 _bleState.value = BleState.Connected(deviceName)
-                _events.tryEmit(BleEvent.Connected(deviceName))
+                _events.tryEmit(BleEvent.Connected(peripheral.identifier, deviceName))
                 launch { observeHeartRate(peripheral, onSample) }
             }
             is State.Disconnecting -> Unit

@@ -14,7 +14,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.heart_rate_monitor_mobile.R
-import com.example.heart_rate_monitor_mobile.data.db.HeartRateSession
+import com.example.heart_rate_monitor_mobile.data.db.SessionWithDevices
 import com.example.heart_rate_monitor_mobile.databinding.ActivityHistoryBinding
 import com.example.heart_rate_monitor_mobile.util.EdgeToEdgeUtils
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -69,22 +69,22 @@ class HistoryActivity : BaseActivity(), HistoryAdapterListener {
         }
     }
 
-    override fun onItemClick(session: HeartRateSession) {
+    override fun onItemClick(item: SessionWithDevices) {
         if (actionMode != null) {
-            toggleSelection(session.id)
+            toggleSelection(item.session.id)
         } else {
             val intent = Intent(this, ChartActivity::class.java).apply {
-                putExtra("SESSION_ID", session.id)
+                putExtra("SESSION_ID", item.session.id)
             }
             startActivity(intent)
         }
     }
 
-    override fun onItemLongClick(session: HeartRateSession) {
+    override fun onItemLongClick(item: SessionWithDevices) {
         if (actionMode == null) {
             actionMode = startSupportActionMode(actionModeCallback)
         }
-        toggleSelection(session.id)
+        toggleSelection(item.session.id)
     }
 
     private fun toggleSelection(sessionId: Long) {

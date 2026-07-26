@@ -108,6 +108,20 @@
                 </LinearLayout>
 
                 <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/comparisonModeSwitch"
+                    style="@style/SettingsRow"
+                    android:padding="0dp"
+                    android:text="@string/settings_comparison_mode" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingTop="4dp"
+                    android:text="@string/settings_comparison_mode_hint"
+                    android:textAppearance="?attr/textAppearanceBodySmall"
+                    android:textColor="?attr/colorOnSurfaceVariant" />
+
+                <com.google.android.material.materialswitch.MaterialSwitch
                     android:id="@+id/hideFromRecentsSwitch"
                     style="@style/SettingsRow"
                     android:layout_marginTop="12dp"

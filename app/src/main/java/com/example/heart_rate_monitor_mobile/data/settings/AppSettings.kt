@@ -34,6 +34,8 @@ data class GeneralSettings(
     val speedDisplayEnabled: Boolean = false,
     val historyRecordingEnabled: Boolean = false,
     val heartbeatAnimationEnabled: Boolean = true,
+    /** 多设备对比评测模式（不常用功能，默认关闭，主页零侵扰） */
+    val comparisonModeEnabled: Boolean = false,
 )
 
 data class FloatingWindowSettings(

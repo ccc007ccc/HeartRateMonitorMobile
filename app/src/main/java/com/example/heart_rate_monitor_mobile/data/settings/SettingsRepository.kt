@@ -38,6 +38,7 @@ object SettingsKeys {
     val SPEED_DISPLAY_ENABLED = booleanPreferencesKey("speed_display_enabled")
     val HISTORY_RECORDING_ENABLED = booleanPreferencesKey("history_recording_enabled")
     val HEARTBEAT_ANIMATION_ENABLED = booleanPreferencesKey("heartbeat_animation_enabled")
+    val COMPARISON_MODE_ENABLED = booleanPreferencesKey("comparison_mode_enabled")
 
     // 悬浮窗
     val FLOATING_WINDOW_ENABLED = booleanPreferencesKey("floating_window_enabled")
@@ -149,6 +150,7 @@ class SettingsRepository(context: Context, private val scope: CoroutineScope) {
                 speedDisplayEnabled = this[SettingsKeys.SPEED_DISPLAY_ENABLED] ?: false,
                 historyRecordingEnabled = this[SettingsKeys.HISTORY_RECORDING_ENABLED] ?: false,
                 heartbeatAnimationEnabled = this[SettingsKeys.HEARTBEAT_ANIMATION_ENABLED] ?: true,
+                comparisonModeEnabled = this[SettingsKeys.COMPARISON_MODE_ENABLED] ?: false,
             ),
             floating = FloatingWindowSettings(
                 enabled = this[SettingsKeys.FLOATING_WINDOW_ENABLED] ?: false,

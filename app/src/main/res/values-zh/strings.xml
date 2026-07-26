@@ -247,4 +247,18 @@
     <string name="tile_label">心率监控</string>
     <string name="tile_connecting">连接中…</string>
     <string name="tile_tap_to_connect">点按连接</string>
+    <!-- 多设备对比 -->
+    <string name="settings_comparison_mode">多设备对比评测</string>
+    <string name="settings_comparison_mode_hint">在主页显示参赛设备面板与常驻叠加图表，用于多台心率设备的准度/性能对比</string>
+    <string name="main_comparison_title">参赛设备</string>
+    <string name="main_comparison_add">添加</string>
+    <string name="comparison_scan_title">添加对比设备</string>
+    <string name="comparison_disconnected">已断开 · 点击重连</string>
+    <string name="comparison_remove">移除</string>
+    <string name="comparison_primary_tag">主设备</string>
+    <string name="comparison_metrics">%1$d BPM · %2$s 包/秒</string>
+    <string name="comparison_delta_mae">Δ%1$s · MAE %2$s</string>
+    <string name="history_session_summary">%1$s +%2$d 台对比</string>
+    <string name="history_unknown_device">未知设备</string>
+    <string name="chart_accuracy_line">%1$s：平均差 %2$s · 最大差 %3$s</string>
 </resources>

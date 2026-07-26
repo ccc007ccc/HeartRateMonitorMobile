@@ -35,8 +35,8 @@ android {
         applicationId = "com.example.heart_rate_monitor_mobile"
         minSdk = 27
         targetSdk = 36
-        versionCode = 7
-        versionName = "2.0"
+        versionCode = 8
+        versionName = "2.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

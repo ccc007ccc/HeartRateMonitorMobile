@@ -8,7 +8,8 @@ import com.example.heart_rate_monitor_mobile.ble.BleState
 import com.example.heart_rate_monitor_mobile.ble.BleStateTexts
 import com.example.heart_rate_monitor_mobile.core.AppContainer
 import com.example.heart_rate_monitor_mobile.data.settings.SettingsKeys
-import com.github.mikephil.charting.data.Entry
+import com.example.heart_rate_monitor_mobile.domain.BpmDiffAccumulator
+import com.example.heart_rate_monitor_mobile.domain.RollingRate
 import com.juul.kable.Advertisement
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -77,23 +78,58 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
-    // ---------- 采样率统计（最近 10 秒滑动窗口，评估设备每秒上报的包数） ----------
+    // ---------- 设备评测指标（主设备 + 各对比设备：采样率 / Δ / MAE） ----------
 
-    private val sampleTimestamps = ArrayDeque<Long>()
+    private val primaryRate = RollingRate()
     private val _sampleRate = MutableStateFlow(0f)
 
-    /** 设备实际上报频率（包/秒）；无数据或断开时为 0 */
+    /** 主设备实际上报频率（包/秒）；无数据或断开时为 0 */
     val sampleRate: StateFlow<Float> = _sampleRate.asStateFlow()
 
-    private fun trimAndPublishSampleRate(now: Long) {
-        while (sampleTimestamps.isNotEmpty() && now - sampleTimestamps.first() > SAMPLE_RATE_WINDOW_MS) {
-            sampleTimestamps.removeFirst()
-        }
-        _sampleRate.value = if (sampleTimestamps.size < 2) {
-            0f
-        } else {
-            val spanMs = (sampleTimestamps.last() - sampleTimestamps.first()).coerceAtLeast(1L)
-            (sampleTimestamps.size - 1) * 1000f / spanMs
+    /** 对比设备一行展示数据（colorIndex 与图表配色对齐：0 为主设备，1 起为对比设备） */
+    data class ComparisonRow(
+        val id: String,
+        val name: String,
+        val connected: Boolean,
+        val bpm: Int,
+        val rate: Float,
+        val lastDiff: Int?,
+        val meanAbsDiff: Float?,
+        val colorIndex: Int,
+    )
+
+    private class ComparisonStats {
+        val rate = RollingRate()
+        val diff = BpmDiffAccumulator()
+        var lastBpm = 0
+    }
+
+    private val comparisonStats = linkedMapOf<String, ComparisonStats>()
+    private val _comparisonRows = MutableStateFlow<List<ComparisonRow>>(emptyList())
+    val comparisonRows: StateFlow<List<ComparisonRow>> = _comparisonRows.asStateFlow()
+
+    val comparisonScanResults: StateFlow<List<Advertisement>> get() = repository.comparison.scanResults
+    val comparisonScanning: StateFlow<Boolean> get() = repository.comparison.isScanning
+
+    /** 主设备名称（Connected 时非空），参赛列表首行展示用 */
+    val primaryDeviceName: StateFlow<String> = repository.bleState
+        .map { (it as? BleState.Connected)?.deviceName ?: "" }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "")
+
+    private fun publishComparisonRows(nowMs: Long) {
+        val devices = repository.comparison.devices.value
+        _comparisonRows.value = devices.values.mapIndexed { index, device ->
+            val stats = comparisonStats.getOrPut(device.id) { ComparisonStats() }
+            ComparisonRow(
+                id = device.id,
+                name = device.name,
+                connected = device.connected,
+                bpm = stats.lastBpm,
+                rate = stats.rate.rateAt(nowMs),
+                lastDiff = stats.diff.lastDiff,
+                meanAbsDiff = stats.diff.meanAbsDiff,
+                colorIndex = index + 1,
+            )
         }
     }
 
@@ -102,45 +138,85 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     )
     val uiEvents: SharedFlow<MainUiEvent> = _uiEvents.asSharedFlow()
 
-    // ---------- 实时图表 ----------
+    // ---------- 实时图表（多序列：主设备 + 各对比设备） ----------
 
-    private var chartStartTime = 0L
-    // ArrayDeque：满员后头删 O(1)（mutableList.removeAt(0) 在 10000 点时是 O(n) 搬移）
-    private val chartDataPoints = ArrayDeque<Entry>()
+    /** 图表点（seriesId, 墙钟毫秒, bpm） */
+    data class ChartPoint(val seriesId: String, val timestampMs: Long, val bpm: Int)
 
-    /** 只读快照，避免把可变缓冲的引用暴露给 UI 层 */
-    val chartHistory: List<Entry> get() = chartDataPoints.toList()
+    // ArrayDeque：满员后头删 O(1)
+    private val chartBuffers = linkedMapOf<String, ArrayDeque<ChartPoint>>()
 
-    private val _newChartEntry = MutableSharedFlow<Entry>(
-        extraBufferCapacity = 64, onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    /** 各序列的只读快照（key 顺序：primary 在前，随后为对比设备加入顺序） */
+    fun chartSnapshot(): Map<String, List<ChartPoint>> =
+        chartBuffers.mapValues { it.value.toList() }
+
+    private val _newChartPoint = MutableSharedFlow<ChartPoint>(
+        extraBufferCapacity = 256, onBufferOverflow = BufferOverflow.DROP_OLDEST,
     )
-    val newChartEntry: SharedFlow<Entry> = _newChartEntry.asSharedFlow()
+    val newChartPoint: SharedFlow<ChartPoint> = _newChartPoint.asSharedFlow()
+
+    /** 序列结构变化（对比设备增减/主设备重连清空）→ UI 需整体重建图表 */
+    private val _chartStructureChanged = MutableSharedFlow<Unit>(
+        extraBufferCapacity = 4, onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    )
+    val chartStructureChanged: SharedFlow<Unit> = _chartStructureChanged.asSharedFlow()
+
+    private fun bufferChartPoint(point: ChartPoint) {
+        val buffer = chartBuffers.getOrPut(point.seriesId) { ArrayDeque() }
+        if (buffer.size >= MAX_CHART_POINTS) buffer.removeFirst()
+        buffer.addLast(point)
+        _newChartPoint.tryEmit(point)
+    }
 
     init {
-        // 图表数据采集：收逐样本流（StateFlow 按值去重会让相同 BPM 不出点，时间密度失真）
+        // 主设备样本：图表 + 采样率（逐样本流，StateFlow 去重会让相同 BPM 不出点）
         viewModelScope.launch {
             repository.heartRateSamples.collect { sample ->
-                sampleTimestamps.addLast(sample.timestampMillis)
-                trimAndPublishSampleRate(sample.timestampMillis)
+                _sampleRate.value = primaryRate.onSample(sample.timestampMillis)
                 if (sample.bpm > 0 && appStatus.value == AppStatus.CONNECTED) {
-                    addChartDataPoint(sample.bpm)
+                    bufferChartPoint(ChartPoint(PRIMARY_SERIES_ID, sample.timestampMillis, sample.bpm))
                 }
             }
         }
-        // 采样率衰减：数据停止上报时窗口逐渐清空归零
+        // 对比设备样本：指标（速率/Δ/MAE）+ 图表序列
+        viewModelScope.launch {
+            repository.comparison.samples.collect { tagged ->
+                val stats = comparisonStats.getOrPut(tagged.deviceId) { ComparisonStats() }
+                stats.lastBpm = tagged.sample.bpm
+                stats.rate.onSample(tagged.sample.timestampMillis)
+                stats.diff.onSample(tagged.sample.bpm, repository.heartRate.value)
+                if (tagged.sample.bpm > 0) {
+                    bufferChartPoint(ChartPoint(tagged.deviceId, tagged.sample.timestampMillis, tagged.sample.bpm))
+                }
+                publishComparisonRows(tagged.sample.timestampMillis)
+            }
+        }
+        // 对比设备增减：同步指标表 + 触发图表结构重建
+        viewModelScope.launch {
+            repository.comparison.devices.collect { devices ->
+                comparisonStats.keys.retainAll(devices.keys)
+                chartBuffers.keys.retainAll(devices.keys + PRIMARY_SERIES_ID)
+                publishComparisonRows(System.currentTimeMillis())
+                _chartStructureChanged.tryEmit(Unit)
+            }
+        }
+        // 速率衰减：数据停止上报时逐渐归零
         viewModelScope.launch {
             while (true) {
                 kotlinx.coroutines.delay(1000)
-                trimAndPublishSampleRate(System.currentTimeMillis())
+                val now = System.currentTimeMillis()
+                _sampleRate.value = primaryRate.rateAt(now)
+                if (comparisonStats.isNotEmpty()) publishComparisonRows(now)
             }
         }
-        // 连接建立时重置图表；状态跃迁产生一次性提示
+        // 连接建立时重置图表与评测指标（新会话）；状态跃迁产生一次性提示
         viewModelScope.launch {
             var previous: BleState? = null
             repository.bleState.collect { state ->
                 if (previous !is BleState.Connected && state is BleState.Connected) {
-                    chartStartTime = System.currentTimeMillis()
-                    chartDataPoints.clear()
+                    chartBuffers.values.forEach { it.clear() }
+                    comparisonStats.values.forEach { it.diff.reset() }
+                    _chartStructureChanged.tryEmit(Unit)
                 }
                 when {
                     state is BleState.Connected ->
@@ -160,16 +236,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 previous = state
             }
         }
-    }
-
-    private fun addChartDataPoint(rate: Int) {
-        val timeDiffSeconds = (System.currentTimeMillis() - chartStartTime) / 1000f
-        val newEntry = Entry(timeDiffSeconds, rate.toFloat())
-        if (chartDataPoints.size >= MAX_CHART_POINTS) {
-            chartDataPoints.removeFirst()
-        }
-        chartDataPoints.add(newEntry)
-        _newChartEntry.tryEmit(newEntry)
     }
 
     // ---------- 操作 ----------
@@ -197,6 +263,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun onLocationPermissionGranted() = repository.refreshSpeedMonitor()
+
+    // ---------- 对比设备操作 ----------
+
+    fun startComparisonScan() = repository.comparison.startScan()
+
+    fun connectComparisonDevice(ad: Advertisement) =
+        repository.comparison.connect(ad.identifier, ad.name)
+
+    fun removeComparisonDevice(id: String) = repository.comparison.remove(id)
+
+    /** 断开的对比设备行点击重连 */
+    fun reconnectComparisonDevice(id: String, name: String) {
+        repository.comparison.remove(id)
+        repository.comparison.connect(id, name)
+    }
 
     // ---------- 收藏设备 ----------
 
@@ -244,9 +325,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private companion object {
-        const val MAX_CHART_POINTS = 10000
-        const val SAMPLE_RATE_WINDOW_MS = 10_000L
+    companion object {
+        /** 主设备在图表/配色中的序列 ID（colorIndex 0） */
+        const val PRIMARY_SERIES_ID = "primary"
+        private const val MAX_CHART_POINTS = 10000
         const val MAX_FAVORITE_HISTORY = 20
 
         fun BleState.toAppStatus(): AppStatus = when (this) {

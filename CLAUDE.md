@@ -33,6 +33,15 @@ Android BLE 心率监测应用（纯中文 UI）。2026-07 完成大规模重构
   manifest 已开 usesCleartextTraffic。
 - 仍然保留的防线：GitHub 预设同步走预览+确认+强制 enabled=false；云备份排除健康数据与凭据。
 
+## 多设备对比评测（v2.1）
+
+- 设置开关 comparison_mode_enabled（默认关）门控全部对比 UI；关闭时主页与 v2.0 行为一致
+- `ble/ComparisonDeviceManager`：对比设备连接层，独立于主引擎（无 Webhook/历史副作用、独立扫描不打断主连接）
+- 指标计算在 `domain/DeviceMetrics.kt`（RollingRate/BpmDiffAccumulator）与 `domain/AccuracyReport.kt`（历史回放 MAE/最大差），全部纯 Kotlin 有单测
+- 图表唯一实现 `ui/chart/HeartRateChartController`（多序列/主题化/绝对时间轴），主页与历史详情共用；新增序列配色须走 colorForIndex
+- 数据库 v3：RecordingSession → SessionDevice → HeartRateRecord(含 rr 列)；**迁移 2→3 已是正式 Migration，禁止再引入 fallbackToDestructiveMigration**
+- HTTP/WS JSON：既有字段=主设备（生态契约），多设备走增量 `devices` 数组
+
 ## UI 约定
 
 - Material 3 DayNight + 动态取色；色值/间距用主题 attr 与 @dimen（values/dimens.xml），不裸写

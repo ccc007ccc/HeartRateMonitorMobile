@@ -182,6 +182,7 @@ class SettingsActivity : BaseActivity() {
             binding.bpmTextSwitch,
             binding.heartIconSwitch,
             binding.speedDisplaySwitch,
+            binding.comparisonModeSwitch,
             binding.hideFromRecentsSwitch,
             binding.statusBarResidentSwitch,
             binding.statusBarBpmTextSwitch,
@@ -259,6 +260,12 @@ class SettingsActivity : BaseActivity() {
             } else {
                 settings.setAsync(SettingsKeys.SPEED_DISPLAY_ENABLED, false)
             }
+        }
+
+        // 多设备对比评测（不常用功能，默认关闭）
+        binding.comparisonModeSwitch.isChecked = current.general.comparisonModeEnabled
+        binding.comparisonModeSwitch.setOnCheckedChangeListener { _, isChecked ->
+            settings.setAsync(SettingsKeys.COMPARISON_MODE_ENABLED, isChecked)
         }
 
         // 退出应用隐藏后台：开启后按 HOME 退出时从最近任务列表移除，进程由前台服务保活

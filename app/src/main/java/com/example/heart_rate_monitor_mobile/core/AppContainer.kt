@@ -2,6 +2,7 @@ package com.example.heart_rate_monitor_mobile.core
 
 import android.content.Context
 import com.example.heart_rate_monitor_mobile.ble.BleConnectionManager
+import com.example.heart_rate_monitor_mobile.ble.ComparisonDeviceManager
 import com.example.heart_rate_monitor_mobile.data.db.AppDatabase
 import com.example.heart_rate_monitor_mobile.data.db.SessionRecorder
 import com.example.heart_rate_monitor_mobile.data.location.SpeedMonitor
@@ -35,6 +36,7 @@ class AppContainer private constructor(private val appContext: Context) {
     private val speedMonitor = SpeedMonitor(appContext, appScope, settings)
     private val sessionRecorder = SessionRecorder(database.heartRateDao(), settings, appScope)
     private val bleConnectionManager = BleConnectionManager(appScope, settings)
+    private val comparisonDeviceManager = ComparisonDeviceManager(appScope)
 
     val heartRate = HeartRateRepository(
         scope = appScope,
@@ -43,6 +45,7 @@ class AppContainer private constructor(private val appContext: Context) {
         sessionRecorder = sessionRecorder,
         webhooks = webhooks,
         settings = settings,
+        comparison = comparisonDeviceManager,
     )
 
     val serverController = ServerController(settings, appScope, heartRate, appContext)
