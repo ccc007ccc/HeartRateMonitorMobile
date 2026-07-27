@@ -46,6 +46,7 @@ class BleService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        container.overlayCoordinator.bleServiceRunning = true
         startForegroundService()
         container.serverController.start()
         container.heartRate.refreshSpeedMonitor()
@@ -67,8 +68,12 @@ class BleService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        container.overlayCoordinator.bleServiceRunning = false
         serviceScope.cancel()
-        container.serverController.stop()
+        // 无障碍通道生效时服务器由无障碍服务共享托管，本服务停止不应误杀
+        if (!container.overlayCoordinator.isAccessibilityChannel()) {
+            container.serverController.stop()
+        }
     }
 
     // ========== 前台通知 ==========

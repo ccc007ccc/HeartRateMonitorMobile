@@ -16,6 +16,14 @@ data class AppSettings(
     val statusBar: StatusBarSettings = StatusBarSettings(),
     val alarm: AlarmSettings = AlarmSettings(),
     val server: ServerSettings = ServerSettings(),
+    val update: UpdateSettings = UpdateSettings(),
+)
+
+/** 更新检查状态（克制策略：24h 节流 + 可跳过某版本） */
+data class UpdateSettings(
+    val lastCheckAtMs: Long = 0L,
+    /** 用户选择"不再提示"的版本号；该版本不再弹窗 */
+    val skippedVersion: String = "",
 )
 
 data class ConnectionSettings(
@@ -36,7 +44,24 @@ data class GeneralSettings(
     val heartbeatAnimationEnabled: Boolean = true,
     /** 多设备对比评测模式（不常用功能，默认关闭，主页零侵扰） */
     val comparisonModeEnabled: Boolean = false,
+    /** 保活通道：见 [KeepAliveChannel]。默认前台服务（兼容性最好） */
+    val keepAliveChannel: KeepAliveChannel = KeepAliveChannel.FOREGROUND,
 )
+
+/**
+ * 保活与悬浮窗渲染通道。
+ * - [FOREGROUND]：前台服务保活 + TYPE_APPLICATION_OVERLAY（需悬浮窗权限，通知栏常驻一条通知）
+ * - [ACCESSIBILITY]：无障碍服务保活 + TYPE_ACCESSIBILITY_OVERLAY（无通知、免悬浮窗权限、抗杀后台）
+ */
+enum class KeepAliveChannel {
+    FOREGROUND,
+    ACCESSIBILITY;
+
+    companion object {
+        fun fromKey(key: String?): KeepAliveChannel =
+            entries.firstOrNull { it.name.equals(key, ignoreCase = true) } ?: FOREGROUND
+    }
+}
 
 data class FloatingWindowSettings(
     val enabled: Boolean = false,

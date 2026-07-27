@@ -4,6 +4,7 @@ import android.content.Intent
 import android.graphics.drawable.Icon
 import android.os.Build
 import android.provider.Settings
+import android.widget.Toast
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import com.example.heart_rate_monitor_mobile.R
@@ -63,32 +64,52 @@ class HeartRateTileService : TileService() {
             state is BleState.AutoConnecting ||
             state is BleState.AutoReconnecting
 
+        // 无障碍通道已生效时：进程由无障碍服务保活，无需（也不应）启动前台服务
+        val accessibilityActive = container.overlayCoordinator.isAccessibilityChannel()
+
         if (active) {
             // 已在运行：断开连接、关闭悬浮窗、停止前台服务（含内置服务器）
             container.heartRate.disconnectDevice()
             container.settings.setAsync(SettingsKeys.FLOATING_WINDOW_ENABLED, false)
-            stopService(Intent(this, BleService::class.java))
+            // 前台通道：停掉前台服务（连同服务器）。
+            // 无障碍通道：仅当 BleService 因历史原因仍在运行时停掉它清除残留通知；
+            // 服务器由无障碍服务托管，BleService.onDestroy 已做通道判断不会误停
+            if (!accessibilityActive || container.overlayCoordinator.bleServiceRunning) {
+                stopService(Intent(this, BleService::class.java))
+            }
         } else {
             // 启动心率服务 + 自动连接
-            try {
-                startForegroundService(
-                    Intent(this, BleService::class.java).apply {
-                        action = BleService.ACTION_AUTO_CONNECT
-                    }
-                )
-            } catch (e: Exception) {
-                android.util.Log.w(TAG, "从磁贴启动 BleService 失败", e)
-                return
+            if (accessibilityActive) {
+                // 无收藏设备/无上次连接记录时 autoConnect 会返回 false，给出反馈避免"点了没反应"
+                if (!container.heartRate.autoConnect()) {
+                    Toast.makeText(this, R.string.tile_no_device, Toast.LENGTH_SHORT).show()
+                    return
+                }
+            } else {
+                try {
+                    startForegroundService(
+                        Intent(this, BleService::class.java).apply {
+                            action = BleService.ACTION_AUTO_CONNECT
+                        }
+                    )
+                } catch (e: Exception) {
+                    android.util.Log.w(TAG, "从磁贴启动 BleService 失败", e)
+                    return
+                }
             }
-            // 有悬浮窗权限时同时开启悬浮窗。
-            // 先挂起等设置写入落盘再启动服务，避免服务首个收集值仍是 false 而立即自杀
-            if (Settings.canDrawOverlays(this)) {
+            // 开启悬浮窗：无障碍通道免权限且由无障碍服务托管窗口；
+            // 前台通道需悬浮窗权限，并先等设置落盘再启动服务（避免首个收集值仍是 false 而自杀）
+            if (accessibilityActive || Settings.canDrawOverlays(this)) {
                 container.appScope.launch {
                     container.settings.set(SettingsKeys.FLOATING_WINDOW_ENABLED, true)
-                    try {
-                        startService(Intent(this@HeartRateTileService, FloatingWindowService::class.java))
-                    } catch (e: Exception) {
-                        android.util.Log.w(TAG, "从磁贴启动悬浮窗失败", e)
+                    if (!accessibilityActive) {
+                        try {
+                            startService(
+                                Intent(this@HeartRateTileService, FloatingWindowService::class.java)
+                            )
+                        } catch (e: Exception) {
+                            android.util.Log.w(TAG, "从磁贴启动悬浮窗失败", e)
+                        }
                     }
                 }
             }

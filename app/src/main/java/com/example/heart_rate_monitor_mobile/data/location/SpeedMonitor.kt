@@ -11,6 +11,7 @@ import android.util.Log
 import androidx.core.content.ContextCompat
 import com.example.heart_rate_monitor_mobile.data.settings.SettingsRepository
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -34,8 +35,13 @@ class SpeedMonitor(
         context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
     private var isListening = false
 
+    /** 最近一次收到定位回调的时刻，用于识别系统静默停投（后台限制） */
+    @Volatile
+    private var lastFixAtMs = 0L
+
     private val locationListener = object : LocationListener {
         override fun onLocationChanged(location: Location) {
+            lastFixAtMs = System.currentTimeMillis()
             _speed.value = if (location.hasSpeed()) location.speed * 3.6f else 0f
         }
 
@@ -50,6 +56,18 @@ class SpeedMonitor(
     init {
         scope.launch {
             settings.flowOf { it.general.speedDisplayEnabled }.collect { refresh() }
+        }
+        // 看门狗：Android 10+ 应用退到后台且无 location 型前台服务时，系统会静默停止投递定位，
+        // 此时不清零会让悬浮窗长期显示陈旧速度。超时未收到定位即归零。
+        scope.launch {
+            while (true) {
+                delay(STALE_CHECK_INTERVAL_MS)
+                if (isListening && _speed.value != 0f &&
+                    System.currentTimeMillis() - lastFixAtMs > STALE_TIMEOUT_MS
+                ) {
+                    _speed.value = 0f
+                }
+            }
         }
     }
 
@@ -71,6 +89,7 @@ class SpeedMonitor(
                         Looper.getMainLooper(),
                     )
                     isListening = true
+                    lastFixAtMs = System.currentTimeMillis()
                 } catch (e: SecurityException) {
                     Log.e(TAG, "请求位置更新失败", e)
                 }
@@ -90,6 +109,8 @@ class SpeedMonitor(
 
     private companion object {
         const val TAG = "SpeedMonitor"
+        const val STALE_CHECK_INTERVAL_MS = 5_000L
+        const val STALE_TIMEOUT_MS = 15_000L
         const val UPDATE_INTERVAL_MS = 1000L
         const val MIN_DISTANCE_M = 1f
     }

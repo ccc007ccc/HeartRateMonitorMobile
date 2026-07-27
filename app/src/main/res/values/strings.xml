@@ -75,7 +75,6 @@
     <string name="settings_record_history">Record history data</string>
     <string name="settings_heartbeat_animation">Heartbeat animation</string>
     <string name="settings_dynamic_color">Dynamic Color (Material You)</string>
-    <string name="settings_dynamic_color_hint">Extracts theme colors from your wallpaper (requires Android 12 or later). Enabled by default and cannot be turned off.</string>
     <string name="settings_show_speed">Show speed (GPS)</string>
     <string name="settings_show_speed_hint">Speed display uses GPS positioning and may increase battery usage.</string>
     <string name="settings_hide_recents">Hide from recents on exit</string>
@@ -261,4 +260,24 @@
     <string name="history_session_summary">%1$s +%2$d comparison</string>
     <string name="history_unknown_device">Unknown device</string>
     <string name="chart_accuracy_line">%1$s: mean diff %2$s · max %3$s</string>
+    <!-- Keep-alive channel (v2.2) -->
+    <string name="accessibility_service_label">Heart Rate Monitor overlay</string>
+    <string name="accessibility_service_summary">Keeps the heart rate service alive without a notification and draws the overlay without the display-over-apps permission</string>
+    <string name="accessibility_service_description">Used only to keep the heart rate service running and to draw the heart rate overlay. This service does NOT read any screen content.</string>
+    <string name="settings_section_keepalive">Keep-alive method</string>
+    <string name="settings_keepalive_foreground">Foreground service (default)</string>
+    <string name="settings_keepalive_foreground_hint">Best compatibility. Keeps one ongoing notification in the shade.</string>
+    <string name="settings_keepalive_accessibility">Accessibility service</string>
+    <string name="settings_keepalive_accessibility_hint">No notification, survives aggressive task killers, and the overlay needs no display-over-apps permission (it can also cover fullscreen games). Requires enabling in system accessibility settings.</string>
+    <string name="settings_keepalive_accessibility_dialog_title">Enable accessibility keep-alive?</string>
+    <string name="settings_keepalive_accessibility_dialog_message">You will be taken to system Accessibility settings to enable "Heart Rate Monitor overlay".\n\nThis service is used only to keep the heart rate service alive and to draw the overlay — it does not read screen content.</string>
+    <string name="settings_keepalive_go_settings">Go to settings</string>
+    <string name="settings_keepalive_active">Active</string>
+    <string name="settings_keepalive_inactive">Not enabled — tap to open system settings</string>
+    <!-- Update check -->
+    <string name="update_available_title">Update available: %1$s</string>
+    <string name="update_download">Download</string>
+    <string name="update_later">Later</string>
+    <string name="update_skip_version">Don\'t show for this version</string>
+    <string name="tile_no_device">No favorite device yet — open the app and connect once</string>
 </resources>

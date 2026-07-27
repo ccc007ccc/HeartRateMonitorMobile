@@ -42,6 +42,37 @@ Android BLE 心率监测应用（纯中文 UI）。2026-07 完成大规模重构
 - 数据库 v3：RecordingSession → SessionDevice → HeartRateRecord(含 rr 列)；**迁移 2→3 已是正式 Migration，禁止再引入 fallbackToDestructiveMigration**
 - HTTP/WS JSON：既有字段=主设备（生态契约），多设备走增量 `devices` 数组
 
+## 保活双通道（v2.2）
+
+设置 `keep_alive_channel`：`FOREGROUND`（默认）| `ACCESSIBILITY`，用户在设置页显式选择。
+
+- `service/overlay/FloatingWindowHost`：悬浮窗唯一实现，windowType 由持有者注入；
+  FloatingWindowService（TYPE_APPLICATION_OVERLAY）与 HeartRateAccessibilityService
+  （TYPE_ACCESSIBILITY_OVERLAY）共用，**禁止再在服务里复制窗口逻辑**
+- `core/OverlayCoordinator`：登记无障碍是否生效 + 下拉面板是否展开 + 触摸穿透动作路由；
+  磁贴/主页/状态栏据此分支，**新增依赖通道的行为一律读它，不要各自判断**
+- `HeartRateAccessibilityService` 能力必须保持最小：canRetrieveWindowContent=false、
+  仅 typeWindowStateChanged（用于下拉面板让位）；**不得为任何功能扩大无障碍权限**
+- accessibility overlay 层级高于状态栏与下拉面板 → 状态栏常驻在面板展开时临时隐藏
+- 触摸穿透通知按钮走 `FloatingWindowActionReceiver` 广播（跨通道路由），不要改回 startService
+- **通道属主判断一律用 `OverlayCoordinator.isAccessibilityChannel()`**（= 系统已开启 AND 用户选了该通道）；
+  只看 `accessibilityActive` 会在"切回前台通道但没关无障碍"时误判服务器归属
+- 冷启动补启：ContentProvider 早于无障碍连接，其判断只能读**设置**；状态栏/预警的补启在
+  `HeartRateAccessibilityService.onServiceConnected` 内完成
+- 无障碍被系统关闭时必须回退前台通道（teardown → 写回设置 + 拉起前台服务），否则全应用静默失效
+- 定向自动连接/重连使用 `Filter.Address` 过滤扫描（息屏下无过滤扫描不投递结果）；手动扫描保持无过滤
+- **无障碍通道 = 全应用零常驻通知**：BleService 不启动（MainActivity/磁贴/预警三处调用点均已判通道），
+  StatusBarResidentService 与 HeartRateAlarmService 的 ensureResidentForeground 直接返回并撤掉已有通知。
+  新增任何 `startForeground`/`startForegroundService` 调用点都必须先判 `accessibilityActive`
+- accessibility overlay 必须用无障碍服务的 WindowManager（携带 window token），
+  普通 Service 的 WM 会被 WMS 以 BadToken 静默拒绝——见 OverlayCoordinator.accessibilityContext
+
+## 更新检查（v2.2）
+
+`data/update/UpdateRepository` + `domain/VersionComparator`（纯函数有单测）。
+克制原则不得违反：**只在 MainActivity 进入时触发**（磁贴/后台启动绝不检查）、24h 节流、
+预发布版不提示、用户可跳过某版本、任何失败静默忽略。
+
 ## UI 约定
 
 - Material 3 DayNight + 动态取色；色值/间距用主题 attr 与 @dimen（values/dimens.xml），不裸写

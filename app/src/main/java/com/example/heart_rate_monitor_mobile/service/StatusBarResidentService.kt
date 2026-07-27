@@ -37,6 +37,7 @@ import android.view.WindowManager
 import android.widget.LinearLayout
 import com.example.heart_rate_monitor_mobile.R
 import com.example.heart_rate_monitor_mobile.core.AppContainer
+import com.example.heart_rate_monitor_mobile.data.settings.KeepAliveChannel
 import com.example.heart_rate_monitor_mobile.databinding.LayoutStatusBarOverlayBinding
 import com.example.heart_rate_monitor_mobile.service.overlay.HeartbeatAnimator
 import kotlinx.coroutines.CoroutineScope
@@ -44,6 +45,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
 /**
@@ -59,6 +61,8 @@ class StatusBarResidentService : Service() {
 
     private lateinit var windowManager: WindowManager
     private lateinit var binding: LayoutStatusBarOverlayBinding
+    /** 当前 overlay 所用的宿主 Context（无障碍通道下为无障碍服务，其 WM 携带窗口 token） */
+    private var overlayContext: Context = this
     private lateinit var layoutParams: WindowManager.LayoutParams
     private lateinit var heartbeatAnimator: HeartbeatAnimator
 
@@ -126,7 +130,8 @@ class StatusBarResidentService : Service() {
                 if (container.settings.settings.value.statusBar.residentEnabled) {
                     val powerManager = getSystemService(PowerManager::class.java)
                     val keyguardManager = getSystemService(KeyguardManager::class.java)
-                    if (powerManager.isInteractive && !keyguardManager.isKeyguardLocked) {
+                    val systemUiExpanded = container.overlayCoordinator.systemUiExpanded.value
+                    if (powerManager.isInteractive && !keyguardManager.isKeyguardLocked && !systemUiExpanded) {
                         if (!isOverlayShown || !binding.root.isAttachedToWindow) {
                             showOverlay()
                         }
@@ -141,10 +146,7 @@ class StatusBarResidentService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
-        val themedContext = ContextThemeWrapper(this, R.style.Theme_HeartRateMonitorMobile)
-        binding = LayoutStatusBarOverlayBinding.inflate(LayoutInflater.from(themedContext))
-        heartbeatAnimator = HeartbeatAnimator(binding.statusBarHeartIcon)
+        rebuildOverlayView()
 
         initLayoutParams()
         applyAppearance()
@@ -166,7 +168,7 @@ class StatusBarResidentService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (!Settings.canDrawOverlays(this)) {
+        if (!canShowOverlay()) {
             // 防御性：无悬浮窗权限则不显示
             stopSelf()
             return START_STICKY
@@ -211,6 +213,34 @@ class StatusBarResidentService : Service() {
                 relayout()
             }
         }
+        // 保活通道切换：窗口类型与宿主 WindowManager 均变化，必须重建视图与窗口
+        serviceScope.launch {
+            combine(
+                container.overlayCoordinator.accessibilityActive,
+                container.settings.flowOf { it.general.keepAliveChannel },
+            ) { active, channel -> active to channel }
+                .collectLatest {
+                    val wasShown = isOverlayShown
+                    hideOverlay()
+                    rebuildOverlayView()
+                    initLayoutParams()
+                    applyAppearance()
+                    if (wasShown) showOverlay()
+                    // 切到无障碍通道立即撤掉常驻通知；切回前台通道补回保活
+                    ensureResidentForeground()
+                }
+        }
+        // 无障碍 overlay 层级高于下拉通知面板，展开时临时让位，收起后恢复
+        serviceScope.launch {
+            container.overlayCoordinator.systemUiExpanded.collectLatest { expanded ->
+                if (!container.overlayCoordinator.accessibilityActive.value) return@collectLatest
+                if (expanded) {
+                    hideOverlay()
+                } else if (container.settings.settings.value.statusBar.residentEnabled) {
+                    showOverlay()
+                }
+            }
+        }
     }
 
     /**
@@ -222,6 +252,14 @@ class StatusBarResidentService : Service() {
      * - 采样期间（isSampling）不抢占类型，由 startMediaProjectionSampling 管理。
      */
     private fun ensureResidentForeground() {
+        // 无障碍通道：进程由系统绑定的无障碍服务保活，无需前台通知（本功能的核心卖点）
+        if (container.overlayCoordinator.isAccessibilityChannel()) {
+            if (isResidentForeground) {
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                isResidentForeground = false
+            }
+            return
+        }
         if (isSampling || isResidentForeground) return
         try {
             val notification = createResidentNotification()
@@ -264,13 +302,41 @@ class StatusBarResidentService : Service() {
             .build()
     }
 
-    private fun initLayoutParams() {
-        val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+    /**
+     * 窗口类型按保活通道选择（v2.2）：
+     * - 无障碍通道：TYPE_ACCESSIBILITY_OVERLAY——免悬浮窗权限，且层级高于系统状态栏
+     *   （不再被状态栏内容遮挡）；坐标系与旧类型一致，x/y 微调设置照常生效。
+     * - 前台通道：TYPE_APPLICATION_OVERLAY（原行为）。
+     */
+    /**
+     * 按当前通道重建 overlay 视图与 WindowManager。
+     *
+     * 关键点（v2.2 修复）：TYPE_ACCESSIBILITY_OVERLAY 必须由**无障碍服务的 WindowManager**
+     * 添加——它携带无障碍窗口 token；用普通 Service 的 WM 会被 WMS 以 BadToken 拒绝，
+     * 表现为 overlay 静默不显示。因此无障碍通道下改用协调器登记的无障碍 Context。
+     */
+    private fun rebuildOverlayView() {
+        val accessibilityContext = container.overlayCoordinator.accessibilityContext
+        overlayContext = if (
+            accessibilityContext != null &&
+            container.settings.settings.value.general.keepAliveChannel == KeepAliveChannel.ACCESSIBILITY
+        ) accessibilityContext else this
+        windowManager = overlayContext.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        val themedContext = ContextThemeWrapper(overlayContext, R.style.Theme_HeartRateMonitorMobile)
+        binding = LayoutStatusBarOverlayBinding.inflate(LayoutInflater.from(themedContext))
+        heartbeatAnimator = HeartbeatAnimator(binding.statusBarHeartIcon)
+    }
+
+    private fun overlayWindowType(): Int = when {
+        isAccessibilityOverlay() ->
+            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.O ->
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-        } else {
-            @Suppress("DEPRECATION")
-            WindowManager.LayoutParams.TYPE_PHONE
-        }
+        else -> @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE
+    }
+
+    private fun initLayoutParams() {
+        val type = overlayWindowType()
 
         layoutParams = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -294,7 +360,7 @@ class StatusBarResidentService : Service() {
         if (isOverlayShown && binding.root.isAttachedToWindow) return
         // 状态不一致修正：标记显示但窗口已被系统移除（锁屏/内存压力），重置标记
         isOverlayShown = false
-        if (!Settings.canDrawOverlays(this)) return
+        if (!canShowOverlay()) return
         try {
             applySize()
             applyTextStyle()
@@ -309,6 +375,20 @@ class StatusBarResidentService : Service() {
             Log.w(TAG, "添加 overlay 失败", e)
         }
     }
+
+    /** 无障碍通道且已拿到 token 化 Context 时走 accessibility overlay */
+    private fun isAccessibilityOverlay(): Boolean =
+        overlayContext !== this && container.overlayCoordinator.isAccessibilityChannel()
+
+    /**
+     * 是否具备显示 overlay 的条件。
+     * 无障碍通道免悬浮窗权限——判据用通道设置而非 overlayContext，
+     * 避免"无障碍已选但 Context 尚未登记"的时序下服务自杀。
+     */
+    private fun canShowOverlay(): Boolean =
+        container.overlayCoordinator.isAccessibilityChannel() ||
+            container.settings.settings.value.general.keepAliveChannel == KeepAliveChannel.ACCESSIBILITY ||
+            Settings.canDrawOverlays(this)
 
     private fun hideOverlay() {
         if (!isOverlayShown) return
@@ -477,6 +557,10 @@ class StatusBarResidentService : Service() {
      * Android 14+（API 34）要求 MediaProjection 必须在 mediaProjection 类型的前台服务中运行，
      * 故先调 startForeground；API 29+ 用 3 参版本指定类型，低版本退回 2 参。
      *
+     * 注意：这是无障碍通道下唯一会出现通知的场景——MediaProjection 是平台硬性要求
+     * （必须运行在 mediaProjection 类型前台服务中），无法规避；仅在"自动识别颜色"
+     * 开启期间存在，关闭后立即撤销（见 stopMediaProjectionSampling）。
+     *
      * 隐私/性能：VirtualDisplay 只以 1/8 分辨率镜像，采样逻辑只读取状态栏高度对应的顶部区域。
      */
     private fun startMediaProjectionSampling(resultCode: Int, data: Intent) {
@@ -537,8 +621,14 @@ class StatusBarResidentService : Service() {
         try { mediaProjection?.stop() } catch (e: Exception) { Log.w(TAG, "停止 mediaProjection 失败", e) }
         mediaProjection = null
         sampledUseWhiteText = false
-        // 停止采样后：若状态栏常驻仍开启且服务未在销毁，回退到 specialUse 常驻前台类型保活
-        if (!isDestroying && container.settings.settings.value.statusBar.residentEnabled) {
+        // 停止采样后回退前台状态：
+        // - 无障碍通道：不需要任何常驻通知，直接撤掉采样期间的前台通知
+        //   （ensureResidentForeground 在该通道下会早退，不能依赖它收尾）
+        // - 前台通道且常驻仍开启：回退到 specialUse 常驻前台类型继续保活
+        val accessibilityChannel = container.overlayCoordinator.isAccessibilityChannel()
+        if (!isDestroying && !accessibilityChannel &&
+            container.settings.settings.value.statusBar.residentEnabled
+        ) {
             isResidentForeground = false  // 重置以允许 ensureResidentForeground 重新提升
             ensureResidentForeground()
         } else {

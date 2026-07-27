@@ -93,13 +93,19 @@ class MainActivity : BaseActivity() {
         setupRecyclerView()
         setupClickListeners()
         setupObservers()
+        checkForUpdateQuietly()
 
-        // 前台保活服务无条件启动（与旧版一致）：即使权限被拒，
-        // 服务器/通知等能力仍可用，BLE 相关操作各自做权限失败处理
-        startService(Intent(this, BleService::class.java))
+        // 前台保活服务：无障碍通道生效时进程与服务器已由无障碍服务托管，
+        // 不再启动 BleService，兑现"无通知栏常驻"的承诺；
+        // 前台通道下与旧版一致无条件启动（权限被拒也保留服务器/通知能力）
+        if (!container.overlayCoordinator.isAccessibilityChannel()) {
+            startService(Intent(this, BleService::class.java))
+        }
         requestPermissions()
 
-        if (container.settings.settings.value.floating.enabled) {
+        if (container.settings.settings.value.floating.enabled &&
+            !container.overlayCoordinator.isAccessibilityChannel()
+        ) {
             startService(Intent(this, FloatingWindowService::class.java))
         }
     }
@@ -119,6 +125,28 @@ class MainActivity : BaseActivity() {
         updateSpeedUiVisibility()
         updateUiByStatus(viewModel.appStatus.value)
         rebuildChart()
+    }
+
+    /**
+     * 静默检查更新：仅在 UI 入口触发（磁贴/后台启动不会走到这里），
+     * 24 小时内只查一次，失败静默忽略，用户可对某版本选择不再提示。
+     */
+    private fun checkForUpdateQuietly() {
+        lifecycleScope.launch {
+            val update = container.updates.checkForUpdate() ?: return@launch
+            MaterialAlertDialogBuilder(this@MainActivity)
+                .setTitle(getString(R.string.update_available_title, update.versionName))
+                .setMessage(update.notes)
+                .setNeutralButton(R.string.update_skip_version) { _, _ ->
+                    lifecycleScope.launch { container.updates.skipVersion(update.versionName) }
+                }
+                .setNegativeButton(R.string.update_later, null)
+                .setPositiveButton(R.string.update_download) { _, _ ->
+                    suppressHideForExternalLaunch = true
+                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(update.releaseUrl)))
+                }
+                .show()
+        }
     }
 
     private fun onAllPermissionsGranted() {
@@ -540,7 +568,10 @@ class MainActivity : BaseActivity() {
 
     private fun toggleFloatingWindow() {
         val shouldBeEnabled = !container.settings.settings.value.floating.enabled
-        if (shouldBeEnabled && !Settings.canDrawOverlays(this)) {
+        // 无障碍通道用 accessibility overlay，不需要悬浮窗权限
+        val needsOverlayPermission =
+            !container.overlayCoordinator.isAccessibilityChannel()
+        if (shouldBeEnabled && needsOverlayPermission && !Settings.canDrawOverlays(this)) {
             suppressHideForExternalLaunch = true
             startActivity(
                 Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
@@ -550,7 +581,8 @@ class MainActivity : BaseActivity() {
         // 先挂起等设置写入完成再启动服务，避免服务首个收集值仍是 false
         lifecycleScope.launch {
             container.settings.set(SettingsKeys.FLOATING_WINDOW_ENABLED, shouldBeEnabled)
-            if (shouldBeEnabled) {
+            // 无障碍通道由无障碍服务托管窗口，无需启动前台悬浮窗服务
+            if (shouldBeEnabled && !container.overlayCoordinator.isAccessibilityChannel()) {
                 startService(Intent(this@MainActivity, FloatingWindowService::class.java))
             }
         }

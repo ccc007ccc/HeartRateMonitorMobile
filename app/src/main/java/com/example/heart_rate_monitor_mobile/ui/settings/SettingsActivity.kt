@@ -2,6 +2,7 @@ package com.example.heart_rate_monitor_mobile.ui.settings
 
 import android.app.Activity
 import android.content.DialogInterface
+import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
@@ -19,7 +20,10 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.datastore.preferences.core.Preferences
 import com.example.heart_rate_monitor_mobile.R
+import com.example.heart_rate_monitor_mobile.data.settings.KeepAliveChannel
 import com.example.heart_rate_monitor_mobile.data.settings.SettingsKeys
+import com.example.heart_rate_monitor_mobile.service.FloatingWindowService
+import com.example.heart_rate_monitor_mobile.service.HeartRateAccessibilityService
 import com.example.heart_rate_monitor_mobile.databinding.ActivitySettingsBinding
 import com.example.heart_rate_monitor_mobile.service.HeartRateAlarmService
 import com.example.heart_rate_monitor_mobile.service.StatusBarResidentService
@@ -82,9 +86,108 @@ class SettingsActivity : BaseActivity() {
         setupSwitches()
         setupFloatingWindowSettings()
         setupStatusBarSettings()
+        setupKeepAliveChannel()
         observeSectionVisibility()
         recoverStatusBarResidentIfNeeded()
         recoverHeartRateAlarmIfNeeded()
+    }
+
+    /**
+     * 保活方式：前台服务（默认）/ 无障碍服务。
+     * 选择无障碍时先说明用途与隐私边界，再跳系统设置由用户授权；
+     * 状态行实时反映服务是否已生效（系统侧被关闭时自动回落前台服务行为）。
+     */
+    private fun setupKeepAliveChannel() {
+        fun syncSelection(channel: KeepAliveChannel) {
+            binding.keepAliveGroup.setOnCheckedChangeListener(null)
+            binding.keepAliveForeground.isChecked = channel == KeepAliveChannel.FOREGROUND
+            binding.keepAliveAccessibility.isChecked = channel == KeepAliveChannel.ACCESSIBILITY
+            binding.keepAliveGroup.setOnCheckedChangeListener { _, checkedId ->
+                onKeepAliveSelected(checkedId)
+            }
+        }
+        syncSelection(current.general.keepAliveChannel)
+
+        binding.keepAliveStatus.setOnClickListener { openAccessibilitySettings() }
+
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                launch {
+                    settings.flowOf { it.general.keepAliveChannel }.collect { syncSelection(it) }
+                }
+                launch {
+                    container.overlayCoordinator.accessibilityActive.collect { updateKeepAliveStatus(it) }
+                }
+            }
+        }
+    }
+
+    private fun onKeepAliveSelected(checkedId: Int) {
+        if (checkedId == R.id.keepAliveAccessibility) {
+            // 系统侧已开启：直接切换通道，不再弹引导（避免来回切换时重复打扰）
+            if (isAccessibilityServiceEnabled()) {
+                settings.setAsync(
+                    SettingsKeys.KEEP_ALIVE_CHANNEL, KeepAliveChannel.ACCESSIBILITY.name
+                )
+                return
+            }
+            MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.settings_keepalive_accessibility_dialog_title)
+                .setMessage(R.string.settings_keepalive_accessibility_dialog_message)
+                .setNegativeButton(R.string.common_cancel) { _, _ ->
+                    binding.keepAliveForeground.isChecked = true
+                }
+                .setPositiveButton(R.string.settings_keepalive_go_settings) { _, _ ->
+                    settings.setAsync(
+                        SettingsKeys.KEEP_ALIVE_CHANNEL, KeepAliveChannel.ACCESSIBILITY.name
+                    )
+                    openAccessibilitySettings()
+                }
+                .setOnCancelListener { binding.keepAliveForeground.isChecked = true }
+                .show()
+        } else {
+            settings.setAsync(SettingsKeys.KEEP_ALIVE_CHANNEL, KeepAliveChannel.FOREGROUND.name)
+            // 回到前台服务通道：若悬浮窗开着则由 FloatingWindowService 接管渲染
+            if (current.floating.enabled) {
+                startService(Intent(this, FloatingWindowService::class.java))
+            }
+        }
+    }
+
+    /**
+     * 以系统设置为准判断本应用的无障碍服务是否已开启。
+     *
+     * 不只依赖 OverlayCoordinator 的运行时标记：用户可能在系统页开启后尚未回到本页、
+     * 或进程刚重建标记未就绪；读 Secure.ENABLED_ACCESSIBILITY_SERVICES 才是权威来源。
+     */
+    private fun isAccessibilityServiceEnabled(): Boolean {
+        if (container.overlayCoordinator.accessibilityActive.value) return true
+        val enabled = Settings.Secure.getString(
+            contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+        ) ?: return false
+        val target = ComponentName(this, HeartRateAccessibilityService::class.java)
+        return enabled.split(':').any { entry ->
+            ComponentName.unflattenFromString(entry.trim())?.let {
+                it.packageName == target.packageName && it.className == target.className
+            } == true
+        }
+    }
+
+    private fun updateKeepAliveStatus(active: Boolean) {
+        val isAccessibilityChannel =
+            current.general.keepAliveChannel == KeepAliveChannel.ACCESSIBILITY
+        binding.keepAliveStatus.visibility =
+            if (isAccessibilityChannel) View.VISIBLE else View.GONE
+        val effective = active || isAccessibilityServiceEnabled()
+        binding.keepAliveStatus.setText(
+            if (effective) R.string.settings_keepalive_active else R.string.settings_keepalive_inactive
+        )
+        binding.keepAliveStatus.isClickable = !effective
+    }
+
+    private fun openAccessibilitySettings() {
+        suppressHideForExternalLaunch = true
+        startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
     }
 
     /**
@@ -277,8 +380,8 @@ class SettingsActivity : BaseActivity() {
         binding.statusBarResidentSwitch.isChecked = current.statusBar.residentEnabled
         binding.statusBarResidentSwitch.setOnCheckedChangeListener { buttonView, isChecked ->
             if (isChecked) {
-                // 开启：先校验悬浮窗权限
-                if (!Settings.canDrawOverlays(this)) {
+                // 开启：校验悬浮窗权限（无障碍通道用 accessibility overlay，免此权限）
+                if (!canDrawOverlayOrAccessibility()) {
                     buttonView.isChecked = false
                     suppressHideForExternalLaunch = true
                     startActivity(
@@ -418,8 +521,12 @@ class SettingsActivity : BaseActivity() {
      * 兜底恢复：App 被 force-stop 后进程被杀，设置仍为 true 但 overlay 消失。
      * 重进设置页（onCreate 冷启动）时若权限仍在，则重新拉起服务。
      */
+    /** 无障碍通道生效时 overlay 免悬浮窗权限 */
+    private fun canDrawOverlayOrAccessibility(): Boolean =
+        container.overlayCoordinator.isAccessibilityChannel() || Settings.canDrawOverlays(this)
+
     private fun recoverStatusBarResidentIfNeeded() {
-        if (current.statusBar.residentEnabled && Settings.canDrawOverlays(this)) {
+        if (current.statusBar.residentEnabled && canDrawOverlayOrAccessibility()) {
             startService(Intent(this, StatusBarResidentService::class.java))
         }
     }
@@ -429,6 +536,12 @@ class SettingsActivity : BaseActivity() {
         if (current.alarm.enabled) {
             startService(Intent(this, HeartRateAlarmService::class.java))
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // 从系统无障碍设置页返回：以系统状态刷新"已生效/未生效"
+        updateKeepAliveStatus(container.overlayCoordinator.accessibilityActive.value)
     }
 
     override fun onSupportNavigateUp(): Boolean {

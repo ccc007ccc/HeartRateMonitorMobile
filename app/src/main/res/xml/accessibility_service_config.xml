@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+    最小能力声明：不读取窗口内容、不请求手势/按键、不做任何过滤。
+    仅用于（1）进程保活（2）以 accessibility overlay 渲染心率悬浮窗。
+    typeWindowStateChanged 是协议要求的非空事件类型，仅用于感知下拉面板展开以让位 overlay。
+-->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeWindowStateChanged"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:canRetrieveWindowContent="false"
+    android:description="@string/accessibility_service_description"
+    android:notificationTimeout="300"
+    android:summary="@string/accessibility_service_summary" />

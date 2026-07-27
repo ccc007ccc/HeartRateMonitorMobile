@@ -4,6 +4,7 @@ import android.util.Log
 import com.example.heart_rate_monitor_mobile.data.settings.SettingsKeys
 import com.example.heart_rate_monitor_mobile.data.settings.SettingsRepository
 import com.juul.kable.Advertisement
+import com.juul.kable.Filter
 import com.juul.kable.Peripheral
 import com.juul.kable.Scanner
 import com.juul.kable.State
@@ -78,7 +79,18 @@ class BleConnectionManager(
     private val scope: CoroutineScope,
     private val settings: SettingsRepository,
 ) {
+    /** 手动扫描：无过滤，列出周围全部设备供用户选择 */
     private val scanner = Scanner()
+
+    /**
+     * 定向扫描（自动连接/自动重连）：按目标地址过滤。
+     * Android 8.1+ 对**后台无过滤扫描**在息屏时不投递结果，
+     * 带过滤的扫描由控制器侧匹配，息屏下仍可发现目标设备——
+     * 这对无前台服务的无障碍通道尤为重要。
+     */
+    private fun targetScanner(deviceId: String) = Scanner {
+        filters = listOf(Filter.Address(deviceId))
+    }
 
     private val _bleState = MutableStateFlow<BleState>(BleState.Idle)
     val bleState: StateFlow<BleState> = _bleState.asStateFlow()
@@ -183,6 +195,9 @@ class BleConnectionManager(
     private fun scanAdvertisements() = scanner.advertisements
         .catch { cause -> Log.e(TAG, "扫描过程中发生错误", cause) }
 
+    private fun targetScanAdvertisements(deviceId: String) = targetScanner(deviceId).advertisements
+        .catch { cause -> Log.e(TAG, "定向扫描过程中发生错误", cause) }
+
     /**
      * 在 [durationMillis] 内定向扫描 [deviceId]，扫到且代次仍有效时发起连接。
      * 调用方必须已持有 isScanning。
@@ -198,7 +213,7 @@ class BleConnectionManager(
         var launched = false
         try {
             withTimeout(durationMillis) {
-                scanAdvertisements().collect { advertisement ->
+                targetScanAdvertisements(deviceId).collect { advertisement ->
                     _scanResults.value = listOf(advertisement)
                     if (advertisement.identifier == deviceId) {
                         found = true

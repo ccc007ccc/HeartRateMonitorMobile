@@ -115,3 +115,99 @@ app/
 1. 每阶段 `assembleDebug` 通过；阶段 1/5 另跑 `assembleRelease` 验证 R8。
 2. 单元测试全绿。
 3. 行为回归清单：BLE 扫描/连接/断线重连、历史记录/图表、悬浮窗、状态栏常驻、心率报警、HTTP/WS 服务、Webhook 触发、QS 磁贴点按/长按。
+
+---
+
+# v2.2 SPEC：无障碍保活通道（用户可选）
+
+> 需求来源：社区反馈"无障碍版可以不用后台"。目标：利用 AccessibilityService 的
+> 系统级绑定实现免通知、抗杀后台的保活与悬浮窗，作为**可选通道**与现有前台服务方案并存。
+
+## 架构设计
+
+### 通道模型
+新设置 `keep_alive_channel`：`foreground`（默认，现状）| `accessibility`。
+两条通道**互斥渲染悬浮窗、并存不冲突**：
+
+| 关注点 | 前台服务通道（现状） | 无障碍通道（新增） |
+|---|---|---|
+| 进程保活 | BleService 前台通知 | 系统绑定 AccessibilityService（无通知） |
+| 悬浮窗窗口类型 | TYPE_APPLICATION_OVERLAY（需悬浮窗权限） | TYPE_ACCESSIBILITY_OVERLAY（**免悬浮窗权限**，可覆盖游戏沉浸界面） |
+| 服务器生命周期 | BleService onCreate/onDestroy | 无障碍服务 onServiceConnected/onDestroy（ServerController 已有重复启动守卫） |
+| 磁贴点按 | startForegroundService(BleService)+AUTO_CONNECT | 无障碍活跃时直接调 repository.autoConnect()（不起服务、无通知） |
+
+### 新/改组件
+1. **`service/overlay/FloatingWindowHost`**（新，核心抽取）：现 FloatingWindowService 的全部窗口逻辑
+   （show/hide/外观/拖动/触摸穿透/catcher）抽为可复用宿主类，构造参数注入 `windowType`；
+   FloatingWindowService（TYPE_APPLICATION_OVERLAY）与无障碍服务（TYPE_ACCESSIBILITY_OVERLAY）共用，零复制粘贴。
+2. **`core/OverlayCoordinator`**（新，AppContainer 单例）：登记当前活跃 host；
+   触摸穿透通知按钮经 `FloatingWindowActionReceiver`（manifest 注册广播）路由到活跃 host（两通道通用）。
+3. **`service/HeartRateAccessibilityService`**（新）：
+   - 声明最小能力：`canRetrieveWindowContent=false`、无 flags、事件类型仅 typeWindowStateChanged（协议要求非空）、
+     description 明确"仅用于悬浮窗展示与保活，不读取任何屏幕内容"（中英双语）；
+   - onServiceConnected：置活跃标记 → serverController.start() → 按设置托管悬浮窗 → autoConnectIfEnabled；
+   - onDestroy/onUnbind：释放悬浮窗、serverController.stop()（若 BleService 未运行）、清标记。
+4. **FloatingWindowService**：显隐条件增加 `channel==foreground`；无障碍通道下不渲染（互斥）。
+5. **HeartRateTileService**：点按分支感知通道（见上表）；长按不变。
+6. **MainActivity.toggleFloatingWindow**：无障碍通道活跃时跳过悬浮窗权限检查（不需要）。
+
+### 状态栏常驻也走双通道（同一套 windowType 注入）
+StatusBarResidentService 的 overlay 同样按通道切换窗口类型，收益比悬浮窗更大：
+
+- **位置不受影响**：两种类型都用 `FLAG_LAYOUT_IN_SCREEN|FLAG_LAYOUT_NO_LIMITS`，坐标系一致，
+  `y=0` 即屏幕顶端，仍能精确落在状态栏区域（现有 x/y 微调设置照常生效）。
+- **z 序更高**：`TYPE_ACCESSIBILITY_OVERLAY` 层级高于状态栏本身，不再被系统状态栏内容遮挡
+  （现状偶发遮挡问题自然消失）。
+- **副作用与处理**：该层级也会浮在下拉通知面板之上 → 无障碍服务监听
+  `TYPE_WINDOWS_CHANGED/TYPE_WINDOW_STATE_CHANGED`，检测到系统 UI 展开（通知面板/快捷设置）时
+  临时隐藏状态栏 overlay，收起后恢复。
+- 无障碍通道下 MediaProjection 自动取色仍可用（互不冲突）；该通道免悬浮窗权限，
+  `Settings.canDrawOverlays` 检查在此通道下跳过。
+- 自愈轮询（3s）在无障碍通道下保留但可延长间隔（系统绑定后被杀概率极低）。
+
+### 明确不动（影响面控制）
+HeartRateAlarmService（预警）、BLE 连接层、历史/对比、Webhook、服务器协议——零改动。
+
+## UI 逻辑
+设置页新增「保活方式」区（置于悬浮窗样式区之前）：
+1. 两个互斥选项（RadioButton）：
+   - **前台服务**（默认）：兼容性最好，通知栏常驻一条通知
+   - **无障碍服务**：无通知、抗杀后台、悬浮窗免权限；需在系统无障碍设置中开启
+2. 选择无障碍时：先弹说明对话框（用途 + 隐私声明"不读取屏幕内容"）→ 确认后写入设置并跳转系统无障碍设置页
+3. 状态行：`已生效` / `未生效——点击去系统设置开启`（实时反映服务运行状态）
+4. 系统侧被关闭时自动回退前台服务通道行为（悬浮窗由 FloatingWindowService 兜底渲染）
+
+## 实施后核对修复记录（2026-07-27 多智能体审查）
+审查发现 2 blocker + 3 major，均已修复：
+1. **双窗叠加**（blocker）：FloatingWindowHost 增 `isAccessibilityHost`，显隐条件 = 开关 AND 本宿主为当前生效通道；前台宿主让位时 onHidden→stopSelf。
+2. **状态栏 accessibility overlay 无 window token**（blocker）：TYPE_ACCESSIBILITY_OVERLAY 必须由无障碍服务的 WindowManager 添加，否则 BadToken 静默失败。OverlayCoordinator 登记无障碍 Context，StatusBarResidentService 按通道用它重建视图与 WM。
+3. **BleService.onDestroy 误停共享服务器**（major）：通道判断后跳过 stop()。
+4. **触摸穿透动作注册被误清**（major）：注册/注销加属主身份校验。
+5. **状态栏三处强制悬浮窗权限**（major）：统一改为 `无障碍生效 || canDrawOverlays`。
+6. 另修：systemUiExpanded 超时自恢复（8s）；无障碍销毁时按 `bleServiceRunning` 决定是否停服务器；无障碍通道下 MainActivity 不再拉起 BleService（兑现"无通知"）。
+
+## 全项目适配审视修复记录（第二轮，14 功能逐项推演）
+| 编号 | 问题 | 修复 |
+|---|---|---|
+| P0-1 | 冷启动时 ContentProvider 早于无障碍连接，状态栏/预警被权限与后台限制挡死且无人补启 | Initializer 改读**通道设置**（非运行时标记）；无障碍 onServiceConnected 内按设置补启两服务（此刻进程为 BOUND_FOREGROUND_SERVICE，是合法启动窗口） |
+| P0-2 | 系统侧关闭无障碍后全应用静默变哑（悬浮窗/状态栏/服务器全失、进程降 cached 断连） | teardown 中回退前台通道：写回 `KEEP_ALIVE_CHANNEL=FOREGROUND` 并拉起 BleService/悬浮窗服务，兑现 SPEC 的回退承诺 |
+| P0-3 | 服务器属主判据用 `accessibilityActive`，"切回前台但没关无障碍"时关不掉/擅自开 | 新增 `OverlayCoordinator.isAccessibilityChannel()`（生效 AND 用户所选通道），全项目 8 处判断统一走它 |
+| P1-4 | 无 FGS 时后台扫描受定位 app-op 与息屏无过滤扫描双重门控 | Manifest 加 `neverForLocation`；定向自动连接/重连改用 `Filter.Address` 过滤扫描（控制器侧匹配，息屏可用），手动扫描保持无过滤 |
+| P1-5 | 后台定位被静默停投后悬浮窗长期显示陈旧速度 | SpeedMonitor 增看门狗：15s 无定位回调即归零 |
+| P1-6 | 预警服务 onCreate 时通知闪现 | 随 P0-1 修复自然消除（服务在无障碍连接后才启动，标记已就绪） |
+| P2-8/9 | onServiceConnected 重入累积收集器；teardown 后 scope 不可重建 | channelJob 幂等 + scope 可重建 |
+| P2-10 | canShowOverlay 间接依赖 overlayContext 导致时序自杀 | 判据改为通道设置 + 生效标记 |
+| P2-11 | 磁贴无收藏设备时点击静默无反应 | 补 Toast 提示 |
+| 自查 | 无障碍通道下停止自动取色后 MediaProjection 通知不撤销 | stopMediaProjectionSampling 按通道显式 stopForeground |
+
+**平台硬约束（无法规避，已在代码注明）**：MediaProjection 自动取色必须运行在 mediaProjection 型前台服务中，
+故该功能开启期间无障碍通道也会有一条通知，关闭后立即撤销。
+
+## 验收清单（实现后逐项核对）
+- [ ] 两通道下磁贴点按/长按/再点按停止行为正确
+- [ ] 无障碍模式：无通知时悬浮窗存活、锁屏恢复、服务器可用
+- [ ] 双通道切换往返无残留窗口/重复窗口
+- [ ] 状态栏常驻：两通道下位置正确（x/y 微调生效）、无障碍通道下不被状态栏遮挡、下拉通知面板时临时隐藏
+- [ ] 心率预警、多设备对比不受影响
+- [ ] 触摸穿透在两通道均可用（长按 + 通知按钮）
+- [ ] 中英双语文案；构建+单测全绿

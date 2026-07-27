@@ -7,6 +7,7 @@ import com.example.heart_rate_monitor_mobile.data.db.AppDatabase
 import com.example.heart_rate_monitor_mobile.data.db.SessionRecorder
 import com.example.heart_rate_monitor_mobile.data.location.SpeedMonitor
 import com.example.heart_rate_monitor_mobile.data.settings.SettingsRepository
+import com.example.heart_rate_monitor_mobile.data.update.UpdateRepository
 import com.example.heart_rate_monitor_mobile.data.webhook.WebhookRepository
 import com.example.heart_rate_monitor_mobile.domain.HeartRateRepository
 import com.example.heart_rate_monitor_mobile.service.server.ServerController
@@ -30,8 +31,12 @@ class AppContainer private constructor(private val appContext: Context) {
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     val settings = SettingsRepository(appContext, appScope)
+
+    /** 悬浮窗渲染通道协调（前台服务 / 无障碍服务互斥托管） */
+    val overlayCoordinator = OverlayCoordinator(settings)
     val database = AppDatabase.getDatabase(appContext)
     val webhooks = WebhookRepository(appContext, appScope)
+    val updates = UpdateRepository(appContext, settings)
 
     private val speedMonitor = SpeedMonitor(appContext, appScope, settings)
     private val sessionRecorder = SessionRecorder(database.heartRateDao(), settings, appScope)

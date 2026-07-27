@@ -5,7 +5,11 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 
-    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+    <!-- neverForLocation：本应用不从蓝牙广播推断位置，声明后扫描结果不再受定位 app-op 门控
+         （无前台服务的无障碍通道下尤其关键） -->
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
@@ -65,6 +69,28 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Heart rate alarm monitoring" />
         </service>
+
+        <!-- 无障碍保活通道（用户可选）：仅用于进程保活与 overlay 渲染，不读取屏幕内容 -->
+        <service
+            android:name=".service.HeartRateAccessibilityService"
+            android:exported="true"
+            android:label="@string/accessibility_service_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
+
+        <receiver
+            android:name=".service.FloatingWindowActionReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.example.heart_rate_monitor_mobile.DISABLE_TOUCH_THROUGH" />
+            </intent-filter>
+        </receiver>
 
         <!-- 快速设置磁贴：点按启动心率服务+悬浮窗并自动连接，长按打开主界面 -->
         <service

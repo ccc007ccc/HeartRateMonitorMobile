@@ -75,7 +75,6 @@
     <string name="settings_record_history">记录历史数据</string>
     <string name="settings_heartbeat_animation">心跳动画效果</string>
     <string name="settings_dynamic_color">莫奈取色</string>
-    <string name="settings_dynamic_color_hint">根据壁纸动态提取主题色（需 Android 12 及以上）。已默认开启且不可关闭。</string>
     <string name="settings_show_speed">显示时速 (GPS)</string>
     <string name="settings_show_speed_hint">开启时速显示将使用GPS定位，可能会增加耗电。</string>
     <string name="settings_hide_recents">退出应用隐藏后台</string>
@@ -261,4 +260,24 @@
     <string name="history_session_summary">%1$s +%2$d 台对比</string>
     <string name="history_unknown_device">未知设备</string>
     <string name="chart_accuracy_line">%1$s：平均差 %2$s · 最大差 %3$s</string>
+    <!-- 保活通道（v2.2） -->
+    <string name="accessibility_service_label">心率监控器悬浮窗</string>
+    <string name="accessibility_service_summary">无需通知即可保持心率服务存活，并免悬浮窗权限绘制心率浮层</string>
+    <string name="accessibility_service_description">仅用于保持心率服务运行与绘制心率浮层，不会读取任何屏幕内容。</string>
+    <string name="settings_section_keepalive">保活方式</string>
+    <string name="settings_keepalive_foreground">前台服务（默认）</string>
+    <string name="settings_keepalive_foreground_hint">兼容性最好，会在通知栏常驻一条通知。</string>
+    <string name="settings_keepalive_accessibility">无障碍服务</string>
+    <string name="settings_keepalive_accessibility_hint">无通知、抗后台清理，浮层免悬浮窗权限（还可覆盖全屏游戏）。需要在系统无障碍设置中开启。</string>
+    <string name="settings_keepalive_accessibility_dialog_title">开启无障碍保活？</string>
+    <string name="settings_keepalive_accessibility_dialog_message">接下来将跳转到系统「无障碍」设置，请开启「心率监控器悬浮窗」。\n\n该服务仅用于保活与绘制心率浮层，不会读取屏幕内容。</string>
+    <string name="settings_keepalive_go_settings">去设置</string>
+    <string name="settings_keepalive_active">已生效</string>
+    <string name="settings_keepalive_inactive">未生效——点击前往系统设置开启</string>
+    <!-- 更新检查 -->
+    <string name="update_available_title">发现新版本：%1$s</string>
+    <string name="update_download">前往下载</string>
+    <string name="update_later">稍后</string>
+    <string name="update_skip_version">不再提示此版本</string>
+    <string name="tile_no_device">还没有收藏设备——请先打开应用连接一次</string>
 </resources>

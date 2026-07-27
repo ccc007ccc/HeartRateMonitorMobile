@@ -18,6 +18,8 @@
 - ⭐ **Device Management**: Favorite your devices, auto-connect on launch, and auto-reconnect after unexpected disconnects with exponential backoff (5s → 10s → 30s → 60s, never gives up).
 - ❤️ **Heartbeat Animation**: The heart icon beats in sync with your actual heart rate.
 - 🧩 **Quick Settings Tile**: One tap from the notification shade — tap to start the service + floating window and auto-connect; long-press to open the app; tap again to stop everything.
+- 🔔 **Update notice**: quietly checks GitHub for new releases when you open the app (at most once a day) and shows a single dialog when one exists, with a "don\'t show for this version" option. Background/tile launches never check.
+- 🛡️ **Two keep-alive methods**: "Foreground service" by default (best compatibility), or switch to "Accessibility service" — **no ongoing notification at all**, survives aggressive task killers, and the overlay needs no display-over-apps permission (it can even cover fullscreen games). The service is used solely for keep-alive and drawing the overlay; it never reads screen content.
 - 📌 **Persistent Status Bar Heart Rate**: Always-on heart rate display in the status bar area, with automatic black/white text based on background brightness.
 - 🚨 **Heart Rate Alerts**: Posture-aware (sitting / standing / exercising) high/low heart rate alarms with configurable thresholds, duration, and repeat interval.
 - ⚖️ **Multi-device benchmarking** (enable in Settings): connect several heart rate monitors at once, overlay their curves live, and see BPM / packet rate / live delta / mean absolute difference per device; sessions record every device and history charts include an accuracy summary — perfect for comparing watches and chest straps.

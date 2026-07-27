@@ -77,14 +77,6 @@
                             style="@style/SettingsRow"
                             android:padding="0dp"
                             android:text="@string/settings_dynamic_color" />
-
-                        <TextView
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:paddingTop="4dp"
-                            android:text="@string/settings_dynamic_color_hint"
-                            android:textAppearance="?attr/textAppearanceBodySmall"
-                            android:textColor="?attr/colorOnSurfaceVariant" />
                     </LinearLayout>
 
                     <LinearLayout
@@ -395,6 +387,74 @@
                         android:textColor="?attr/colorOnSurfaceVariant" />
                     </LinearLayout>
                 </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <TextView
+                style="@style/TextAppearance.App.SettingSection"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="8dp"
+                android:text="@string/settings_section_keepalive" />
+
+            <com.google.android.material.card.MaterialCardView
+                style="@style/Widget.App.Card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <RadioGroup
+                    android:id="@+id/keepAliveGroup"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <com.google.android.material.radiobutton.MaterialRadioButton
+                        android:id="@+id/keepAliveForeground"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:minHeight="@dimen/touch_target_min"
+                        android:text="@string/settings_keepalive_foreground" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:paddingStart="36dp"
+                        android:paddingEnd="0dp"
+                        android:text="@string/settings_keepalive_foreground_hint"
+                        android:textAppearance="?attr/textAppearanceBodySmall"
+                        android:textColor="?attr/colorOnSurfaceVariant" />
+
+                    <com.google.android.material.radiobutton.MaterialRadioButton
+                        android:id="@+id/keepAliveAccessibility"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:minHeight="@dimen/touch_target_min"
+                        android:text="@string/settings_keepalive_accessibility" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:paddingStart="36dp"
+                        android:paddingEnd="0dp"
+                        android:text="@string/settings_keepalive_accessibility_hint"
+                        android:textAppearance="?attr/textAppearanceBodySmall"
+                        android:textColor="?attr/colorOnSurfaceVariant" />
+
+                    <TextView
+                        android:id="@+id/keepAliveStatus"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:paddingStart="36dp"
+                        android:paddingEnd="0dp"
+                        android:paddingVertical="8dp"
+                        android:textAppearance="?attr/textAppearanceBodyMedium"
+                        android:textColor="?attr/colorPrimary"
+                        android:visibility="gone"
+                        tools:text="已生效" />
+                </RadioGroup>
             </com.google.android.material.card.MaterialCardView>
 
             <TextView

@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.CoroutineScope
@@ -39,6 +40,7 @@ object SettingsKeys {
     val HISTORY_RECORDING_ENABLED = booleanPreferencesKey("history_recording_enabled")
     val HEARTBEAT_ANIMATION_ENABLED = booleanPreferencesKey("heartbeat_animation_enabled")
     val COMPARISON_MODE_ENABLED = booleanPreferencesKey("comparison_mode_enabled")
+    val KEEP_ALIVE_CHANNEL = stringPreferencesKey("keep_alive_channel")
 
     // 悬浮窗
     val FLOATING_WINDOW_ENABLED = booleanPreferencesKey("floating_window_enabled")
@@ -79,6 +81,10 @@ object SettingsKeys {
     val WEBSOCKET_SERVER_PORT = intPreferencesKey("websocket_server_port")
     val SERVER_AUTH_REQUIRED = booleanPreferencesKey("server_auth_required")
     val SERVER_AUTH_TOKEN = stringPreferencesKey("server_auth_token")
+
+    // 更新检查
+    val UPDATE_LAST_CHECK_AT = longPreferencesKey("update_last_check_at")
+    val UPDATE_SKIPPED_VERSION = stringPreferencesKey("update_skipped_version")
 }
 
 /** DataStore 文件名沿用 "app_settings"，迁移源为同名 SharedPreferences */
@@ -151,6 +157,7 @@ class SettingsRepository(context: Context, private val scope: CoroutineScope) {
                 historyRecordingEnabled = this[SettingsKeys.HISTORY_RECORDING_ENABLED] ?: false,
                 heartbeatAnimationEnabled = this[SettingsKeys.HEARTBEAT_ANIMATION_ENABLED] ?: true,
                 comparisonModeEnabled = this[SettingsKeys.COMPARISON_MODE_ENABLED] ?: false,
+                keepAliveChannel = KeepAliveChannel.fromKey(this[SettingsKeys.KEEP_ALIVE_CHANNEL]),
             ),
             floating = FloatingWindowSettings(
                 enabled = this[SettingsKeys.FLOATING_WINDOW_ENABLED] ?: false,
@@ -191,6 +198,10 @@ class SettingsRepository(context: Context, private val scope: CoroutineScope) {
                 webSocketPort = this[SettingsKeys.WEBSOCKET_SERVER_PORT] ?: 8001,
                 authRequired = this[SettingsKeys.SERVER_AUTH_REQUIRED] ?: false,
                 authToken = this[SettingsKeys.SERVER_AUTH_TOKEN] ?: "",
+            ),
+            update = UpdateSettings(
+                lastCheckAtMs = this[SettingsKeys.UPDATE_LAST_CHECK_AT] ?: 0L,
+                skippedVersion = this[SettingsKeys.UPDATE_SKIPPED_VERSION] ?: "",
             ),
         )
     }

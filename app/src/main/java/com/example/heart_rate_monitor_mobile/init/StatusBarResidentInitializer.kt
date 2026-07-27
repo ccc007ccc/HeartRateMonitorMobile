@@ -8,6 +8,7 @@ import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import com.example.heart_rate_monitor_mobile.core.AppContainer
+import com.example.heart_rate_monitor_mobile.data.settings.KeepAliveChannel
 import com.example.heart_rate_monitor_mobile.service.StatusBarResidentService
 
 /**
@@ -28,7 +29,13 @@ class StatusBarResidentInitializer : ContentProvider() {
         val ctx = context ?: return false
         val settings = AppContainer.get(ctx).settings.settings.value
         if (!settings.statusBar.residentEnabled) return true
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(ctx)) {
+        // 无障碍通道用 accessibility overlay，免悬浮窗权限。
+        // 注意：此处运行在 ContentProvider.onCreate（早于无障碍服务连接），
+        // 必须读设置而非运行时标记；该通道下的补启另由 HeartRateAccessibilityService 负责。
+        val channel = AppContainer.get(ctx).settings.settings.value.general.keepAliveChannel
+        if (channel != KeepAliveChannel.ACCESSIBILITY &&
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(ctx)
+        ) {
             return true
         }
         try {

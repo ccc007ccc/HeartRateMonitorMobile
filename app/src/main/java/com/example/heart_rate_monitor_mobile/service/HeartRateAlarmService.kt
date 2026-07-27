@@ -99,8 +99,12 @@ class HeartRateAlarmService : Service() {
         isResidentForeground = false
     }
 
-    /** 预警依赖 BLE 链路，确保 BleService 存活（后台启动被拒时降级，等用户打开 App 恢复） */
+    /**
+     * 预警依赖 BLE 链路。前台通道下确保 BleService 存活（后台启动被拒时降级）；
+     * 无障碍通道下链路已由无障碍服务保活的进程承载，无需前台服务与其通知。
+     */
     private fun ensureBleServiceRunning() {
+        if (container.overlayCoordinator.isAccessibilityChannel()) return
         try {
             startService(Intent(this, BleService::class.java))
         } catch (e: Exception) {
@@ -126,6 +130,10 @@ class HeartRateAlarmService : Service() {
 
     /** 设置流驱动阈值与校准热更新（替代 OnSharedPreferenceChangeListener） */
     private fun observeSettings() {
+        // 保活通道切换：无障碍生效即撤掉常驻通知，切回前台通道补回
+        serviceScope.launch {
+            container.overlayCoordinator.accessibilityActive.collect { ensureResidentForeground() }
+        }
         serviceScope.launch {
             container.settings.flowOf { it.alarm }.collect { alarm ->
                 alarmMachine?.updateThresholds(alarm.highThreshold, alarm.lowThreshold, alarm.durationSeconds)
@@ -214,6 +222,14 @@ class HeartRateAlarmService : Service() {
      * START_STICKY 重启且 app 在后台时 startForeground 可能被拒，捕获后降级为普通服务。
      */
     private fun ensureResidentForeground() {
+        // 无障碍通道：进程由无障碍服务保活，不发常驻通知
+        if (container.overlayCoordinator.isAccessibilityChannel()) {
+            if (isResidentForeground) {
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                isResidentForeground = false
+            }
+            return
+        }
         if (isResidentForeground) return
         try {
             val notification = createResidentNotification()
