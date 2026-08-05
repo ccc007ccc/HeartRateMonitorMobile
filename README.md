@@ -102,8 +102,6 @@
 
 ## 🖼️ 截图展示
 
-*(建议您在完成功能后，替换为包含新功能界面的最新截图)*
-
 <div style="display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;">
   <img src="https://github.com/user-attachments/assets/ad9dbdd0-d810-4d39-9cc5-b0594812f72a" width="255"/>
   
