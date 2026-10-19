@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.Instant
 
 /** 历史页 ViewModel（v3：会话-设备-样本三层） */
 class HistoryViewModel(application: Application) : AndroidViewModel(application) {
@@ -39,6 +40,32 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
 
     private val _sessionDetail = MutableStateFlow<List<DeviceSeries>?>(null)
     val sessionDetail: StateFlow<List<DeviceSeries>?> = _sessionDetail.asStateFlow()
+
+
+    /** Build an RFC 4180-compatible CSV for every device recorded in a session. */
+    suspend fun buildSessionCsv(sessionId: Long): String {
+        val devices = dao.getDevicesForSession(sessionId)
+        val rows = mutableListOf(
+            listOf("timestamp_iso8601", "device_name", "device_id", "device_role", "heart_rate_bpm", "rr_intervals_ms")
+        )
+        devices.forEach { device ->
+            dao.getRecordsForDevice(device.id).forEach { record ->
+                rows += listOf(
+                    Instant.ofEpochMilli(record.timestamp).toString(),
+                    device.deviceName,
+                    device.deviceId,
+                    if (device.isPrimary) "primary" else "comparison",
+                    record.heartRate.toString(),
+                    record.rr.orEmpty(),
+                )
+            }
+        }
+        return rows.joinToString("\\r\\n") { row ->
+            row.joinToString(",") { value ->
+                "\\\"\\" + value.replace("\\\"", "\\\"\\\"") + "\\\""
+            }
+        } + "\\r\\n"
+    }
 
     fun loadSessionDetail(sessionId: Long) {
         viewModelScope.launch(Dispatchers.IO) {
