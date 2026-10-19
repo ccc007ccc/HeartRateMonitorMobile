@@ -5,6 +5,8 @@ import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
+import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -14,7 +16,9 @@ import com.example.heart_rate_monitor_mobile.databinding.ActivityChartBinding
 import com.example.heart_rate_monitor_mobile.ui.BaseActivity
 import com.example.heart_rate_monitor_mobile.ui.chart.HeartRateChartController
 import com.example.heart_rate_monitor_mobile.util.EdgeToEdgeUtils
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.Locale
 
 /** 会话详情：全部参与设备曲线叠加 + 对比设备准度小结（共用 HeartRateChartController） */
@@ -24,6 +28,36 @@ class ChartActivity : BaseActivity() {
     private lateinit var chartController: HeartRateChartController
     private val viewModel: HistoryViewModel by viewModels()
     private var sessionId: Long = -1
+
+    private val exportCsvLauncher =
+        registerForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
+            if (uri != null) {
+                lifecycleScope.launch {
+                    try {
+                        val csv = withContext(Dispatchers.IO) {
+                            viewModel.buildSessionCsv(sessionId)
+                        }
+                        val output = contentResolver.openOutputStream(uri)
+                            ?: error("Unable to open the selected destination")
+                        output.bufferedWriter(Charsets.UTF_8).use {
+                            it.write("\uFEFF")
+                            it.write(csv)
+                        }
+                        Toast.makeText(
+                            this@ChartActivity,
+                            R.string.chart_export_success,
+                            Toast.LENGTH_SHORT,
+                        ).show()
+                    } catch (_: Exception) {
+                        Toast.makeText(
+                            this@ChartActivity,
+                            R.string.chart_export_failed,
+                            Toast.LENGTH_LONG,
+                        ).show()
+                    }
+                }
+            }
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -93,6 +127,10 @@ class ChartActivity : BaseActivity() {
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
+            R.id.action_export_csv -> {
+                exportCsvLauncher.launch("heart_rate_session_$sessionId.csv")
+                true
+            }
             R.id.action_toggle_orientation -> {
                 requestedOrientation =
                     if (requestedOrientation == ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE) {
