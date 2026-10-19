@@ -59,6 +59,9 @@
     <string name="history_in_progress">进行中</string>
     <string name="chart_title">心率图表</string>
     <string name="chart_toggle_orientation">切换方向</string>
+    <string name="chart_export_csv">导出为 CSV</string>
+    <string name="chart_export_success">CSV 导出成功</string>
+    <string name="chart_export_failed">CSV 导出失败</string>
     <string name="chart_marker_text">心率: %1$d bpm\n时间: %2$s</string>
 
     <!-- 收藏设备 -->
