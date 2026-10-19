@@ -31,6 +31,10 @@ interface HeartRateDao {
     @Query("SELECT * FROM heart_rate_records WHERE sessionDeviceId = :sessionDeviceId ORDER BY timestamp ASC")
     suspend fun getRecordsForDevice(sessionDeviceId: Long): List<HeartRateRecord>
 
+    /** All samples for a session, ordered by timestamp and device. */
+    @Query("SELECT r.* FROM heart_rate_records r JOIN session_devices d ON r.sessionDeviceId = d.id WHERE d.sessionId = :sessionId ORDER BY r.timestamp ASC, d.id ASC")
+    suspend fun getRecordsForSession(sessionId: Long): List<HeartRateRecord>
+
     @Query("DELETE FROM recording_sessions WHERE id IN (:sessionIds)")
     suspend fun deleteSessionsByIds(sessionIds: List<Long>)
 
