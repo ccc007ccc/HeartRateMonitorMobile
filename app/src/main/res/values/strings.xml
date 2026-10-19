@@ -59,6 +59,9 @@
     <string name="history_in_progress">In progress</string>
     <string name="chart_title">Heart Rate Chart</string>
     <string name="chart_toggle_orientation">Rotate Screen</string>
+    <string name="chart_export_csv">Export session as CSV</string>
+    <string name="chart_export_success">CSV exported successfully</string>
+    <string name="chart_export_failed">Could not export CSV</string>
     <string name="chart_marker_text">Heart rate: %1$d bpm\nTime: %2$s</string>
 
     <!-- Favorite devices -->

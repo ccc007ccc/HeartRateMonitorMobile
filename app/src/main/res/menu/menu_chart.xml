@@ -2,6 +2,10 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <item
+        android:id="@+id/action_export_csv"
+        android:title="@string/chart_export_csv"
+        app:showAsAction="never" />
+    <item
         android:id="@+id/action_toggle_orientation"
         android:title="@string/chart_toggle_orientation"
         android:icon="@drawable/ic_screen_rotation"
