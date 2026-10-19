@@ -60,11 +60,11 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
                 )
             }
         }
-        return rows.joinToString("\\r\\n") { row ->
+        return rows.joinToString("\r\n") { row ->
             row.joinToString(",") { value ->
-                "\\\"\\" + value.replace("\\\"", "\\\"\\\"") + "\\\""
+                "\"" + value.replace("\"", "\"\"") + "\""
             }
-        } + "\\r\\n"
+        } + "\r\n"
     }
 
     fun loadSessionDetail(sessionId: Long) {
