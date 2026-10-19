@@ -29,6 +29,9 @@ jobs:
 
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
+      with:
+        # The action's default package list includes the removed `tools` package.
+        packages: platform-tools
 
     # 官方 Gradle action：依赖缓存 + 构建缓存 + 构建报告
     - name: Setup Gradle
